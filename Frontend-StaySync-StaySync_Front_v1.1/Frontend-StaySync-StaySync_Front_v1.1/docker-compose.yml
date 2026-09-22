@@ -1,0 +1,359 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# StaySync — Docker Compose para desarrollo local y despliegue en AWS EC2
+#
+# Uso:
+#   cp .env.example .env          # configura tus variables
+#   docker compose up --build -d  # levanta todo
+#   docker compose logs -f        # ver logs en tiempo real
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  staysync-net:
+    driver: bridge
+
+volumes:
+  mysql_usuarios:
+  mysql_habitaciones:
+  mysql_reservas:
+  mysql_servicios:
+  mysql_pagos:
+  mysql_notificaciones:
+  mysql_ota:
+  rabbitmq_data:
+
+services:
+
+  # ── Infraestructura ─────────────────────────────────────────────────────────
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: staysync-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"    # Management UI: http://localhost:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-staysync}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-staysync123}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - staysync-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+
+  mysql-usuarios:
+    image: mysql:8.0
+    container_name: staysync-mysql-usuarios
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: usuarios_db
+      MYSQL_USER: ${MYSQL_USER:-staysync}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+    volumes:
+      - mysql_usuarios:/var/lib/mysql
+    networks:
+      - staysync-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-habitaciones:
+    image: mysql:8.0
+    container_name: staysync-mysql-habitaciones
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: habitaciones_db
+      MYSQL_USER: ${MYSQL_USER:-staysync}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+    volumes:
+      - mysql_habitaciones:/var/lib/mysql
+    networks:
+      - staysync-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-reservas:
+    image: mysql:8.0
+    container_name: staysync-mysql-reservas
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: reservas_db
+      MYSQL_USER: ${MYSQL_USER:-staysync}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+    volumes:
+      - mysql_reservas:/var/lib/mysql
+    networks:
+      - staysync-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-servicios:
+    image: mysql:8.0
+    container_name: staysync-mysql-servicios
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: servicios_db
+      MYSQL_USER: ${MYSQL_USER:-staysync}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+    volumes:
+      - mysql_servicios:/var/lib/mysql
+    networks:
+      - staysync-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-pagos:
+    image: mysql:8.0
+    container_name: staysync-mysql-pagos
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: pagos_db
+      MYSQL_USER: ${MYSQL_USER:-staysync}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+    volumes:
+      - mysql_pagos:/var/lib/mysql
+    networks:
+      - staysync-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-notificaciones:
+    image: mysql:8.0
+    container_name: staysync-mysql-notificaciones
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: notificaciones_db
+      MYSQL_USER: ${MYSQL_USER:-staysync}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+    volumes:
+      - mysql_notificaciones:/var/lib/mysql
+    networks:
+      - staysync-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mysql-ota:
+    image: mysql:8.0
+    container_name: staysync-mysql-ota
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ota_db
+      MYSQL_USER: ${MYSQL_USER:-staysync}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+    volumes:
+      - mysql_ota:/var/lib/mysql
+    networks:
+      - staysync-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Microservicios ──────────────────────────────────────────────────────────
+
+  usuarios:
+    build:
+      context: ./StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
+    container_name: staysync-usuarios
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-usuarios:3306/usuarios_db?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-staysync}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql-usuarios:
+        condition: service_healthy
+    networks:
+      - staysync-net
+
+  habitaciones:
+    build:
+      context: ./StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
+    container_name: staysync-habitaciones
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-habitaciones:3306/habitaciones_db?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-staysync}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql-habitaciones:
+        condition: service_healthy
+    networks:
+      - staysync-net
+
+  reservas:
+    build:
+      context: ./StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
+    container_name: staysync-reservas
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-reservas:3306/reservas_db?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-staysync}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-staysync}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-staysync123}
+      JWT_SECRET: ${JWT_SECRET}
+      SERVICES_HABITACIONES_URL: http://habitaciones:8082
+    depends_on:
+      mysql-reservas:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - staysync-net
+
+  servicios:
+    build:
+      context: ./StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
+    container_name: staysync-servicios
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-servicios:3306/servicios_db?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-staysync}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql-servicios:
+        condition: service_healthy
+    networks:
+      - staysync-net
+
+  pagos:
+    build:
+      context: ./StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
+    container_name: staysync-pagos
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-pagos:3306/pagos_db?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-staysync}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql-pagos:
+        condition: service_healthy
+    networks:
+      - staysync-net
+
+  notificaciones:
+    build:
+      context: ./StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
+    container_name: staysync-notificaciones
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-notificaciones:3306/notificaciones_db?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-staysync}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-staysync}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-staysync123}
+      SPRING_MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      SPRING_MAIL_PORT: ${MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
+    depends_on:
+      mysql-notificaciones:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - staysync-net
+
+  ota:
+    build:
+      context: ./StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+    container_name: staysync-ota
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-ota:3306/ota_db?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-staysync}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-staysync123}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      mysql-ota:
+        condition: service_healthy
+    networks:
+      - staysync-net
+
+  bff:
+    build:
+      context: ./StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
+    container_name: staysync-bff
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      SERVICES_USUARIOS_URL: http://usuarios:8081
+      SERVICES_HABITACIONES_URL: http://habitaciones:8082
+      SERVICES_RESERVAS_URL: http://reservas:8083
+      SERVICES_SERVICIOS_URL: http://servicios:8084
+      SERVICES_PAGOS_URL: http://pagos:8085
+    depends_on:
+      - usuarios
+      - habitaciones
+      - reservas
+      - servicios
+      - pagos
+    networks:
+      - staysync-net
+
+  frontend:
+    build:
+      context: ./Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+    container_name: staysync-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - bff
+    networks:
+      - staysync-net

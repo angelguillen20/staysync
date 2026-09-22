@@ -1,0 +1,254 @@
+/* =============================================
+   StaySync — Global Styles
+   Palette: #efc143 | #fef8e1 | #222016
+   ============================================= */
+
+:root {
+  --ss-gold:    #efc143;
+  --ss-cream:   #fef8e1;
+  --ss-dark:    #222016;
+  --ss-gold-light: #f5d47a;
+  --ss-gold-dark:  #d4a832;
+  --ss-dark-hover: #3a3626;
+  --ss-success: #28a745;
+  --ss-danger:  #dc3545;
+  --ss-warning: #efc143;
+  --ss-info:    #17a2b8;
+}
+
+/* --- Reset & Base --- */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background-color: var(--ss-cream);
+  color: var(--ss-dark);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* --- Typography --- */
+h1, h2, h3, h4, h5, h6 { color: var(--ss-dark); font-weight: 600; }
+
+.text-gold   { color: var(--ss-gold) !important; }
+.text-dark-ss{ color: var(--ss-dark) !important; }
+.bg-cream    { background-color: var(--ss-cream) !important; }
+.bg-dark-ss  { background-color: var(--ss-dark) !important; }
+.bg-gold     { background-color: var(--ss-gold) !important; }
+
+/* --- Buttons --- */
+.btn-ss-dark {
+  background-color: var(--ss-dark);
+  color: #ffffff;
+  border: none;
+  font-weight: 500;
+  transition: background-color 0.2s, transform 0.1s;
+}
+.btn-ss-dark:hover, .btn-ss-dark:focus {
+  background-color: var(--ss-dark-hover);
+  color: #ffffff;
+}
+.btn-ss-dark:active { transform: scale(0.98); }
+
+.btn-ss-gold {
+  background-color: var(--ss-gold);
+  color: var(--ss-dark);
+  border: none;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+.btn-ss-gold:hover, .btn-ss-gold:focus {
+  background-color: var(--ss-gold-dark);
+  color: var(--ss-dark);
+}
+
+/* Override Bootstrap primary buttons */
+.btn-primary {
+  background-color: var(--ss-dark) !important;
+  border-color: var(--ss-dark) !important;
+  color: #fff !important;
+}
+.btn-primary:hover { background-color: var(--ss-dark-hover) !important; border-color: var(--ss-dark-hover) !important; }
+
+/* --- Navbar --- */
+.navbar-staysync {
+  background-color: var(--ss-dark);
+  border-bottom: 3px solid var(--ss-gold);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.navbar-staysync .navbar-brand { color: var(--ss-gold) !important; font-weight: 700; font-size: 1.4rem; letter-spacing: 0.5px; }
+.navbar-staysync .nav-link { color: rgba(255,255,255,0.85) !important; transition: color 0.2s; }
+.navbar-staysync .nav-link:hover, .navbar-staysync .nav-link.active { color: var(--ss-gold) !important; }
+.navbar-staysync .navbar-toggler { border-color: var(--ss-gold); }
+
+/* --- Sidebar --- */
+.sidebar {
+  background-color: var(--ss-dark);
+  min-height: calc(100vh - 66px);
+  width: 240px;
+  position: fixed;
+  top: 66px;
+  left: 0;
+  padding-top: 1rem;
+  z-index: 100;
+  transition: width 0.3s;
+  overflow-x: hidden;
+}
+.sidebar .nav-link {
+  color: rgba(255,255,255,0.75);
+  padding: 0.75rem 1.25rem;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.92rem;
+  transition: all 0.2s;
+}
+.sidebar .nav-link:hover, .sidebar .nav-link.active {
+  color: var(--ss-gold);
+  background-color: rgba(239,193,67,0.08);
+  border-left: 3px solid var(--ss-gold);
+}
+.sidebar .nav-link i { font-size: 1.1rem; width: 20px; text-align: center; }
+.sidebar-section-title {
+  color: rgba(255,255,255,0.4);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 1rem 1.25rem 0.4rem;
+}
+
+/* --- Main content with sidebar --- */
+.main-content {
+  margin-left: 240px;
+  padding: 2rem;
+  min-height: calc(100vh - 66px);
+  margin-top: 66px;
+}
+
+/* --- Cards --- */
+.card-ss {
+  background-color: #ffffff;
+  border: 1px solid rgba(34,32,22,0.08);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(34,32,22,0.06);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.card-ss:hover { box-shadow: 0 6px 20px rgba(34,32,22,0.12); transform: translateY(-2px); }
+
+.card-stat {
+  border-radius: 12px;
+  padding: 1.5rem;
+  color: white;
+}
+.card-stat-gold    { background: linear-gradient(135deg, var(--ss-gold) 0%, var(--ss-gold-dark) 100%); color: var(--ss-dark); }
+.card-stat-dark    { background: linear-gradient(135deg, var(--ss-dark) 0%, #4a4535 100%); }
+.card-stat-success { background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%); }
+.card-stat-danger  { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+.card-stat-warning { background: linear-gradient(135deg, #fd7e14 0%, #e36209 100%); }
+.card-stat-info    { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); }
+
+/* --- Habitacion status badges --- */
+.badge-disponible  { background-color: #28a745 !important; }
+.badge-ocupada     { background-color: #dc3545 !important; }
+.badge-limpieza    { background-color: #ffc107 !important; color: #222 !important; }
+.badge-mantenimiento { background-color: #6c757d !important; }
+
+/* Room cards */
+.hab-card { cursor: default; border: 2px solid transparent; transition: all 0.2s; }
+.hab-card.disponible  { border-color: #28a745; }
+.hab-card.ocupada     { border-color: #dc3545; }
+.hab-card.en_limpieza { border-color: #ffc107; }
+.hab-card.mantenimiento { border-color: #6c757d; }
+
+.hab-card .hab-number {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--ss-dark);
+}
+
+/* --- Task cards (Operaciones) --- */
+.tarea-card { border-left: 4px solid var(--ss-gold); }
+.tarea-card.pendiente   { border-left-color: #6c757d; }
+.tarea-card.en_progreso { border-left-color: #fd7e14; }
+.tarea-card.terminada   { border-left-color: #28a745; opacity: 0.75; }
+
+/* --- Login page --- */
+.login-container { min-height: 100vh; background-color: var(--ss-cream); }
+.login-brand-panel {
+  background-color: var(--ss-dark);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  min-height: 100vh;
+}
+.login-brand-panel .brand-logo { font-size: 5rem; }
+.login-brand-panel h1 { color: var(--ss-gold); font-size: 2.5rem; font-weight: 700; }
+.login-brand-panel p { color: rgba(255,255,255,0.65); font-size: 1rem; }
+.login-form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+}
+.login-form-card { width: 100%; max-width: 420px; }
+
+/* --- Form controls --- */
+.form-control:focus { border-color: var(--ss-gold); box-shadow: 0 0 0 0.2rem rgba(239,193,67,0.25); }
+.form-select:focus  { border-color: var(--ss-gold); box-shadow: 0 0 0 0.2rem rgba(239,193,67,0.25); }
+
+/* --- Page headers --- */
+.page-header {
+  background-color: var(--ss-dark);
+  color: var(--ss-gold);
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.page-header h2 { color: var(--ss-gold); margin: 0; font-size: 1.4rem; }
+
+/* --- Badges & Status --- */
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.status-dot.disponible   { background-color: #28a745; }
+.status-dot.ocupada      { background-color: #dc3545; }
+.status-dot.en_limpieza  { background-color: #ffc107; }
+.status-dot.mantenimiento{ background-color: #6c757d; }
+
+/* --- Alerts --- */
+.alert-ss {
+  border-radius: 8px;
+  border: none;
+  font-size: 0.9rem;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .sidebar { width: 0; overflow: hidden; }
+  .sidebar.open { width: 240px; }
+  .main-content { margin-left: 0; padding: 1rem; }
+  .login-brand-panel { min-height: 200px; padding: 2rem; }
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--ss-cream); }
+::-webkit-scrollbar-thumb { background: var(--ss-gold); border-radius: 3px; }
+
+/* --- Animations --- */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.35s ease both; }

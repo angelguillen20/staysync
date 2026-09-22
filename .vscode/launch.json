@@ -1,0 +1,77 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "BffServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.bff.BffServiceApplication",
+            "projectName": "bff-service"
+        },
+        {
+            "type": "java",
+            "name": "GatewayServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.gateway.GatewayServiceApplication",
+            "projectName": "gateway-service"
+        },
+        {
+            "type": "java",
+            "name": "HabitacionesServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.habitaciones.HabitacionesServiceApplication",
+            "projectName": "habitaciones-service"
+        },
+        {
+            "type": "java",
+            "name": "NotificacionesServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.notificaciones.NotificacionesServiceApplication",
+            "projectName": "notificaciones-service"
+        },
+        {
+            "type": "java",
+            "name": "OtaServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.ota.OtaServiceApplication",
+            "projectName": "ota-service"
+        },
+        {
+            "type": "java",
+            "name": "PagosServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.pagos.PagosServiceApplication",
+            "projectName": "pagos-service"
+        },
+        {
+            "type": "java",
+            "name": "ReservasServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.reservas.ReservasServiceApplication",
+            "projectName": "reservas-service"
+        },
+        {
+            "type": "java",
+            "name": "ServiciosServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.servicios.ServiciosServiceApplication",
+            "projectName": "servicios-service"
+        },
+        {
+            "type": "java",
+            "name": "UsuariosServiceApplication",
+            "request": "launch",
+            "mainClass": "com.staysync.usuarios.UsuariosServiceApplication",
+            "projectName": "usuarios-service"
+        }
+    ]
+}

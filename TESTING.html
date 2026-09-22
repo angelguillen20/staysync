@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>StaySync - Documentación de Testing</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: #1a1a2e;
+    padding: 22px 32px;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 20pt;
+    color: #16213e;
+    border-bottom: 3px solid #0f3460;
+    padding-bottom: 10px;
+    margin: 28px 0 14px;
+  }
+  h2 {
+    font-size: 14pt;
+    color: #0f3460;
+    border-bottom: 1.5px solid #e94560;
+    padding-bottom: 5px;
+    margin: 22px 0 10px;
+  }
+  h3 {
+    font-size: 12pt;
+    color: #e94560;
+    margin: 16px 0 7px;
+  }
+  h4 {
+    font-size: 10.5pt;
+    color: #533483;
+    margin: 12px 0 5px;
+    font-weight: 700;
+  }
+  p { margin: 7px 0; }
+  code {
+    background: #f0f0f5;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 9pt;
+    color: #c7254e;
+  }
+  pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    border-radius: 6px;
+    padding: 12px 15px;
+    overflow-x: auto;
+    margin: 10px 0;
+    page-break-inside: avoid;
+    border-left: 4px solid #e94560;
+  }
+  pre code {
+    background: transparent;
+    border: none;
+    color: #cdd6f4;
+    font-size: 8.5pt;
+    padding: 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  th {
+    background: #0f3460;
+    color: #fff;
+    padding: 7px 9px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 5px 9px;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  tr:nth-child(even) td { background: #f7f7fb; }
+  ul, ol { margin: 6px 0 6px 20px; }
+  li { margin: 2px 0; font-family: 'Consolas', monospace; font-size: 9pt; }
+  li.todo, li.done { font-family: inherit; font-size: 10.5pt; }
+  li.done { color: #27ae60; text-decoration: line-through; }
+  hr { border: none; border-top: 2px solid #e94560; margin: 22px 0; }
+  blockquote {
+    border-left: 4px solid #0f3460;
+    background: #f0f4ff;
+    padding: 7px 13px;
+    margin: 8px 0;
+    font-style: italic;
+  }
+  a { color: #0f3460; }
+  strong { font-weight: 700; }
+  @media print {
+    body { padding: 0; }
+    pre, table { page-break-inside: avoid; }
+    h2 { page-break-before: auto; }
+  }
+</style>
+</head>
+<body>
+<h1>StaySync — Documentación de Testing</h1>
+
+<strong>Proyecto:</strong> StaySync Hotel Management System  
+<strong>Stack:</strong> Spring Boot 3.4.1 · JUnit 5 · Mockito 5 · AssertJ · JaCoCo 0.8.12  
+<strong>Cobertura mínima exigida:</strong> 60% de líneas por módulo (JaCoCo)  
+<strong>Última auditoría:</strong> 2026-06-20
+
+<hr>
+
+<h2>Índice</h2>
+
+<ol><li><a href="#1-estrategia-de-testing">Estrategia de testing</a></li><li><a href="#2-resumen-de-cobertura">Resumen de cobertura</a></li><li><a href="#3-herramientas-y-dependencias">Herramientas y dependencias</a></li><li><a href="#4-tests-por-microservicio">Tests por microservicio</a></li><li><a href="#5-bugs-encontrados-y-corregidos">Bugs encontrados y corregidos</a></li><li><a href="#6-cómo-ejecutar-los-tests">Cómo ejecutar los tests</a></li><li><a href="#7-cobertura-con-jacoco">Cobertura con JaCoCo</a></li><li><a href="#8-convenciones-y-buenas-prácticas">Convenciones y buenas prácticas</a></li><li><a href="#9-próximos-pasos">Próximos pasos</a></li></ol>
+
+<hr>
+
+<h2>1. Estrategia de testing</h2>
+
+<p>StaySync implementa tres niveles de testing:</p>
+
+<pre><code>         ┌─────────────────────────┐
+<p>         │      E2E / Manual       │  ← Flujo completo usuario real</p>
+<p>         ├─────────────────────────┤</p>
+<p>         │  Integración            │  ← @SpringBootTest + H2 en memoria</p>
+<p>         │  @WebMvcTest            │  ← Capa HTTP sin servidor real</p>
+<p>         ├─────────────────────────┤</p>
+<p>         │  Unitarios              │  ← @ExtendWith(MockitoExtension)</p>
+<p>         └─────────────────────────┘</p>
+<p>              (mayoría del proyecto)</p>
+</code></pre>
+
+<table><thead><tr><th>Nivel</th><th>Velocidad</th><th>Confianza</th><th>Cuándo usarlo</th></tr></thead><tbody><tr><td>Unitario</td><td>Muy rápido (~ms)</td><td>Lógica de negocio aislada</td><td>Siempre — son el núcleo</td></tr>
+<tr><td>Web (<code>@WebMvcTest</code>)</td><td>Rápido (~100ms)</td><td>HTTP status, validación, serialización</td><td>Por cada endpoint crítico</td></tr>
+<tr><td>Integración (<code>@SpringBootTest</code>)</td><td>Lento (~2-5s)</td><td>Repositorio + transacciones + BD real</td><td>Flujos completos con persistencia</td></tr></tbody></table>
+
+<hr>
+
+<h2>2. Resumen de cobertura</h2>
+
+<h3>Total de tests por microservicio</h3>
+
+<table><thead><tr><th>Microservicio</th><th>Unitarios</th><th>Controller/@WebMvc</th><th>Integración</th><th><strong>Total</strong></th></tr></thead><tbody><tr><td><strong>reservas-service</strong></td><td>21</td><td>11</td><td>6</td><td><strong>38</strong></td></tr>
+<tr><td><strong>bff-service</strong></td><td>6</td><td>8</td><td>0</td><td><strong>14</strong></td></tr>
+<tr><td><strong>usuarios-service</strong></td><td>14</td><td>4</td><td>0</td><td><strong>18</strong></td></tr>
+<tr><td><strong>pagos-service</strong></td><td>12</td><td>0</td><td>0</td><td><strong>12</strong></td></tr>
+<tr><td><strong>habitaciones-service</strong></td><td>11</td><td>0</td><td>0</td><td><strong>11</strong></td></tr>
+<tr><td><strong>servicios-service</strong></td><td>9</td><td>0</td><td>0</td><td><strong>9</strong></td></tr>
+<tr><td><strong>notificaciones-service</strong></td><td>9</td><td>0</td><td>0</td><td><strong>9</strong></td></tr>
+<tr><td><strong>ota-service</strong></td><td>7</td><td>0</td><td>0</td><td><strong>7</strong></td></tr>
+<tr><td><strong>TOTAL</strong></td><td><strong>89</strong></td><td><strong>23</strong></td><td><strong>6</strong></td><td><strong>118</strong></td></tr></tbody></table>
+
+<h3>Archivos de test (16 en total)</h3>
+
+<table><thead><tr><th>#</th><th>Archivo</th><th>Servicio</th><th>Tipo</th><th>Tests</th></tr></thead><tbody><tr><td>1</td><td><code>ReservaServiceTest</code></td><td>reservas</td><td>Unitario</td><td>21</td></tr>
+<tr><td>2</td><td><code>ReservaControllerTest</code></td><td>reservas</td><td>@WebMvcTest</td><td>11</td></tr>
+<tr><td>3</td><td><code>ReservaIntegrationTest</code></td><td>reservas</td><td>@SpringBootTest</td><td>6</td></tr>
+<tr><td>4</td><td><code>AuthBffControllerTest</code></td><td>bff</td><td>@WebMvcTest</td><td>5</td></tr>
+<tr><td>5</td><td><code>DashboardBffControllerTest</code></td><td>bff</td><td>@WebMvcTest</td><td>3</td></tr>
+<tr><td>6</td><td><code>JwtServiceTest</code></td><td>bff</td><td>Unitario</td><td>6</td></tr>
+<tr><td>7</td><td><code>AuthServiceTest</code></td><td>usuarios</td><td>Unitario</td><td>6</td></tr>
+<tr><td>8</td><td><code>UsuarioServiceTest</code></td><td>usuarios</td><td>Unitario</td><td>8</td></tr>
+<tr><td>9</td><td><code>AuthControllerTest</code></td><td>usuarios</td><td>@WebMvcTest</td><td>4</td></tr>
+<tr><td>10</td><td><code>StripeServiceTest</code></td><td>pagos</td><td>Unitario</td><td>7</td></tr>
+<tr><td>11</td><td><code>PagoServiceTest</code></td><td>pagos</td><td>Unitario</td><td>5</td></tr>
+<tr><td>12</td><td><code>HabitacionServiceTest</code></td><td>habitaciones</td><td>Unitario</td><td>11</td></tr>
+<tr><td>13</td><td><code>ServicioServiceTest</code></td><td>servicios</td><td>Unitario</td><td>9</td></tr>
+<tr><td>14</td><td><code>NotificacionServiceTest</code></td><td>notificaciones</td><td>Unitario</td><td>9</td></tr>
+<tr><td>15</td><td><code>CanalOtaServiceTest</code></td><td>ota</td><td>Unitario</td><td>4</td></tr>
+<tr><td>16</td><td><code>HabitacionEventListenerTest</code></td><td>ota</td><td>Unitario</td><td>3</td></tr></tbody></table>
+
+<hr>
+
+<h2>3. Herramientas y dependencias</h2>
+
+<p>Todas presentes en cada <code>pom.xml</code> vía <code>spring-boot-starter-test</code>:</p>
+
+<pre><code>&lt;dependency&gt;
+<p>    &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;</p>
+<p>    &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;</p>
+<p>    &lt;scope&gt;test&lt;/scope&gt;</p>
+<p>&lt;/dependency&gt;</p>
+
+<p>&lt;!-- Para tests de seguridad en BFF y Usuarios --&gt;</p>
+<p>&lt;dependency&gt;</p>
+<p>    &lt;groupId&gt;org.springframework.security&lt;/groupId&gt;</p>
+<p>    &lt;artifactId&gt;spring-security-test&lt;/artifactId&gt;</p>
+<p>    &lt;scope&gt;test&lt;/scope&gt;</p>
+<p>&lt;/dependency&gt;</p>
+
+<p>&lt;!-- Base de datos en memoria para tests de integración --&gt;</p>
+<p>&lt;dependency&gt;</p>
+<p>    &lt;groupId&gt;com.h2database&lt;/groupId&gt;</p>
+<p>    &lt;artifactId&gt;h2&lt;/artifactId&gt;</p>
+<p>    &lt;scope&gt;test&lt;/scope&gt;</p>
+<p>&lt;/dependency&gt;</p>
+</code></pre>
+
+<h3>Versiones clave</h3>
+
+<table><thead><tr><th>Herramienta</th><th>Versión</th><th>Propósito</th></tr></thead><tbody><tr><td>JUnit 5 (Jupiter)</td><td>5.11.x</td><td>Framework de tests</td></tr>
+<tr><td>Mockito</td><td>5.x</td><td>Mocks, stubs, MockedStatic</td></tr>
+<tr><td>AssertJ</td><td>3.26.x</td><td>Aserciones fluidas</td></tr>
+<tr><td>JaCoCo</td><td>0.8.12</td><td>Reporte de cobertura</td></tr>
+<tr><td>H2 Database</td><td>2.x</td><td>BD en memoria para integración</td></tr>
+<tr><td>MockMvc</td><td>(Spring)</td><td>Tests de controladores sin servidor</td></tr></tbody></table>
+
+<h3>Anotación para mocks en Spring Boot 3.4+</h3>
+
+<pre><code>// ANTES (deprecada en Spring Boot 3.4)
+<p>import org.springframework.boot.test.mock.mockito.MockBean;</p>
+<p>@MockBean private ServicioX servicio;</p>
+
+<p>// AHORA (reemplazante oficial)</p>
+<p>import org.springframework.test.context.bean.override.mockito.MockitoBean;</p>
+<p>@MockitoBean private ServicioX servicio;</p>
+</code></pre>
+
+<p>Todos los archivos del proyecto ya usan <code>@MockitoBean</code>.</p>
+
+<hr>
+
+<h2>4. Tests por microservicio</h2>
+
+<hr>
+
+<h3>4.1 reservas-service</h3>
+
+<strong>Directorio:</strong> <code>StaySync_Reservas-reservas_v1.1/src/test/java/com/staysync/reservas/</code>
+
+<h4>ReservaServiceTest.java — 21 tests unitarios</h4>
+
+<p>Verifica toda la lógica de negocio del servicio de reservas con dependencias mockeadas.</p>
+
+<pre><code>ReservaServiceTest
+<p> ├── crear()</p>
+<p> │    ├── debeCrearReservaConPrecioReal               → precio real desde habitaciones-service</p>
+<p> │    ├── debeCrearReservaConPrecioPorDefecto          → fallback cuando el servicio no responde</p>
+<p> │    ├── debeLanzarExcepcionCapacidadExcedida         → numHuespedes &gt; capacidad → excepción</p>
+<p> │    ├── debeLanzarExcepcionConConflicto              → fechas solapadas → HabitacionNoDisponible</p>
+<p> │    ├── debeGuardarHuespedesAdicionales              → save() llamado 2 veces</p>
+<p> │    └── debeLanzarExcepcionFechasInvalidas           → fechaSalida &lt;= fechaEntrada → excepción</p>
+<p> │</p>
+<p> ├── obtenerPorId() / listar()</p>
+<p> │    ├── debeRetornarReserva                          → happy path</p>
+<p> │    ├── debeLanzarExcepcionNoExiste                  → Optional.empty → ReservaNotFoundException</p>
+<p> │    └── debeListarReservas                           → Page&lt;Reserva&gt; correctamente mapeado</p>
+<p> │</p>
+<p> ├── cambiarEstado()</p>
+<p> │    ├── debeCambiarEstadoPendienteAConfirmada        → publica evento reserva.confirmada</p>
+<p> │    ├── debeCambiarEstadoConfirmadaACheckin          → publica evento reserva.checkin</p>
+<p> │    └── debeLanzarExcepcionTransicionInvalida        → CHECKOUT → CHECKIN → excepción</p>
+<p> │</p>
+<p> ├── cancelar()</p>
+<p> │    ├── debeCancelarReserva                          → &gt; 24h anticipación → OK, publica evento</p>
+<p> │    ├── debeLanzarExcepcionCancelacionFueraDePlazo   → &lt; 24h → CancelacionRestringidaException</p>
+<p> │    ├── debeLanzarExcepcionSiYaCancelada             → estado CANCELADA → TransicionInválida</p>
+<p> │    └── debeLanzarExcepcionSiYaCheckout              → estado CHECKOUT → TransicionInválida</p>
+<p> │</p>
+<p> ├── autoTransicionarACheckin()  (scheduler)</p>
+<p> │    ├── debeAutoTransicionarReservasConfirmadasDeHoy → cambia estado + publica evento por cada una</p>
+<p> │    ├── noDebeHacerNadaSinReservasParaHoy            → lista vacía → save() nunca llamado</p>
+<p> │    └── debeProcessarMultiplesReservasEnAutoCheckin  → 2 reservas → 2 saves + 2 eventos</p>
+<p> │</p>
+<p> └── getReservasHoy()</p>
+<p>      ├── debeRetornarReservasDelDia                   → separa pendientesCheckin / pendientesCheckout</p>
+<p>      └── debeRetornarListasVaciasConSinReservas       → listas vacías cuando no hay reservas</p>
+</code></pre>
+
+<strong>Dependencias mockeadas:</strong>
+<ul><li><code>ReservaRepository</code> — sin BD real</li><li><code>ReservaEventPublisher</code> — sin RabbitMQ real</li><li><code>RestTemplate</code> — sin llamada a habitaciones-service</li></ul>
+
+<hr>
+
+<h4>ReservaControllerTest.java — 11 tests de capa web</h4>
+
+<p>Usa <code>@WebMvcTest</code> para probar solo la capa HTTP. Verifica: status codes, JSON, mapeo de excepciones.</p>
+
+<pre><code>ReservaControllerTest (@WebMvcTest + @AutoConfigureMockMvc(addFilters=false))
+<p> ├── POST /api/v1/reservas</p>
+<p> │    ├── debeRetornar201AlCrear                    → 201 + body con código, horaCheckin, horaCheckout</p>
+<p> │    ├── debeRetornar409ConConflicto               → HabitacionNoDisponibleException → 409</p>
+<p> │    ├── debeRetornar400SinHabitacionId            → Bean Validation → 400 + validationErrors</p>
+<p> │    └── debeRetornar400CapacidadExcedida          → IllegalArgumentException → 400</p>
+<p> │</p>
+<p> ├── GET /api/v1/reservas/{id}</p>
+<p> │    ├── debeRetornar200PorId                      → 200 + codigo en body</p>
+<p> │    └── debeRetornar404NoExiste                   → ReservaNotFoundException → 404</p>
+<p> │</p>
+<p> ├── GET /api/v1/reservas/hoy</p>
+<p> │    └── debeRetornarReservasDelDia                → pendientesCheckin[].codigo correcto</p>
+<p> │</p>
+<p> ├── PATCH /api/v1/reservas/{id}/estado</p>
+<p> │    ├── debeRetornar200CambioEstado               → transición válida → 200</p>
+<p> │    └── debeRetornar400TransicionInvalida         → TransicionEstadoInvalidaException → 400</p>
+<p> │</p>
+<p> └── PATCH /api/v1/reservas/{id}/cancelar</p>
+<p>      ├── debeRetornar204AlCancelar                 → 204 No Content</p>
+<p>      └── debeRetornar422CancelacionFueraDePlazo    → CancelacionRestringidaException → 422 + mensaje</p>
+</code></pre>
+
+<hr>
+
+<h4>ReservaIntegrationTest.java — 6 tests de integración</h4>
+
+<code>@SpringBootTest</code> con perfil <code>test</code> (H2 en memoria). Cada test es <code>@Transactional</code> → rollback automático.
+
+<pre><code>ReservaIntegrationTest (@SpringBootTest + @ActiveProfiles("test") + @Transactional)
+<p> ├── debePersistirReserva                    → código único RES-[A-Z0-9]{8}, precio 100*2=200</p>
+<p> ├── debeRechazarReservaPorConflicto         → mismas fechas → HabitacionNoDisponibleException</p>
+<p> ├── debePasarPorTodosLosEstados             → PENDIENTE→CONFIRMADA→CHECKIN→CHECKOUT + 3 eventos</p>
+<p> ├── debeAutoTransicionarEnBd               → scheduler cambia estado en H2 real</p>
+<p> ├── debeRetornarReservasDelDiaDesdeRealBd  → getReservasHoy() con datos reales en H2</p>
+<p> └── debePaginarReservas                    → 5 reservas, page size 3 → páginas 1(3) y 2(2)</p>
+</code></pre>
+
+<strong>Perfil de test</strong> (<code>src/test/resources/application-test.yml</code>):
+<pre><code>spring:
+<p>  datasource:</p>
+<p>    url: jdbc:h2:mem:reservas_test;MODE=MySQL</p>
+<p>  jpa:</p>
+<p>    hibernate:</p>
+<p>      ddl-auto: create-drop</p>
+</code></pre>
+
+<hr>
+
+<h3>4.2 bff-service</h3>
+
+<strong>Directorio:</strong> <code>StaySync_BFF-bff_v1.0/src/test/java/com/staysync/bff/</code>
+
+<h4>JwtServiceTest.java — 6 tests unitarios</h4>
+
+<p>Cubre la generación y validación de JWT con HMAC-SHA256. Usa <code>ReflectionTestUtils</code> para inyectar el secreto.</p>
+
+<pre><code>JwtServiceTest (@ExtendWith(MockitoExtension))
+<p> ├── debeExtraerEmailDelToken               → extractEmail() retorna email correcto</p>
+<p> ├── debeExtraerRolDelToken                 → extractRol() retorna "ADMIN"</p>
+<p> ├── debeValidarTokenVigente                → isTokenValid() → true</p>
+<p> ├── debeRechazarTokenExpirado              → token con fecha pasada → isTokenValid() → false</p>
+<p> ├── debeRechazarTokenMalformado            → string basura → isTokenValid() → false</p>
+<p> └── debeRechazarTokenVacio                 → string vacío → isTokenValid() → false</p>
+</code></pre>
+
+<strong>Técnica clave:</strong>
+<pre><code>@BeforeEach void setUp() {
+<p>    jwtService = new JwtService();</p>
+<p>    // @Value no es procesado por @InjectMocks — se inyecta manualmente</p>
+<p>    ReflectionTestUtils.setField(jwtService, "secret",</p>
+<p>        "staysync-test-secret-key-must-be-at-least-64-characters-for-hs256-hmac-sha256");</p>
+<p>}</p>
+</code></pre>
+
+<hr>
+
+<h4>AuthBffControllerTest.java — 5 tests de capa web</h4>
+
+<p>Verifica el proxy del BFF hacia usuarios-service y la publicación de eventos de notificación.</p>
+
+<pre><code>AuthBffControllerTest (@WebMvcTest + @AutoConfigureMockMvc(addFilters=false))
+<p> ├── POST /bff/auth/login   → proxy a UsuariosClient.login → retorna AuthResponse</p>
+<p> ├── POST /bff/auth/registro → proxy a UsuariosClient.registro + publica UsuarioRegistradoEvent</p>
+<p> ├── POST /bff/auth/registro (fallo) → UsuariosClient lanza excepción → sin evento publicado</p>
+<p> ├── POST /bff/auth/refresh → retorna nuevo accessToken</p>
+<p> └── POST /bff/auth/logout (sin header) → 400 Bad Request</p>
+</code></pre>
+
+<hr>
+
+<h4>DashboardBffControllerTest.java — 3 tests de capa web</h4>
+
+<pre><code>DashboardBffControllerTest (@WebMvcTest + @WithMockUser)
+<p> ├── debeRetornarDashboardAgregado         → rol ADMIN → datos de reservas + habitaciones</p>
+<p> ├── debeRetornarDashboardConDatosVacios   → rol RECEPCIONISTA → fallback con ceros</p>
+<p> └── sinAutenticacionDebe403               → sin @WithMockUser → 403 Forbidden</p>
+</code></pre>
+
+<hr>
+
+<h3>4.3 usuarios-service</h3>
+
+<strong>Directorio:</strong> <code>StaySync_Usuarios-usuarios_v1.0/src/test/java/com/staysync/usuarios/</code>
+
+<h4>UsuarioServiceTest.java — 8 tests unitarios</h4>
+
+<p>Organizado con <code>@Nested</code> por método (patrón recomendado para servicios con muchos métodos).</p>
+
+<pre><code>UsuarioServiceTest
+<p> ├── @Nested RegistrarTests</p>
+<p> │    ├── debeRegistrarUsuario               → encripta password, guarda, retorna response</p>
+<p> │    └── debeLanzarExcepcionEmailDuplicado  → existsByEmail=true → EmailDuplicadoException, save() nunca llamado</p>
+<p> │</p>
+<p> ├── @Nested ObtenerPorIdTests</p>
+<p> │    ├── debeRetornarUsuarioActivo          → findByIdAndActivoTrue → UsuarioResponse</p>
+<p> │    └── debeLanzarExcepcionNoEncontrado    → Optional.empty → UsuarioNotFoundException</p>
+<p> │</p>
+<p> ├── @Nested ListarTests</p>
+<p> │    └── debeRetornarPaginaUsuarios         → Page&lt;Usuario&gt; → Page&lt;UsuarioResponse&gt;</p>
+<p> │</p>
+<p> ├── @Nested DesactivarTests</p>
+<p> │    ├── debeDesactivarUsuario              → activo=false, save() verificado</p>
+<p> │    └── debeLanzarExcepcionAlDesactivarInexistente → Optional.empty → UsuarioNotFoundException</p>
+<p> │</p>
+<p> └── @Nested ActualizarTests</p>
+<p>      └── debeActualizarUsuario              → mapper.updateEntityFromRequest verificado con eq()</p>
+</code></pre>
+
+<hr>
+
+<h4>AuthServiceTest.java — 6 tests unitarios</h4>
+
+<p>Cubre el flujo completo de autenticación JWT con refresh tokens.</p>
+
+<pre><code>AuthServiceTest
+<p> ├── debeRetornarAuthResponseEnLoginExitoso         → accessToken + refreshToken + email + rol</p>
+<p> ├── debeLanzarExcepcionConCredencialesIncorrectas  → BadCredentialsException propagada</p>
+<p> ├── debeLanzarExcepcionConRefreshTokenInexistente  → "no encontrado" en mensaje</p>
+<p> ├── debeLanzarExcepcionConRefreshTokenExpirado     → token expirado → delete(expired) + excepción</p>
+<p> ├── debeEliminarRefreshTokenEnLogout               → delete(rt) verificado</p>
+<p> └── noDebeLanzarExcepcionEnLogoutConTokenInexistente → logout idempotente (no lanza excepción)</p>
+</code></pre>
+
+<hr>
+
+<h4>AuthControllerTest.java — 4 tests de capa web</h4>
+
+<p>Usa <code>@Import({SecurityConfig.class, JwtAuthFilter.class})</code> — prueba con seguridad real activa.</p>
+
+<pre><code>AuthControllerTest (@WebMvcTest + @Import SecurityConfig + JwtAuthFilter)
+<p> ├── POST /auth/login     → 200 + accessToken + email en body</p>
+<p> ├── POST /auth/login     → 400 con email inválido (Bean Validation)</p>
+<p> ├── POST /auth/registro  → 201 + datos del usuario creado</p>
+<p> └── POST /auth/registro  → 400 con contraseña débil (Bean Validation)</p>
+</code></pre>
+
+<hr>
+
+<h3>4.4 pagos-service</h3>
+
+<strong>Directorio:</strong> <code>StaySync_Pago-pagos_v1.0/src/test/java/com/staysync/pagos/</code>
+
+<h4>PagoServiceTest.java — 5 tests unitarios</h4>
+
+<pre><code>PagoServiceTest
+<p> ├── debeProcesarPagoExitoso          → token válido → COMPLETADO, evento pago.completado publicado</p>
+<p> ├── debeLanzarExcepcionSinToken      → token null → PagoFallidoException, evento pago.fallido publicado</p>
+<p> ├── debeRetornarPagoPorId            → findById → PagoResponse con referencia correcta</p>
+<p> ├── debeLanzarExcepcionPagoNoExiste  → Optional.empty → PagoNotFoundException</p>
+<p> └── debeRetornarPagosPorReserva      → findByReservaId → List&lt;PagoResponse&gt; con 1 elemento</p>
+</code></pre>
+
+<hr>
+
+<h4>StripeServiceTest.java — 7 tests unitarios</h4>
+
+<p>Usa el patrón <code>StripeGateway</code> (interfaz inyectable) en lugar de <code>MockedStatic<Session></code>, que es incompatible con el Stripe Java SDK 25.x.</p>
+
+<pre><code>StripeServiceTest (@ExtendWith(MockitoExtension) + @Mock StripeGateway)
+<p> ├── crearCheckout()</p>
+<p> │    ├── debeCrearCheckoutExitosamente        → stripeGateway.createSession() → sessionId + checkoutUrl</p>
+<p> │    ├── debeLanzarExcepcionSiStripeFalla      → createSession() lanza StripeException → PagoFallidoException "Error al crear sesión"</p>
+<p> │    └── debeConvertirMontoCorrectamente       → BigDecimal 89500.50 redondeado HALF_UP → long 89501</p>
+<p> │</p>
+<p> └── confirmarPago()</p>
+<p>      ├── debeConfirmarPagoExitosamente         → paymentStatus="paid" → COMPLETADO + evento pago.completado</p>
+<p>      ├── debeSerIdempotente                    → existsByGatewayId=true → retorna existente, retrieveSession() nunca llamado</p>
+<p>      ├── debeLanzarExcepcionSiPagoNoProcesado  → paymentStatus="unpaid" → PagoFallidoException "no está aprobado"</p>
+<p>      ├── debeLanzarExcepcionSiStripeAPIFalla   → retrieveSession() lanza StripeException → PagoFallidoException "No se pudo verificar"</p>
+<p>      └── debeContinuarSiConfirmarReservaFalla  → reservas-service lanza RuntimeException → pago guardado, sin excepción propagada</p>
+</code></pre>
+
+<strong>Dependencias mockeadas:</strong>
+<pre><code>@Mock private StripeConfig   stripeConfig;    // success/cancel URLs
+<p>@Mock private PagoRepository pagoRepository;  // persistencia</p>
+<p>@Mock private RabbitTemplate rabbitTemplate;  // eventos</p>
+<p>@Mock private RestTemplate   restTemplate;    // llamada a reservas-service</p>
+<p>@Mock private StripeGateway  stripeGateway;   // abstracción sobre Stripe SDK</p>
+</code></pre>
+
+<strong>Por qué <code>StripeGateway</code> en lugar de <code>MockedStatic</code>:</strong>
+<pre><code>// PROBLEMA: MockedStatic&lt;Session&gt; no funciona con Stripe SDK 25.x
+<p>// → java.lang.Error: Unresolved — StripeResponseGetter interfiere con el proxy de Mockito</p>
+
+<p>// SOLUCIÓN: interfaz inyectable que envuelve las llamadas estáticas</p>
+<p>public interface StripeGateway {</p>
+<p>    Session createSession(SessionCreateParams params) throws StripeException;</p>
+<p>    Session retrieveSession(String sessionId) throws StripeException;</p>
+<p>}</p>
+
+<p>// En test: se mockea normalmente</p>
+<p>@Mock private StripeGateway stripeGateway;</p>
+<p>when(stripeGateway.createSession(any())).thenReturn(sessionMock);</p>
+
+<p>// En producción: StripeGatewayImpl delega al SDK</p>
+<p>Session.create(params);   // ← solo aquí se llama a Stripe real</p>
+</code></pre>
+
+<strong>Stubs <code>lenient()</code> en <code>@BeforeEach</code>:</strong>
+<pre><code>@BeforeEach void setUp() {
+<p>    // lenient evita UnnecessaryStubbingException:</p>
+<p>    // getSuccessUrl/getCancelUrl solo se usan en crearCheckout(), no en confirmarPago()</p>
+<p>    lenient().when(stripeConfig.getSuccessUrl()).thenReturn("http://localhost:3000/...");</p>
+<p>    lenient().when(stripeConfig.getCancelUrl()).thenReturn("http://localhost:3000/...");</p>
+<p>}</p>
+</code></pre>
+
+<hr>
+
+<h3>4.5 habitaciones-service</h3>
+
+<strong>Directorio:</strong> <code>StaySync_Habitaciones-habitaciones_v1.0/src/test/java/com/staysync/habitaciones/</code>
+
+<h4>HabitacionServiceTest.java — 11 tests unitarios</h4>
+
+<pre><code>HabitacionServiceTest
+<p> ├── debeCrearHabitacion                    → sin número duplicado → save() llamado</p>
+<p> ├── debeLanzarExcepcionNumeroExistente     → existsByNumero=true → excepción, save() nunca</p>
+<p> ├── debeRetornarHabitacion                 → findByIdAndActivaTrue → HabitacionResponse</p>
+<p> ├── debeLanzarExcepcionNoExiste            → Optional.empty → HabitacionNotFoundException</p>
+<p> ├── debeCambiarEstadoYPublicarEvento       → estado actualizado + eventPublisher.publicarCambioEstado</p>
+<p> ├── debeListarDisponibles                  → findByEstadoAndActivaTrue(DISPONIBLE) → lista</p>
+<p> ├── debeDesactivarHabitacion               → activa=false, save() verificado</p>
+<p> ├── debeListarSoloActivas                  → findByActivaTrue → lista filtrada</p>
+<p> ├── debeRetornarListaVaciaConSinActivas    → findByActivaTrue → lista vacía</p>
+<p> ├── debeLanzarExcepcionNumeroNoEncontrado  → findByNumero → Optional.empty → excepción</p>
+<p> └── debeFiltrarYOrdenar (buscarDisponibles) → capacidad≥4 + sort=precio_desc → orden correcto</p>
+</code></pre>
+
+<hr>
+
+<h3>4.6 servicios-service</h3>
+
+<strong>Directorio:</strong> <code>StaySync_Servicios-servicios_v1.0/src/test/java/com/staysync/servicios/</code>
+
+<h4>ServicioServiceTest.java — 9 tests unitarios</h4>
+
+<pre><code>ServicioServiceTest
+<p> ├── debeListarServiciosDisponibles         → findByActivoTrue → lista correcta</p>
+<p> ├── debeRetornarServicioPorId              → findById → ServicioResponse</p>
+<p> ├── debeCrearSolicitudServicio             → precio calculado, save() llamado</p>
+<p> ├── debeListarSolicitudesPorReserva        → findByReservaId → lista</p>
+<p> ├── debeCalcularPrecioCorrectamente        → cantidad * precioUnitario verificado</p>
+<p> ├── debeLanzarExcepcionServicioNoExiste    → ServicioNotFoundException</p>
+<p> ├── debeListarSolicitudesPorUsuario        → findByUsuarioId → lista filtrada</p>
+<p> ├── debeListarTodasSolicitudes             → findAll → lista completa</p>
+<p> └── debeCambiarEstadoDeSolicitud           → actualizarEstadoSolicitud → estado cambiado</p>
+</code></pre>
+
+<hr>
+
+<h3>4.7 notificaciones-service</h3>
+
+<strong>Directorio:</strong> <code>StaySync_Notificaciones-notificaciones_v1.0/src/test/java/com/staysync/notificaciones/</code>
+
+<h4>NotificacionServiceTest.java — 9 tests unitarios</h4>
+
+<pre><code>NotificacionServiceTest
+<p> ├── procesarEvento()</p>
+<p> │    ├── debeCrearNotificacionYEnviarEmail  → plantilla encontrada → mailSender.send() + save() ×2</p>
+<p> │    └── debeManejarPlantillaInexistente    → sin plantilla → email enviado igualmente (asunto genérico)</p>
+<p> │</p>
+<p> ├── procesarRegistroUsuario()</p>
+<p> │    └── debeProcesarRegistroUsuario        → plantilla USUARIO_REGISTRO → email enviado</p>
+<p> │</p>
+<p> ├── procesarReservaCreada()</p>
+<p> │    └── debeProcesarReservaCreada          → plantilla RESERVA_CREADA → email enviado</p>
+<p> │</p>
+<p> ├── procesarCambioEstado()</p>
+<p> │    └── debeProcesarCambioEstado           → plantilla RESERVA_ESTADO → email enviado</p>
+<p> │</p>
+<p> └── enviarEmail()</p>
+<p>      ├── debeMarcarEnviadoTrasEnvioExitoso          → estado=ENVIADO, enviadoEn no null</p>
+<p>      ├── debeMarcarFallidoTrasMáxIntentos           → 3/3 intentos → FALLIDO, errorMsg guardado</p>
+<p>      └── noDebeMarcarFallidoSiHayIntentosRestantes  → 1/3 intentos → no FALLIDO, intentos=1</p>
+</code></pre>
+
+<strong>Técnicas clave:</strong>
+<pre><code>// FIX 1: @InjectMocks no procesa @Value — mailEnabled queda false sin esto
+<p>ReflectionTestUtils.setField(notificacionService, "mailEnabled", true);</p>
+
+<p>// FIX 2: los eventos son Java records — constructor canónico, NO setters</p>
+<p>UsuarioRegistradoEvent event = new UsuarioRegistradoEvent(1L, "Ana", "ana@test.com");</p>
+<p>ReservaCreadaEvent event = new ReservaCreadaEvent(</p>
+<p>    1L, 1L, "juan@test.com", "Juan", "RES-001", "101", "2026-12-01", "2026-12-05", 400.0);</p>
+</code></pre>
+
+<hr>
+
+<h3>4.8 ota-service</h3>
+
+<strong>Directorio:</strong> <code>StaySync_OTA-ota_v1.0/src/test/java/com/staysync/ota/</code>
+
+<h4>CanalOtaServiceTest.java — 4 tests unitarios</h4>
+
+<pre><code>CanalOtaServiceTest
+<p> ├── debeListarActivos                  → findByActivoTrue → lista con BOOKING</p>
+<p> ├── debeRetornarCanalPorId             → findById → CanalOtaResponse</p>
+<p> ├── debeLanzarExcepcionNoExiste        → Optional.empty → CanalOtaNotFoundException</p>
+<p> └── debeRegistrarNuevaReservaOta       → no existe → save() → nueva ReservaOta</p>
+</code></pre>
+
+<h4>HabitacionEventListenerTest.java — 3 tests unitarios</h4>
+
+<p>Verifica el listener de RabbitMQ que sincroniza disponibilidad con canales OTA.</p>
+
+<pre><code>HabitacionEventListenerTest
+<p> ├── debeProcesarEventoDisponibilidad           → Map con habitacionId válido → listarActivos() llamado</p>
+<p> ├── debeProcesarConListaCanalesVacia           → sin canales → sin error, forEach no itera</p>
+<p> └── debeManejarHabitacionIdInvalidoSinExcepcion → habitacionId="no-es-numero" → catch silencioso</p>
+</code></pre>
+
+<hr>
+
+<h2>5. Bugs encontrados y corregidos</h2>
+
+<h3>Bug 1 — Test flaky por hora de ejecución (CRÍTICO)</h3>
+
+<strong>Archivo:</strong> <code>ReservaServiceTest.java</code>
+
+<strong>Problema:</strong>
+<pre><code>// ANTES — fallaba si el test corría después de las ~15:00h Chile
+<p>.fechaEntrada(LocalDate.now().plusDays(1))</p>
+</code></pre>
+<p>La regla de negocio exige >24h de anticipación. Con <code>plusDays(1)</code> = mañana, si el test corre a las 16:00h, <code>horasRestantes</code> ≈ 23h < 24h → <code>CancelacionRestringidaException</code> inesperada → test rojo.</p>
+
+<strong>Solución:</strong>
+<pre><code>// DESPUÉS — siempre &gt; 24h sin importar la hora
+<p>.fechaEntrada(LocalDate.now().plusDays(5))</p>
+</code></pre>
+
+<hr>
+
+<h3>Bug 2 — RestTemplate sin mock probaba el fallback (MODERADO)</h3>
+
+<strong>Archivo:</strong> <code>ReservaServiceTest.java</code>
+
+<strong>Problema:</strong> Sin mock de <code>RestTemplate</code>, Mockito devuelve <code>null</code> → el servicio ejecuta el path de fallback (precio = 100.00, sin validación de capacidad). El test pasaba pero probaba el caso de error en lugar del caso normal.
+
+<strong>Solución:</strong> Dos tests explícitos:
+<pre><code>debeCrearReservaConPrecioReal()        // mock devuelve { precioPorNoche: 90, capacidad: 3 }
+<p>debeCrearReservaConPrecioPorDefecto()  // mock lanza RuntimeException → precio por defecto</p>
+</code></pre>
+
+<hr>
+
+<h3>Bug 3 — <code>@Value</code> no inyectado por <code>@InjectMocks</code> (CRÍTICO)</h3>
+
+<strong>Archivo:</strong> <code>NotificacionServiceTest.java</code>
+
+<strong>Problema:</strong> <code>NotificacionService</code> tiene <code>@Value("${notificaciones.mail.enabled:true}")</code>. <code>@InjectMocks</code> <strong>no procesa</strong> anotaciones de Spring. El campo <code>mailEnabled</code> quedaba en <code>false</code> (default Java para boolean) → el servicio cortaba el flujo sin llamar a <code>mailSender.send()</code> → todos los <code>verify(mailSender).send(...)</code> fallaban.
+
+<strong>Solución:</strong>
+<pre><code>@BeforeEach void setUp() {
+<p>    ReflectionTestUtils.setField(notificacionService, "mailEnabled", true);</p>
+<p>    // ... setup plantillas</p>
+<p>}</p>
+</code></pre>
+
+<hr>
+
+<h3>Bug 4 — Constructor de records mal usado (CRÍTICO)</h3>
+
+<strong>Archivo:</strong> <code>NotificacionServiceTest.java</code>
+
+<strong>Problema:</strong> Los eventos son Java <code>record</code>. Los records no tienen setters ni constructor sin argumentos. El test original intentaba usar <code>new UsuarioRegistradoEvent()</code> + setters → error de compilación.
+
+<strong>Solución:</strong>
+<pre><code>// INCORRECTO — records no tienen setters
+<p>UsuarioRegistradoEvent event = new UsuarioRegistradoEvent();</p>
+<p>event.setNombre("Ana");  // no existe</p>
+
+<p>// CORRECTO — constructor canónico del record</p>
+<p>UsuarioRegistradoEvent event = new UsuarioRegistradoEvent(1L, "Ana", "ana@test.com");</p>
+</code></pre>
+
+<hr>
+
+<h3>Bug 5 — <code>@MockBean</code> deprecada en Spring Boot 3.4+ (MENOR)</h3>
+
+<strong>Archivos afectados:</strong> <code>AuthControllerTest.java</code> (Usuarios), <code>ReservaControllerTest.java</code>, <code>ReservaIntegrationTest.java</code>
+
+<strong>Problema:</strong> Spring Boot 3.4 deprecó <code>org.springframework.boot.test.mock.mockito.MockBean</code> en favor de <code>org.springframework.test.context.bean.override.mockito.MockitoBean</code>.
+
+<strong>Solución aplicada en los 3 archivos:</strong>
+<pre><code>// ANTES
+<p>import org.springframework.boot.test.mock.mockito.MockBean;</p>
+<p>@MockBean private ReservaService reservaService;</p>
+
+<p>// DESPUÉS</p>
+<p>import org.springframework.test.context.bean.override.mockito.MockitoBean;</p>
+<p>@MockitoBean private ReservaService reservaService;</p>
+</code></pre>
+
+<hr>
+
+<h3>Bug 6 — <code>MockedStatic<Session></code> incompatible con Stripe SDK 25.x (CRÍTICO)</h3>
+
+<strong>Archivo:</strong> <code>StripeServiceTest.java</code>
+
+<strong>Problema:</strong> Mockito's <code>MockedStatic</code> intenta interceptar el bytecode del método estático <code>Session.create()</code>. El Stripe Java SDK 25.x usa internamente un <code>StripeResponseGetter</code> que confunde al agente de instrumentación de Mockito, produciendo:
+<pre><code>java.lang.Error: Unresolved compilation problem: ...
+<p>org.mockito.exceptions.misusing.UnnecessaryStubbingException</p>
+</code></pre>
+
+<strong>Causa raíz:</strong> Los métodos estáticos del SDK de Stripe <strong>no son simples delegadores</strong>; internamente gestionan estado global (<code>Stripe.apiKey</code>) que Mockito no puede interceptar limpiamente.
+
+<strong>Solución — patrón StripeGateway:</strong>
+<pre><code>// 1. Crear interfaz para abstraer las llamadas estáticas
+<p>public interface StripeGateway {</p>
+<p>    Session createSession(SessionCreateParams params) throws StripeException;</p>
+<p>    Session retrieveSession(String sessionId) throws StripeException;</p>
+<p>}</p>
+
+<p>// 2. Implementación real (solo esta clase llama al SDK)</p>
+<p>@Component</p>
+<p>public class StripeGatewayImpl implements StripeGateway {</p>
+<p>    public Session createSession(SessionCreateParams p) throws StripeException {</p>
+<p>        return Session.create(p);      // ← única llamada real al SDK</p>
+<p>    }</p>
+<p>    public Session retrieveSession(String id) throws StripeException {</p>
+<p>        return Session.retrieve(id);   // ← única llamada real al SDK</p>
+<p>    }</p>
+<p>}</p>
+
+<p>// 3. StripeService inyecta la interfaz (no el SDK directamente)</p>
+<p>private final StripeGateway stripeGateway;  // ← @RequiredArgsConstructor</p>
+
+<p>// 4. En test: mock normal, sin MockedStatic</p>
+<p>@Mock private StripeGateway stripeGateway;</p>
+<p>when(stripeGateway.createSession(any())).thenReturn(sessionMock);  // ← funciona perfecto</p>
+</code></pre>
+
+<strong>Archivos creados/modificados:</strong>
+<ul><li><strong>Nuevo:</strong> <code>StripeGateway.java</code> (interfaz)</li><li><strong>Nuevo:</strong> <code>StripeGatewayImpl.java</code> (implementación)</li><li><strong>Modificado:</strong> <code>StripeService.java</code> — inyecta <code>StripeGateway</code>, ya no llama <code>Session.create()</code> directamente</li><li><strong>Reescrito:</strong> <code>StripeServiceTest.java</code> — usa <code>@Mock StripeGateway</code> en lugar de <code>MockedStatic</code></li></ul>
+
+<hr>
+
+<h2>6. Cómo ejecutar los tests</h2>
+
+<h3>Prerequisito: Maven instalado</h3>
+
+<p>Si <code>mvn</code> no está en el PATH, instalarlo con:</p>
+<pre><code># Opción A: winget (Windows 11)
+<p>winget install Apache.Maven</p>
+
+<h1>Opción B: Chocolatey</h1>
+<p>choco install maven</p>
+
+<h1>Opción C: IntelliJ IDEA — tiene Maven integrado, click derecho en pom.xml → "Run Maven" → test</h1>
+</code></pre>
+
+<h3>Ejecutar todos los tests de un microservicio</h3>
+
+<pre><code>cd StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
+<p>mvn test</p>
+</code></pre>
+
+<h3>Ejecutar solo tests unitarios (rápidos, ~ms cada uno)</h3>
+
+<pre><code>mvn test -Dtest="*ServiceTest,*ListenerTest"
+</code></pre>
+
+<h3>Ejecutar solo tests de capa web</h3>
+
+<pre><code>mvn test -Dtest="*ControllerTest"
+</code></pre>
+
+<h3>Ejecutar solo tests de integración</h3>
+
+<pre><code>mvn test -Dtest="*IntegrationTest"
+</code></pre>
+
+<h3>Ejecutar un test específico</h3>
+
+<pre><code>mvn test -Dtest="ReservaServiceTest#debeCancelarReserva"
+</code></pre>
+
+<h3>Ejecutar tests + generar reporte de cobertura</h3>
+
+<pre><code>mvn verify
+<h1>Reporte en: target/site/jacoco/index.html</h1>
+</code></pre>
+
+<h3>Verificar que la cobertura cumple el mínimo (60%)</h3>
+
+<pre><code>mvn verify -pl StaySync_Reservas-reservas_v1.1
+<h1>Si cobertura &lt; 60%, el build falla:</h1>
+<h1>[ERROR] Rule violated: lines covered ratio is 0.55, but expected minimum is 0.60</h1>
+</code></pre>
+
+<h3>Ejecutar todos los servicios desde la raíz (si hay POM padre)</h3>
+
+<pre><code># Desde la raíz del workspace
+<p>mvn test --file pom.xml</p>
+</code></pre>
+
+<hr>
+
+<h2>7. Cobertura con JaCoCo</h2>
+
+<h3>Configuración en cada pom.xml</h3>
+
+<pre><code>&lt;plugin&gt;
+<p>    &lt;groupId&gt;org.jacoco&lt;/groupId&gt;</p>
+<p>    &lt;artifactId&gt;jacoco-maven-plugin&lt;/artifactId&gt;</p>
+<p>    &lt;version&gt;0.8.12&lt;/version&gt;</p>
+<p>    &lt;executions&gt;</p>
+<p>        &lt;execution&gt;</p>
+<p>            &lt;goals&gt;&lt;goal&gt;prepare-agent&lt;/goal&gt;&lt;/goals&gt;</p>
+<p>        &lt;/execution&gt;</p>
+<p>        &lt;execution&gt;</p>
+<p>            &lt;id&gt;report&lt;/id&gt;</p>
+<p>            &lt;phase&gt;verify&lt;/phase&gt;</p>
+<p>            &lt;goals&gt;&lt;goal&gt;report&lt;/goal&gt;&lt;/goals&gt;</p>
+<p>        &lt;/execution&gt;</p>
+<p>        &lt;execution&gt;</p>
+<p>            &lt;id&gt;check&lt;/id&gt;</p>
+<p>            &lt;phase&gt;verify&lt;/phase&gt;</p>
+<p>            &lt;goals&gt;&lt;goal&gt;check&lt;/goal&gt;&lt;/goals&gt;</p>
+<p>            &lt;configuration&gt;</p>
+<p>                &lt;rules&gt;</p>
+<p>                    &lt;rule&gt;</p>
+<p>                        &lt;limits&gt;</p>
+<p>                            &lt;limit&gt;</p>
+<p>                                &lt;counter&gt;LINE&lt;/counter&gt;</p>
+<p>                                &lt;value&gt;COVEREDRATIO&lt;/value&gt;</p>
+<p>                                &lt;minimum&gt;0.60&lt;/minimum&gt;</p>
+<p>                            &lt;/limit&gt;</p>
+<p>                        &lt;/limits&gt;</p>
+<p>                    &lt;/rule&gt;</p>
+<p>                &lt;/rules&gt;</p>
+<p>            &lt;/configuration&gt;</p>
+<p>        &lt;/execution&gt;</p>
+<p>    &lt;/executions&gt;</p>
+<p>&lt;/plugin&gt;</p>
+</code></pre>
+
+<h3>Ver el reporte</h3>
+
+<p>Después de <code>mvn verify</code>, abrir en el navegador:</p>
+<pre><code>target/site/jacoco/index.html
+</code></pre>
+
+<p>Muestra cobertura por: clase, método, línea y rama (branch).</p>
+
+<h3>Excluir clases de configuración/modelo (recomendado)</h3>
+
+<pre><code>&lt;configuration&gt;
+<p>    &lt;excludes&gt;</p>
+<p>        &lt;exclude&gt;<strong>/config/</strong>&lt;/exclude&gt;</p>
+<p>        &lt;exclude&gt;<strong>/model/</strong>&lt;/exclude&gt;</p>
+<p>        &lt;exclude&gt;<strong>/dto/</strong>&lt;/exclude&gt;</p>
+<p>        &lt;exclude&gt;**/*Application.class&lt;/exclude&gt;</p>
+<p>    &lt;/excludes&gt;</p>
+<p>&lt;/configuration&gt;</p>
+</code></pre>
+
+<hr>
+
+<h2>8. Convenciones y buenas prácticas</h2>
+
+<h3>Nomenclatura de tests</h3>
+
+<pre><code>// Patrón: debe&lt;AcciónEsperada&gt;[Cuando&lt;Condición&gt;]
+<p>void debeCrearReserva()                          // happy path simple</p>
+<p>void debeLanzarExcepcionCapacidadExcedida()      // error con condición explícita</p>
+<p>void noDebeHacerNadaSinReservasParaHoy()         // acción negada con condición</p>
+</code></pre>
+
+<h3>Estructura AAA (Arrange — Act — Assert)</h3>
+
+<pre><code>@Test
+<p>void debeCrearReserva() {</p>
+<p>    // ARRANGE — preparar datos y mocks</p>
+<p>    CrearReservaRequest request = buildRequest(2);</p>
+<p>    when(reservaRepository.existeConflicto(...)).thenReturn(false);</p>
+<p>    when(reservaRepository.save(any())).thenReturn(reservaBase);</p>
+
+<p>    // ACT — ejecutar el método bajo test</p>
+<p>    ReservaResponse response = reservaService.crear(request);</p>
+
+<p>    // ASSERT — verificar resultado Y efectos secundarios</p>
+<p>    assertThat(response.getCodigo()).isNotBlank();</p>
+<p>    verify(eventPublisher).publicar(eq("reserva.confirmada"), anyMap());</p>
+<p>}</p>
+</code></pre>
+
+<h3>Reglas de oro</h3>
+
+<table><thead><tr><th>Regla</th><th>Por qué</th></tr></thead><tbody><tr><td><code>plusDays(5)</code> para fechas futuras en tests</td><td>Evita tests flaky que fallan según la hora del día</td></tr>
+<tr><td>Siempre mockear RestTemplate en unit tests</td><td>Sin mock devuelve <code>null</code> → se prueba el fallback sin saberlo</td></tr>
+<tr><td><code>verify()</code> para efectos secundarios</td><td>Un <code>assertThat(result).isNotNull()</code> solo verifica que no es null, no el comportamiento</td></tr>
+<tr><td><code>@MockitoBean</code> en lugar de <code>@MockBean</code></td><td><code>@MockBean</code> está deprecado desde Spring Boot 3.4</td></tr>
+<tr><td><code>ReflectionTestUtils.setField()</code> para <code>@Value</code></td><td><code>@InjectMocks</code> no procesa anotaciones de Spring</td></tr>
+<tr><td>Constructor canónico para Java records</td><td>Los records no tienen setters ni constructor sin args</td></tr>
+<tr><td><code>@Transactional</code> en tests de integración</td><td>Cada test revierte cambios → no se contaminan entre sí</td></tr></tbody></table>
+
+<h3>Qué NO mockear</h3>
+
+<ul><li>La clase bajo test (nunca hacer <code>@Spy</code> de la clase que se testea)</li><li>Clases simples sin efectos secundarios (<code>LocalDate</code>, <code>BigDecimal</code>)</li><li>El repositorio en tests de integración (queremos que use H2 real)</li></ul>
+
+<hr>
+
+<h2>9. Próximos pasos</h2>
+
+<h3>Tests pendientes de alta prioridad</h3>
+
+<li class="todo">☐ <code>AuthServiceTest</code> — agregar test para <code>refresh()</code> happy path (renovar token exitosamente)</li>
+<li class="todo">☐ <code>UsuarioServiceTest</code> — agregar test para actualizar email a uno ya existente → <code>EmailDuplicadoException</code></li>
+<li class="todo">☐ <code>ReservaIntegrationTest</code> — test de <code>cancelar()</code> con regla 24h desde BD real</li>
+
+<h3>Tests de integración pendientes para otros servicios</h3>
+
+<pre><code>pagos-service          → PagoIntegrationTest con H2
+<p>habitaciones-service   → HabitacionIntegrationTest con H2</p>
+<p>notificaciones-service → NotificacionIntegrationTest (mock JavaMailSender)</p>
+</code></pre>
+
+<h3>Tests E2E (fase futura con Testcontainers)</h3>
+
+<p>Cuando el proyecto esté en Docker, se puede implementar un test E2E completo:</p>
+
+<pre><code>@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+<p>@Testcontainers</p>
+<p>class StaySyncE2ETest {</p>
+
+<p>    @Container</p>
+<p>    static MySQLContainer&lt;?&gt; mysql = new MySQLContainer&lt;&gt;("mysql:8.0");</p>
+
+<p>    @Container</p>
+<p>    static RabbitMQContainer rabbit = new RabbitMQContainer("rabbitmq:3.13-management");</p>
+
+<p>    // 1. POST /auth/registro → 201</p>
+<p>    // 2. POST /auth/login    → 200 + JWT</p>
+<p>    // 3. POST /reservas      → 201 + código reserva</p>
+<p>    // 4. POST /pagos/stripe/checkout → 200 + checkoutUrl</p>
+<p>    // 5. PATCH /reservas/{id}/estado → CHECKIN → 200</p>
+<p>    // 6. PATCH /reservas/{id}/estado → CHECKOUT → 200</p>
+<p>    // 7. Verificar notificación en BD → estado ENVIADO</p>
+<p>}</p>
+</code></pre>
+
+<p>Dependencias:</p>
+<pre><code>&lt;dependency&gt;
+<p>    &lt;groupId&gt;org.testcontainers&lt;/groupId&gt;</p>
+<p>    &lt;artifactId&gt;mysql&lt;/artifactId&gt;</p>
+<p>    &lt;scope&gt;test&lt;/scope&gt;</p>
+<p>&lt;/dependency&gt;</p>
+<p>&lt;dependency&gt;</p>
+<p>    &lt;groupId&gt;org.testcontainers&lt;/groupId&gt;</p>
+<p>    &lt;artifactId&gt;rabbitmq&lt;/artifactId&gt;</p>
+<p>    &lt;scope&gt;test&lt;/scope&gt;</p>
+<p>&lt;/dependency&gt;</p>
+</code></pre>
+
+<hr>
+
+<p>*Documentación actualizada el 2026-06-20 — StaySync Hotel Management System — 16 archivos de test, 118 tests totales*</p>
+
+</body>
+</html>

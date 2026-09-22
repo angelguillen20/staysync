@@ -1,0 +1,89 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: bff-service
+
+notificaciones:
+  enabled: ${NOTIFICACIONES_ENABLED:true}
+
+jwt:
+  secret: ${JWT_SECRET:StaySyncJWT_SuperSecretKey_Min256Bits_2024!XyZ#AbC}
+
+services:
+  usuarios:
+    url: ${USUARIOS_SERVICE_URL:http://localhost:8081}
+  habitaciones:
+    url: ${HABITACIONES_SERVICE_URL:http://localhost:8082}
+  reservas:
+    url: ${RESERVAS_SERVICE_URL:http://localhost:8083}
+  servicios:
+    url: ${SERVICIOS_SERVICE_URL:http://localhost:8084}
+  pagos:
+    url: ${PAGOS_SERVICE_URL:http://localhost:8085}
+  notificaciones:
+    url: ${NOTIFICACIONES_SERVICE_URL:http://localhost:8086}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200,http://localhost:5173}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+  info:
+    title: StaySync - BFF API
+    version: 1.0.0
+    description: Backend for Frontend — punto de entrada único para el cliente web
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        slow-call-duration-threshold: 3s
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+    instances:
+      usuariosCB:
+        base-config: default
+      habitacionesCB:
+        base-config: default
+      reservasCB:
+        base-config: default
+      serviciosCB:
+        base-config: default
+      pagosCB:
+        base-config: default
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+
+http:
+  client:
+    connect-timeout: 3000
+    read-timeout: 10000
+    connection-request-timeout: ${HTTP_CLIENT_CONN_REQUEST_TIMEOUT:1000}
+    max-total-connections: ${HTTP_CLIENT_MAX_TOTAL:200}
+    max-connections-per-route: ${HTTP_CLIENT_MAX_PER_ROUTE:50}
+
+bff:
+  executor:
+    pool-size: ${BFF_EXECUTOR_POOL_SIZE:20}
+
+logging:
+  level:
+    com.staysync: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

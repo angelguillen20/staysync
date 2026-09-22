@@ -1,0 +1,60 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# StaySync — Versiones de microservicios
+# Actualizar este archivo antes de cada release y hacer git tag vX.Y.Z
+# ─────────────────────────────────────────────────────────────────────────────
+
+release: "1.0.0"
+date: "2026-06-18"
+status: "stable"
+
+services:
+  bff:
+    version: "1.0.0"
+    port: 8080
+    description: "API Gateway — autenticación JWT, proxy y agregación de datos"
+
+  usuarios:
+    version: "1.0.0"
+    port: 8081
+    description: "Gestión de usuarios, roles y autenticación"
+
+  habitaciones:
+    version: "1.0.0"
+    port: 8082
+    description: "Inventario y disponibilidad de habitaciones"
+
+  reservas:
+    version: "1.1.0"
+    port: 8083
+    description: "Ciclo de vida de reservas, check-in/check-out automático"
+
+  servicios:
+    version: "1.0.0"
+    port: 8084
+    description: "Servicios adicionales del hotel (spa, lavandería, etc.)"
+
+  pagos:
+    version: "1.0.0"
+    port: 8085
+    description: "Procesamiento de pagos vía Stripe"
+
+  notificaciones:
+    version: "1.0.0"
+    port: 8086
+    description: "Notificaciones por email, invocado vía RestTemplate por el BFF"
+
+  ota:
+    version: "1.0.0"
+    port: 8087
+    description: "Integración con canales OTA (Booking, Airbnb, etc.)"
+
+  frontend:
+    version: "1.1.0"
+    port: 3000
+    description: "Interfaz web React 18 + Vite para recepción y huéspedes"
+
+infrastructure:
+  mysql: "8.0"
+  nginx: "1.27"
+  java: "17"
+  node: "20"

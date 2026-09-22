@@ -1,0 +1,24 @@
+# Variables de entorno con secretos reales — NUNCA subir a git
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/settings.json
+
+# Dependencias del frontend raíz (si se instalan aquí)
+node_modules/
+
+# Build de los microservicios Java (Maven)
+target/
+
+# Build del frontend (Vite)
+dist/
+dist-ssr/
