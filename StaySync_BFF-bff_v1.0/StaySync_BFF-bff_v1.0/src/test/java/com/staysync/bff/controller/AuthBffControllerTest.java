@@ -1,6 +1,7 @@
 package com.staysync.bff.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.staysync.bff.client.CognitoClient;
 import com.staysync.bff.client.UsuariosClient;
 import com.staysync.bff.messaging.NotificacionEventPublisher;
 import com.staysync.bff.security.JwtService;
@@ -31,6 +32,7 @@ class AuthBffControllerTest {
     @MockitoBean UsuariosClient usuariosClient;
     @MockitoBean NotificacionEventPublisher notificacionPublisher;
     @MockitoBean JwtService jwtService;
+    @MockitoBean CognitoClient cognitoClient;
 
     @Test
     @DisplayName("POST /bff/auth/login - debe delegar al usuarios-service y retornar tokens")

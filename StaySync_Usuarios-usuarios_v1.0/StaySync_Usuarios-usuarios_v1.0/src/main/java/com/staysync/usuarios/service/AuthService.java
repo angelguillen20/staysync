@@ -65,6 +65,22 @@ public class AuthService {
     }
 
     @Transactional
+    public AuthResponse loginConGoogle(String email, String nombre, String apellido) {
+        Usuario usuario = usuarioService.buscarOCrearPorGoogle(email, nombre, apellido);
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(usuario.getEmail());
+        Map<String, Object> claims = Map.of(
+                "rol", usuario.getRol().name(),
+                "userId", usuario.getId()
+        );
+        String accessToken  = jwtService.generateToken(userDetails, claims);
+        String refreshToken = crearRefreshToken(usuario);
+
+        log.info("Login con Google exitoso: {}", usuario.getEmail());
+        return buildAuthResponse(accessToken, refreshToken, usuario);
+    }
+
+    @Transactional
     public AuthResponse refresh(String refreshTokenStr) {
         RefreshToken stored = refreshTokenRepository.findByToken(refreshTokenStr)
                 .orElseThrow(() -> new TokenInvalidoException("Refresh token no encontrado"));

@@ -28,6 +28,7 @@ public class SecurityConfig {
             "/bff/auth/login",
             "/bff/auth/registro",
             "/bff/auth/refresh",
+            "/bff/auth/google",
             "/bff/habitaciones/disponibles",
             "/bff/pagos/stripe/**",
             "/swagger-ui/**",

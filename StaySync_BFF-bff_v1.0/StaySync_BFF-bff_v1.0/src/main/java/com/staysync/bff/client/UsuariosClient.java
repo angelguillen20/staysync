@@ -41,6 +41,11 @@ public class UsuariosClient {
         return restTemplate.postForEntity(baseUrl + "/api/v1/auth/refresh", body, Object.class);
     }
 
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "loginFallback")
+    public ResponseEntity<Object> loginConGoogle(Object body) {
+        return restTemplate.postForEntity(baseUrl + "/api/v1/auth/google", body, Object.class);
+    }
+
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
     public ResponseEntity<Object> logout(String authHeader, Object body) {
         return restTemplate.exchange(

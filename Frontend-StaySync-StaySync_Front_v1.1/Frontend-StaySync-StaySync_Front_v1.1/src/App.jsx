@@ -3,6 +3,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout         from './components/common/Layout';
 
 import LoginPage        from './pages/LoginPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import PerfilPage       from './pages/PerfilPage';
 
@@ -30,6 +31,7 @@ export default function App() {
       <Routes>
         {/* ── Public ── */}
         <Route path="/login"        element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/"             element={<Navigate to="/login" replace />} />
 

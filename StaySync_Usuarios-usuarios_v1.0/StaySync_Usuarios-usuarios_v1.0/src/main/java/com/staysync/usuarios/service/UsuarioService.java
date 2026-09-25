@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -136,6 +137,27 @@ public class UsuarioService {
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
         log.info("Usuario desactivado: {}", usuario.getEmail());
+    }
+
+    /**
+     * Login vía Google: busca el usuario por email o lo crea si es la primera vez.
+     * La contraseña se genera al azar y nunca se usa — la identidad ya la confirmó Google/Cognito.
+     */
+    @Transactional
+    public Usuario buscarOCrearPorGoogle(String email, String nombre, String apellido) {
+        return usuarioRepository.findByEmail(email).orElseGet(() -> {
+            Usuario nuevo = Usuario.builder()
+                    .nombre(nombre != null && !nombre.isBlank() ? nombre : "Usuario")
+                    .apellido(apellido != null && !apellido.isBlank() ? apellido : "Google")
+                    .email(email)
+                    .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .rol(Usuario.Rol.HUESPED)
+                    .activo(true)
+                    .build();
+            Usuario guardado = usuarioRepository.save(nuevo);
+            log.info("Usuario creado vía Google: {}", email);
+            return guardado;
+        });
     }
 
     private Usuario findActivoOrThrow(Long id) {

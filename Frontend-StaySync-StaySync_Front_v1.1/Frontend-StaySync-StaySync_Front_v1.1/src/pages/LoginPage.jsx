@@ -2,9 +2,15 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login as loginService, register as registerSvc } from '../services/authService';
+import { generateCodeVerifier, generateCodeChallenge } from '../services/pkce';
 import AlertMessage from '../components/common/AlertMessage';
 
 const REDIRECT = { ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
+
+// Config de Cognito Hosted UI — sobrescribible por variables de entorno de Vite en build/deploy.
+const COGNITO_DOMAIN      = import.meta.env.VITE_COGNITO_DOMAIN      ?? 'https://staysync-348143777102.auth.us-east-1.amazoncognito.com';
+const COGNITO_CLIENT_ID   = import.meta.env.VITE_COGNITO_CLIENT_ID   ?? '45vvlk0o108jov40ijgllr5okv';
+const COGNITO_REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI ?? `${window.location.origin}/auth/callback`;
 
 const PW_RULES = [
   { id: 'len', label: 'Al menos 8 caracteres',  test: pw => pw.length >= 8 },
@@ -84,6 +90,25 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  /* ── Google (Cognito Hosted UI + PKCE) ──────────────────── */
+  const handleGoogleLogin = async () => {
+    const verifier = generateCodeVerifier();
+    sessionStorage.setItem('ss_pkce_verifier', verifier);
+    sessionStorage.setItem('ss_oauth_redirect_uri', COGNITO_REDIRECT_URI);
+    const challenge = await generateCodeChallenge(verifier);
+
+    const params = new URLSearchParams({
+      client_id: COGNITO_CLIENT_ID,
+      response_type: 'code',
+      scope: 'email openid profile',
+      redirect_uri: COGNITO_REDIRECT_URI,
+      identity_provider: 'Google',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+    });
+    window.location.href = `${COGNITO_DOMAIN}/oauth2/authorize?${params.toString()}`;
   };
 
   /* ── Register ────────────────────────────────────────── */
@@ -228,6 +253,21 @@ export default function LoginPage() {
                   }
                 </button>
               </form>
+
+              <div className="d-flex align-items-center gap-3 my-3">
+                <hr className="flex-grow-1 m-0" />
+                <span className="text-muted small">o</span>
+                <hr className="flex-grow-1 m-0" />
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-outline-secondary w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2"
+                onClick={handleGoogleLogin}
+              >
+                <i className="bi bi-google" />
+                Continuar con Google
+              </button>
 
               <div className="mt-4 p-3 rounded" style={{ background: 'rgba(239,193,67,0.1)', border: '1px solid rgba(239,193,67,0.3)' }}>
                 <p className="mb-1 fw-semibold small" style={{ color: 'var(--ss-dark)' }}>

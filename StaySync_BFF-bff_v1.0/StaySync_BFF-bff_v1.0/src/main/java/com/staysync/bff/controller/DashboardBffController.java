@@ -3,6 +3,7 @@ package com.staysync.bff.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.staysync.bff.client.HabitacionesClient;
 import com.staysync.bff.client.ReservasClient;
+import com.staysync.bff.client.WeatherClient;
 import com.staysync.bff.dto.dashboard.DashboardResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +26,7 @@ public class DashboardBffController {
 
     private final ReservasClient reservasClient;
     private final HabitacionesClient habitacionesClient;
+    private final WeatherClient weatherClient;
     private final ObjectMapper mapper;
     private final ExecutorService bffTaskExecutor;
 
@@ -43,9 +45,11 @@ public class DashboardBffController {
                 () -> habitacionesClient.listarTodas(authHeader), bffTaskExecutor);
         var disponiblesFuture = CompletableFuture.supplyAsync(
                 () -> habitacionesClient.listarDisponibles(authHeader), bffTaskExecutor);
+        var climaFuture = CompletableFuture.supplyAsync(
+                weatherClient::obtenerClima, bffTaskExecutor);
 
         try {
-            CompletableFuture.allOf(reservasFuture, habitacionesFuture, disponiblesFuture).join();
+            CompletableFuture.allOf(reservasFuture, habitacionesFuture, disponiblesFuture, climaFuture).join();
         } catch (CompletionException ex) {
             // Desenvuelve la causa real para que GlobalExceptionHandler siga mapeando
             // DownstreamServiceException / HttpClientErrorException al status HTTP correcto.
@@ -89,6 +93,7 @@ public class DashboardBffController {
                         .enMantenimiento(mantenimiento)
                         .build())
                 .reservasRecientes(recientes)
+                .clima(climaFuture.join())
                 .build();
 
         return ResponseEntity.ok(response);

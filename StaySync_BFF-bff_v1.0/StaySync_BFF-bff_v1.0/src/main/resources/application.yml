@@ -11,6 +11,20 @@ notificaciones:
 jwt:
   secret: ${JWT_SECRET:StaySyncJWT_SuperSecretKey_Min256Bits_2024!XyZ#AbC}
 
+# Cognito Hosted UI — login federado con Google. El App Client es público (sin secret),
+# por eso el intercambio de code usa PKCE en vez de client_secret. El redirect_uri lo manda
+# el frontend en cada request (debe matchear el que usó en /oauth2/authorize), así que no
+# hace falta fijarlo aquí — funciona igual desde S3, CloudFront o localhost.
+cognito:
+  domain: ${COGNITO_DOMAIN:https://staysync-348143777102.auth.us-east-1.amazoncognito.com}
+  client-id: ${COGNITO_CLIENT_ID:45vvlk0o108jov40ijgllr5okv}
+
+# Widget de clima del dashboard (WeatherAPI.com, plan free). Sin api-key el widget
+# simplemente no aparece (WeatherClient devuelve null), no rompe el dashboard.
+weather:
+  api-key: ${WEATHER_API_KEY:f519726d054f46009aa04835262509}
+  city: ${WEATHER_CITY:Santiago}
+
 services:
   usuarios:
     url: ${USUARIOS_SERVICE_URL:http://localhost:8081}
@@ -59,6 +73,8 @@ resilience4j:
       serviciosCB:
         base-config: default
       pagosCB:
+        base-config: default
+      climaCB:
         base-config: default
 
 management:

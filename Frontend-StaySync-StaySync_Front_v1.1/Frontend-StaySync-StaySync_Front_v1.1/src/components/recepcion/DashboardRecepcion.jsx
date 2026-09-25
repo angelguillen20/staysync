@@ -165,6 +165,7 @@ export default function DashboardRecepcion() {
   // Stats del dashboard service — stats.reservas.* y stats.habitaciones.*
   const r = stats?.reservas ?? {};
   const recientes = stats?.reservasRecientes ?? [];
+  const clima = stats?.clima;
 
   return (
     <div className="fade-in-up p-3 p-md-4">
@@ -178,6 +179,17 @@ export default function DashboardRecepcion() {
           </h2>
           <small className="text-muted">Vista general en tiempo real</small>
         </div>
+        {clima && (
+          <div className="d-flex align-items-center gap-2 px-3 py-2" style={{ background: 'var(--ss-cream)', borderRadius: 10 }}>
+            {clima.icono && <img src={clima.icono} alt={clima.condicion} width={32} height={32} />}
+            <div>
+              <div className="fw-bold" style={{ color: 'var(--ss-dark)', lineHeight: 1 }}>
+                {Math.round(clima.temperaturaC)}°C
+              </div>
+              <small className="text-muted">{clima.ciudad} · {clima.condicion}</small>
+            </div>
+          </div>
+        )}
         <div className="d-flex gap-2">
           <button className="btn btn-outline-secondary btn-sm" onClick={cargar} disabled={loading}>
             <i className="bi bi-arrow-clockwise me-1" />Actualizar

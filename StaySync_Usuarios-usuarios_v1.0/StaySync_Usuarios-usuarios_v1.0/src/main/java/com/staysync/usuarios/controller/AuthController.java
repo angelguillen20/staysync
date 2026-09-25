@@ -47,6 +47,16 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @PostMapping("/google")
+    @Operation(summary = "Login vía Google (llamado por el BFF tras validar con Cognito)",
+               responses = {
+                   @ApiResponse(responseCode = "200", description = "Login exitoso — crea el usuario si es la primera vez")
+               })
+    public ResponseEntity<AuthResponse> google(@RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(authService.loginConGoogle(
+                body.get("email"), body.get("nombre"), body.get("apellido")));
+    }
+
     @PostMapping("/refresh")
     @Operation(summary = "Renovar access token con refresh token",
                responses = {

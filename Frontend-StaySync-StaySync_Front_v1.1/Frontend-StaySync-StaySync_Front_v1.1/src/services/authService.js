@@ -66,3 +66,13 @@ export async function refreshToken(token) {
 export async function logoutServer(token) {
   await apiClient.post('/auth/logout', { refreshToken: token });
 }
+
+/**
+ * Intercambia el code de Cognito (tras el login con Google) por un JWT propio.
+ * El BFF hace el intercambio real contra Cognito y busca/crea el usuario.
+ * @returns {Promise<AuthResponse>} Mismo formato que login().
+ */
+export async function loginWithGoogle(code, codeVerifier, redirectUri) {
+  const { data } = await apiClient.post('/auth/google', { code, codeVerifier, redirectUri });
+  return data;
+}

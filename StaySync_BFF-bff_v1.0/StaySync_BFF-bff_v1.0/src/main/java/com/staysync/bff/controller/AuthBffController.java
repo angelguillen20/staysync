@@ -1,5 +1,6 @@
 package com.staysync.bff.controller;
 
+import com.staysync.bff.client.CognitoClient;
 import com.staysync.bff.client.UsuariosClient;
 import com.staysync.bff.messaging.NotificacionEventPublisher;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,6 +21,7 @@ public class AuthBffController {
 
     private final UsuariosClient             usuariosClient;
     private final NotificacionEventPublisher notificacionPublisher;
+    private final CognitoClient              cognitoClient;
 
     @Operation(summary = "Login de usuario")
     @PostMapping("/login")
@@ -48,6 +50,24 @@ public class AuthBffController {
         }
 
         return response;
+    }
+
+    @Operation(summary = "Login vía Google (Cognito Hosted UI + PKCE)",
+               description = "Intercambia el authorization code de Cognito por un JWT propio de StaySync")
+    @PostMapping("/google")
+    public ResponseEntity<Object> loginConGoogle(@RequestBody Map<String, String> body) {
+        Map<String, Object> claims = cognitoClient.obtenerClaimsUsuario(
+                body.get("code"), body.get("codeVerifier"), body.get("redirectUri"));
+
+        String email     = String.valueOf(claims.getOrDefault("email", ""));
+        String nombre    = String.valueOf(claims.getOrDefault("given_name", ""));
+        String apellido  = String.valueOf(claims.getOrDefault("family_name", ""));
+
+        return usuariosClient.loginConGoogle(Map.of(
+                "email", email,
+                "nombre", nombre,
+                "apellido", apellido
+        ));
     }
 
     @Operation(summary = "Renovar access token usando refresh token")

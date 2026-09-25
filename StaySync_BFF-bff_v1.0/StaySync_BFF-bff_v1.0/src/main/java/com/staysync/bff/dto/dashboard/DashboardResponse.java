@@ -13,6 +13,7 @@ public class DashboardResponse {
     private ReservasStats reservas;
     private HabitacionesStats habitaciones;
     private List<Map<String, Object>> reservasRecientes;
+    private Map<String, Object> clima;
 
     @Getter
     @Builder

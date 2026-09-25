@@ -3,11 +3,14 @@ package com.staysync.bff.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.staysync.bff.client.HabitacionesClient;
 import com.staysync.bff.client.ReservasClient;
+import com.staysync.bff.client.WeatherClient;
+import com.staysync.bff.config.AsyncConfig;
 import com.staysync.bff.security.JwtService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -22,6 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(DashboardBffController.class)
+@Import(AsyncConfig.class) // provee el bean ExecutorService real que usa la agregación paralela
 @DisplayName("DashboardBffController - Tests")
 class DashboardBffControllerTest {
 
@@ -30,6 +34,7 @@ class DashboardBffControllerTest {
 
     @MockitoBean ReservasClient reservasClient;
     @MockitoBean HabitacionesClient habitacionesClient;
+    @MockitoBean WeatherClient weatherClient;
     @MockitoBean JwtService jwtService;
 
     @Test
@@ -80,9 +85,11 @@ class DashboardBffControllerTest {
     }
 
     @Test
-    @DisplayName("GET /bff/dashboard - sin autenticación debe retornar 403")
-    void sinAutenticacionDebe403() throws Exception {
+    @DisplayName("GET /bff/dashboard - sin autenticación debe retornar 401")
+    void sinAutenticacionDebe401() throws Exception {
+        // SecurityConfig usa un AuthenticationEntryPoint de 401 (no 403) a propósito,
+        // para que apiClient.js pueda disparar el flujo de refresh token.
         mockMvc.perform(get("/bff/dashboard"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 }
