@@ -98,8 +98,8 @@ public class PagoService {
     }
 
     private boolean procesarConGateway(String token, java.math.BigDecimal monto) {
-        // Simulación local: siempre aprueba el pago
-        return true;
+        // Simulación local: aprueba cualquier pago que traiga token del gateway
+        return token != null && !token.isBlank();
     }
 
     private String generarReferencia() {
