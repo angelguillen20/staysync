@@ -179,6 +179,14 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
   });
   const [amenidadIds, setAmenidadIds] = useState([]);
 
+  // Los tipos se cargan después de abrir el modal: si llegan cuando tipoId sigue
+  // vacío, el <select> muestra el primero pero el estado no, y el botón queda deshabilitado.
+  useEffect(() => {
+    if (tipos.length && !form.tipoId) {
+      setForm((p) => ({ ...p, tipoId: tipos[0].id }));
+    }
+  }, [tipos, form.tipoId]);
+
   const toggleAmenidad = (id) => {
     setAmenidadIds((prev) => prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]);
   };
