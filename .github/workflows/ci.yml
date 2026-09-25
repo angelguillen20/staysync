@@ -1,0 +1,84 @@
+name: CI
+
+# Solo build + test. El deploy a AWS queda manual (scripts/redeploy.ps1),
+# porque AWS Academy usa credenciales temporales que rotan cada pocas horas
+# y no se pueden guardar de forma permanente como secret de GitHub Actions.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  backend:
+    name: ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: bff
+            path: StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
+          - service: usuarios
+            path: StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
+          - service: habitaciones
+            path: StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
+          - service: reservas
+            path: StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
+          - service: servicios
+            path: StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
+          - service: pagos
+            path: StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
+          - service: notificaciones
+            path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
+          - service: ota
+            path: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: ${{ matrix.path }}/pom.xml
+
+      - name: mvn test
+        working-directory: ${{ matrix.path }}
+        run: mvn -B -q test
+
+      - name: Publicar resultados de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-${{ matrix.service }}
+          path: ${{ matrix.path }}/target/surefire-reports
+          retention-days: 5
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tests unitarios
+        run: npm run test:run
+
+      - name: Build de producción
+        run: npm run build
