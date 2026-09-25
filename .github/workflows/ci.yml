@@ -1,13 +1,20 @@
-name: CI
+name: CI/CD
 
-# Solo build + test. El deploy a AWS queda manual (scripts/redeploy.ps1),
-# porque AWS Academy usa credenciales temporales que rotan cada pocas horas
-# y no se pueden guardar de forma permanente como secret de GitHub Actions.
+# Build + test en cada push/PR. En push a master, además despliega:
+#   backend  -> imagen :<sha> en ECR -> nueva revisión de task definition -> ECS
+#   frontend -> build de Vite -> S3
+# Las credenciales de AWS Academy caducan cada ~4 h: antes de trabajar,
+# ejecuta scripts/actualizar-secrets-github.ps1 para recargarlas.
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
+
+env:
+  AWS_REGION: us-east-1
+  ECS_CLUSTER: staysync-cluster
+  S3_BUCKET: staysync-front-348143777102
 
 jobs:
   backend:
@@ -82,3 +89,107 @@ jobs:
 
       - name: Build de producción
         run: npm run build
+
+  deploy-backend:
+    name: deploy ${{ matrix.service }}
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency: deploy-${{ matrix.service }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: bff
+            path: StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
+          - service: usuarios
+            path: StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
+          - service: habitaciones
+            path: StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
+          - service: reservas
+            path: StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
+          - service: servicios
+            path: StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
+          - service: pagos
+            path: StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
+          - service: notificaciones
+            path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
+          - service: ota
+            path: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Credenciales AWS Academy
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login a ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build y push de la imagen
+        id: image
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/staysync-${{ matrix.service }}:${{ github.sha }}
+        run: |
+          docker build -t $IMAGE ${{ matrix.path }}
+          docker push $IMAGE
+          echo "uri=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Nueva revisión de task definition y deploy
+        env:
+          SVC: ${{ matrix.service }}
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          aws ecs describe-task-definition --task-definition staysync-$SVC --query taskDefinition \
+            | jq --arg IMG "$IMAGE" '.containerDefinitions[0].image = $IMG
+                | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                      .compatibilities, .registeredAt, .registeredBy)' > td.json
+          ARN=$(aws ecs register-task-definition --cli-input-json file://td.json \
+                  --query taskDefinition.taskDefinitionArn --output text)
+          echo "Nueva task definition: $ARN"
+          aws ecs update-service --cluster $ECS_CLUSTER --service $SVC --task-definition $ARN > /dev/null
+          aws ecs wait services-stable --cluster $ECS_CLUSTER --services $SVC
+
+  deploy-frontend:
+    name: deploy frontend
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency: deploy-frontend
+    defaults:
+      run:
+        working-directory: Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1/package-lock.json
+
+      - name: Credenciales AWS Academy
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build de producción
+        env:
+          VITE_BFF_URL: ${{ vars.VITE_BFF_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publicar en S3
+        run: aws s3 sync dist s3://$S3_BUCKET --delete
