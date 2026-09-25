@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getMisReservas } from '../../services/reservasService';
+import { getClima } from '../../services/dashboardService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import WidgetClima from '../../components/common/WidgetClima';
 
 // Enum values match el backend exactamente: PENDIENTE, CONFIRMADA, CHECKIN, CHECKOUT, CANCELADA, NO_SHOW
 const ESTADO_BADGE = {
@@ -27,6 +29,11 @@ export default function DashboardHuesped() {
   const { user } = useAuth();
   const [reservas, setReservas] = useState([]);
   const [loading,  setLoading]  = useState(true);
+  const [clima,    setClima]    = useState(null);
+
+  useEffect(() => {
+    getClima().then(setClima).catch(() => setClima(null));
+  }, []);
 
   useEffect(() => {
     getMisReservas(user?.userId)
@@ -41,11 +48,14 @@ export default function DashboardHuesped() {
   return (
     <div className="fade-in-up p-3 p-md-4">
       {/* Welcome */}
-      <div className="mb-4">
-        <h2 className="fw-bold" style={{ color: 'var(--ss-dark)' }}>
-          Bienvenido, {user?.nombre} 👋
-        </h2>
-        <p className="text-muted">Portal de huéspedes StaySync</p>
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+          <h2 className="fw-bold" style={{ color: 'var(--ss-dark)' }}>
+            Bienvenido, {user?.nombre} 👋
+          </h2>
+          <p className="text-muted mb-0">Portal de huéspedes StaySync</p>
+        </div>
+        <WidgetClima clima={clima} />
       </div>
 
       {/* Quick cards */}
