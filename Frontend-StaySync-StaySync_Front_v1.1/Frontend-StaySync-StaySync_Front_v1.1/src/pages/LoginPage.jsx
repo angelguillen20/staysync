@@ -4,13 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { login as loginService, register as registerSvc } from '../services/authService';
 import { generateCodeVerifier, generateCodeChallenge } from '../services/pkce';
 import AlertMessage from '../components/common/AlertMessage';
+import { COGNITO_DOMAIN, COGNITO_CLIENT_ID, COGNITO_REDIRECT_URI } from '../config/cognito';
 
 const REDIRECT = { ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
-// Config de Cognito Hosted UI — sobrescribible por variables de entorno de Vite en build/deploy.
-const COGNITO_DOMAIN      = import.meta.env.VITE_COGNITO_DOMAIN      ?? 'https://staysync-348143777102.auth.us-east-1.amazoncognito.com';
-const COGNITO_CLIENT_ID   = import.meta.env.VITE_COGNITO_CLIENT_ID   ?? '45vvlk0o108jov40ijgllr5okv';
-const COGNITO_REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI ?? `${window.location.origin}/auth/callback`;
 
 const PW_RULES = [
   { id: 'len', label: 'Al menos 8 caracteres',  test: pw => pw.length >= 8 },
@@ -203,6 +200,9 @@ export default function LoginPage() {
             <>
               <h3 className="fw-bold mb-1">Bienvenido</h3>
               <p className="text-muted small mb-4">Ingresa tus credenciales para continuar</p>
+              {!error && location.state?.motivo === 'inactividad' && (
+                <AlertMessage type="info" message="Tu sesión se cerró por inactividad. Vuelve a iniciar sesión." />
+              )}
               <AlertMessage message={error} onClose={() => setError('')} />
 
               <form onSubmit={handleLogin} noValidate>

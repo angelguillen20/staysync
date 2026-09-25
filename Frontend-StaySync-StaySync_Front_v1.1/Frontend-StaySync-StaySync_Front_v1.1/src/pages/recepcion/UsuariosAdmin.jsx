@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getUsuarios, buscarUsuarios, updateUsuarioAdmin, desactivarUsuarioAdmin } from '../../services/usuariosService';
+import { getUsuarios, buscarUsuarios, updateUsuarioAdmin, cambiarRolUsuario, desactivarUsuarioAdmin } from '../../services/usuariosService';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
@@ -19,8 +19,9 @@ function RolBadge({ rol }) {
     : <span className={`badge ${meta.badge}`}>{meta.label}</span>;
 }
 
-function ModalEditarUsuario({ usuario, onClose, onSave, saving, error }) {
+function ModalEditarUsuario({ usuario, esUnoMismo, onClose, onSave, saving, error }) {
   const [form, setForm] = useState({ nombre: usuario.nombre ?? '', apellido: usuario.apellido ?? '', telefono: usuario.telefono ?? '' });
+  const [rol, setRol] = useState(usuario.rol);
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
 
@@ -28,7 +29,7 @@ function ModalEditarUsuario({ usuario, onClose, onSave, saving, error }) {
     e.preventDefault();
     const campos = { ...form };
     if (nuevaPassword.trim()) campos.nuevaPassword = nuevaPassword.trim();
-    onSave(campos);
+    onSave(campos, rol !== usuario.rol ? rol : null);
   };
 
   return (
@@ -82,6 +83,27 @@ function ModalEditarUsuario({ usuario, onClose, onSave, saving, error }) {
                     onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))}
                     disabled={saving}
                   />
+                </div>
+
+                <div className="col-12">
+                  <label className="form-label fw-medium small">Rol</label>
+                  <select
+                    className="form-select"
+                    value={rol}
+                    onChange={(e) => setRol(e.target.value)}
+                    disabled={saving || esUnoMismo}
+                  >
+                    {Object.entries(ROL_META).map(([valor, meta]) => (
+                      <option key={valor} value={valor}>{meta.label}</option>
+                    ))}
+                  </select>
+                  <small className="text-muted">
+                    {esUnoMismo
+                      ? 'No puedes cambiar tu propio rol.'
+                      : rol !== usuario.rol
+                        ? 'El nuevo rol se aplicará la próxima vez que el usuario inicie sesión.'
+                        : 'Quien entra con Google por primera vez queda como Huésped.'}
+                  </small>
                 </div>
 
                 <div className="col-12">
@@ -203,11 +225,12 @@ export default function UsuariosAdmin() {
     cargarPagina(0);
   };
 
-  const handleGuardar = async (campos) => {
+  const handleGuardar = async (campos, nuevoRol) => {
     setSaving(true);
     setErrorModal('');
     try {
-      const actualizado = await updateUsuarioAdmin(editando.id, campos);
+      let actualizado = await updateUsuarioAdmin(editando.id, campos);
+      if (nuevoRol) actualizado = await cambiarRolUsuario(editando.id, nuevoRol);
       setUsuarios((prev) => prev.map((u) => (u.id === editando.id ? { ...u, ...actualizado } : u)));
       setEditando(null);
       setSuccess(`Usuario "${actualizado.nombre ?? campos.nombre}" actualizado correctamente.`);
@@ -256,6 +279,7 @@ export default function UsuariosAdmin() {
       {editando && (
         <ModalEditarUsuario
           usuario={editando}
+          esUnoMismo={editando.email === currentUser?.email}
           saving={saving}
           error={errorModal}
           onClose={() => { setEditando(null); setErrorModal(''); }}

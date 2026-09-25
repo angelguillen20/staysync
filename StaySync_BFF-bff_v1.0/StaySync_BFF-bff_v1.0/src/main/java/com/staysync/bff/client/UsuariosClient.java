@@ -92,6 +92,15 @@ public class UsuariosClient {
     }
 
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
+    public ResponseEntity<Object> cambiarRol(String authHeader, Long id, Object body) {
+        return restTemplate.exchange(
+                baseUrl + "/api/v1/usuarios/" + id + "/rol",
+                HttpMethod.PATCH,
+                new HttpEntity<>(body, buildHeaders(authHeader)),
+                Object.class);
+    }
+
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
     public ResponseEntity<Object> listarUsuarios(String authHeader) {
         return restTemplate.exchange(
                 baseUrl + "/api/v1/usuarios",

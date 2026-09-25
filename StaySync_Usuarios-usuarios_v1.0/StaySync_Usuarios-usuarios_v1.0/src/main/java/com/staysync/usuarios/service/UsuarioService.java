@@ -131,6 +131,29 @@ public class UsuarioService {
         return usuarioMapper.toResponse(usuarioRepository.save(usuario));
     }
 
+    /**
+     * Cambia el rol de un usuario (p. ej. un empleado que entró con Google y quedó como HUESPED).
+     * Un admin no puede cambiar su propio rol, para que el hotel no se quede sin administradores.
+     * El nuevo rol se aplica en el siguiente login del usuario, ya que viaja dentro del JWT.
+     */
+    @Transactional
+    public UsuarioResponse cambiarRol(Long id, String rol, String emailSolicitante) {
+        Usuario.Rol nuevoRol;
+        try {
+            nuevoRol = Usuario.Rol.valueOf(rol == null ? "" : rol.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Rol inválido: '" + rol + "'. Valores aceptados: "
+                    + java.util.Arrays.toString(Usuario.Rol.values()));
+        }
+        Usuario usuario = findActivoOrThrow(id);
+        if (usuario.getEmail().equalsIgnoreCase(emailSolicitante)) {
+            throw new IllegalArgumentException("No puedes cambiar tu propio rol.");
+        }
+        usuario.setRol(nuevoRol);
+        log.info("Rol de {} cambiado a {} por {}", usuario.getEmail(), nuevoRol, emailSolicitante);
+        return usuarioMapper.toResponse(usuarioRepository.save(usuario));
+    }
+
     @Transactional
     public void desactivar(Long id) {
         Usuario usuario = findActivoOrThrow(id);

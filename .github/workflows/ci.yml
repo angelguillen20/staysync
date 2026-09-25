@@ -187,6 +187,7 @@ jobs:
       - name: Build de producción
         env:
           VITE_BFF_URL: ${{ vars.VITE_BFF_URL }}
+          VITE_SESSION_TIMEOUT_MIN: ${{ vars.VITE_SESSION_TIMEOUT_MIN }}
         run: |
           npm ci
           npm run build

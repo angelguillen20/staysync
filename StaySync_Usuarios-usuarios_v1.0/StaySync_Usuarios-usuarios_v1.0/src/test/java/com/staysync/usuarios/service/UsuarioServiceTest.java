@@ -194,4 +194,42 @@ class UsuarioServiceTest {
             verify(usuarioMapper).updateEntityFromRequest(eq(usuarioBase), eq(request));
         }
     }
+
+    @Nested
+    @DisplayName("cambiarRol()")
+    class CambiarRolTests {
+
+        @Test
+        @DisplayName("Debe cambiar el rol de otro usuario")
+        void debeCambiarRol() {
+            when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuarioBase));
+            when(usuarioRepository.save(any())).thenReturn(usuarioBase);
+            when(usuarioMapper.toResponse(any())).thenReturn(responseBase);
+
+            usuarioService.cambiarRol(1L, "recepcionista", "admin@test.com");
+
+            assertThat(usuarioBase.getRol()).isEqualTo(Usuario.Rol.RECEPCIONISTA);
+            verify(usuarioRepository).save(usuarioBase);
+        }
+
+        @Test
+        @DisplayName("No debe permitir cambiar el rol propio")
+        void noDebeCambiarRolPropio() {
+            when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuarioBase));
+
+            assertThatThrownBy(() -> usuarioService.cambiarRol(1L, "ADMIN", "juan@test.com"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("propio rol");
+            verify(usuarioRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Debe rechazar un rol inexistente")
+        void debeRechazarRolInvalido() {
+            assertThatThrownBy(() -> usuarioService.cambiarRol(1L, "GERENTE", "admin@test.com"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Rol inválido");
+            verify(usuarioRepository, never()).save(any());
+        }
+    }
 }

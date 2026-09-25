@@ -15,6 +15,10 @@ export const getPerfil      = (id)      => apiClient.get(`/usuarios/${id}`).then
 export const updateUsuarioAdmin = (id, campos) =>
   apiClient.put(`/usuarios/${id}`, campos).then(r => r.data);
 
+// Solo ADMIN. rol: 'ADMIN' | 'RECEPCIONISTA' | 'HUESPED'. Se aplica en el siguiente login del usuario.
+export const cambiarRolUsuario = (id, rol) =>
+  apiClient.patch(`/usuarios/${id}/rol`, { rol }).then(r => r.data);
+
 export const desactivarUsuarioAdmin = (id) =>
   apiClient.delete(`/usuarios/${id}`).then(r => r.data);
 

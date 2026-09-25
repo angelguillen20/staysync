@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/usuarios")
@@ -77,6 +78,16 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id,
                                                        @Valid @RequestBody ActualizarUsuarioRequest request) {
         return ResponseEntity.ok(usuarioService.actualizar(id, request));
+    }
+
+    @PatchMapping("/{id}/rol")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Cambiar rol de un usuario (solo ADMIN)",
+               description = "Body: {\"rol\": \"ADMIN\" | \"RECEPCIONISTA\" | \"HUESPED\"}. Se aplica en el siguiente login.")
+    public ResponseEntity<UsuarioResponse> cambiarRol(@PathVariable Long id,
+                                                       @RequestBody Map<String, String> body,
+                                                       Authentication auth) {
+        return ResponseEntity.ok(usuarioService.cambiarRol(id, body.get("rol"), auth.getName()));
     }
 
     @PutMapping("/perfil")

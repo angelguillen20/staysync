@@ -3,10 +3,31 @@ import { createContext, useState, useCallback, useContext, useEffect } from 'rea
 const AuthContext = createContext(null);
 
 const KEYS = {
-  access:  'ss_access_token',
-  refresh: 'ss_refresh_token',
-  user:    'ss_user',
+  access:   'ss_access_token',
+  refresh:  'ss_refresh_token',
+  user:     'ss_user',
+  activity: 'ss_last_activity',
 };
+
+/* Minutos sin actividad (en cualquier pestaña) antes de cerrar la sesión automáticamente */
+export const SESSION_TIMEOUT_MS = (Number(import.meta.env.VITE_SESSION_TIMEOUT_MIN) || 30) * 60 * 1000;
+
+export function readLastActivity() {
+  return Number(localStorage.getItem(KEYS.activity)) || 0;
+}
+
+export function touchActivity() {
+  localStorage.setItem(KEYS.activity, String(Date.now()));
+}
+
+/* Si el navegador estuvo cerrado más que el timeout, la sesión guardada ya no vale */
+function clearIfExpired() {
+  const last = readLastActivity();
+  if (localStorage.getItem(KEYS.access) && last && Date.now() - last > SESSION_TIMEOUT_MS) {
+    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+  }
+}
+clearIfExpired();
 
 function readLocalUser() {
   try {
@@ -40,6 +61,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem(KEYS.access,  at);
     localStorage.setItem(KEYS.refresh, rt);
     localStorage.setItem(KEYS.user,    JSON.stringify(userData));
+    touchActivity();
 
     setAccessToken(at);
     setUser(userData);

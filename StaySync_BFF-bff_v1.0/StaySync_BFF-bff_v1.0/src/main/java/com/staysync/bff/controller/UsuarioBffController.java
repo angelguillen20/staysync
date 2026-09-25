@@ -74,6 +74,16 @@ public class UsuarioBffController {
         return usuariosClient.updatePerfil(authHeader, id, body);
     }
 
+    @Operation(summary = "Cambiar rol de un usuario (solo ADMIN)")
+    @PatchMapping("/{id}/rol")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Object> cambiarRol(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id,
+            @RequestBody Object body) {
+        return usuariosClient.cambiarRol(authHeader, id, body);
+    }
+
     @Operation(summary = "Desactivar usuario (soft delete)")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

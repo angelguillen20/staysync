@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { logoutServer } from '../../services/authService';
+import { cognitoLogoutUrl } from '../../config/cognito';
 
 const PORTAL_LABELS = {
   ADMIN:         'Administración',
@@ -18,15 +19,26 @@ export default function Navbar({ onToggleSidebar }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
+  const cerrarSesionLocal = async () => {
     try {
       const rt = localStorage.getItem('ss_refresh_token');
       if (rt) await logoutServer(rt);
     } catch { /* ignore */ }
     finally {
       logout();
-      navigate('/login', { replace: true });
     }
+  };
+
+  // Salir: cierra la sesión de StaySync. "Continuar con Google" vuelve a entrar con la misma cuenta.
+  const handleSalir = async () => {
+    await cerrarSesionLocal();
+    navigate('/login', { replace: true });
+  };
+
+  // Cerrar sesión: además borra la sesión de Cognito, para poder entrar con otra cuenta de Google.
+  const handleCerrarSesion = async () => {
+    await cerrarSesionLocal();
+    window.location.href = cognitoLogoutUrl();
   };
 
   return (
@@ -53,17 +65,26 @@ export default function Navbar({ onToggleSidebar }) {
       </div>
 
       {user && (
-        <div className="d-flex align-items-center gap-3">
-          <span className="text-white-50 d-none d-sm-inline small">
+        <div className="d-flex align-items-center gap-2">
+          <span className="text-white-50 d-none d-sm-inline small me-1">
             <i className="bi bi-person-circle me-1" />
             {user.nombreCompleto}
           </span>
           <button
             className="btn btn-sm btn-ss-gold"
-            onClick={handleLogout}
+            onClick={handleSalir}
+            title="Salir de StaySync (al volver con Google entrarás con la misma cuenta)"
           >
-            <i className="bi bi-box-arrow-right me-1" />
-            Salir
+            <i className="bi bi-box-arrow-right" />
+            <span className="d-none d-sm-inline ms-1">Salir</span>
+          </button>
+          <button
+            className="btn btn-sm btn-outline-warning"
+            onClick={handleCerrarSesion}
+            title="Cerrar sesión por completo para ingresar con otra cuenta de Google"
+          >
+            <i className="bi bi-person-x" />
+            <span className="d-none d-sm-inline ms-1">Cerrar sesión</span>
           </button>
         </div>
       )}
