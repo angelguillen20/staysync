@@ -11,6 +11,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 @RestControllerAdvice
@@ -62,7 +63,7 @@ public class GlobalExceptionHandler {
             errores.put(campo, e.getDefaultMessage());
         });
         return ResponseEntity.badRequest().body(ErrorResponse.builder()
-                .timestamp(LocalDateTime.now()).status(400).error("Validación fallida")
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault())).status(400).error("Validación fallida")
                 .message("Errores de validación").path(req.getDescription(false).replace("uri=",""))
                 .validationErrors(errores).build());
     }
@@ -75,7 +76,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String msg, WebRequest req) {
         return ResponseEntity.status(status).body(ErrorResponse.builder()
-                .timestamp(LocalDateTime.now()).status(status.value()).error(status.getReasonPhrase())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault())).status(status.value()).error(status.getReasonPhrase())
                 .message(msg).path(req.getDescription(false).replace("uri=","")).build());
     }
 

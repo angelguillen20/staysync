@@ -95,7 +95,6 @@ public class ReservaController {
     @DeleteMapping("/{id}")
     @Operation(summary = "Eliminar reserva (uso interno/admin)")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
-        reservaService.cancelar(id);
-        return ResponseEntity.noContent().build();
+        return cancelar(id);
     }
 }

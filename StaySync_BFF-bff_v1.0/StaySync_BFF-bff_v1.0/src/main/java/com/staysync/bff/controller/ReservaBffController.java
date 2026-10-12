@@ -4,6 +4,7 @@ import com.staysync.bff.client.HabitacionesClient;
 import com.staysync.bff.client.ReservasClient;
 import com.staysync.bff.dto.reserva.ReservaDetalleResponse;
 import com.staysync.bff.messaging.NotificacionEventPublisher;
+import com.staysync.bff.messaging.event.ReservaCreadaEvent;
 import com.staysync.bff.security.JwtService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +25,14 @@ import java.util.Map;
 @Slf4j
 @Tag(name = "BFF Reservas", description = "Gestión de reservas con datos enriquecidos de habitación")
 public class ReservaBffController {
+
+    private static final String HABITACION_ID     = "habitacionId";
+    private static final String HABITACION_NUMERO = "habitacionNumero";
+    private static final String ESTADO            = "estado";
+    private static final String FECHA_ENTRADA     = "fechaEntrada";
+    private static final String FECHA_SALIDA      = "fechaSalida";
+    private static final String USUARIO_ID        = "usuarioId";
+    private static final String CODIGO            = "codigo";
 
     private final ReservasClient             reservasClient;
     private final HabitacionesClient         habitacionesClient;
@@ -56,7 +65,7 @@ public class ReservaBffController {
 
         if (reserva == null) return ResponseEntity.notFound().build();
 
-        Long habitacionId = reserva.get("habitacionId") instanceof Number n ? n.longValue() : null;
+        Long habitacionId = reserva.get(HABITACION_ID) instanceof Number n ? n.longValue() : null;
         ReservaDetalleResponse.HabitacionInfo habitacionInfo = null;
 
         if (habitacionId != null) {
@@ -69,24 +78,24 @@ public class ReservaBffController {
                         .numero(String.valueOf(hab.get("numero")))
                         .tipo(extraerNombreTipo(hab))
                         .precioPorNoche(new BigDecimal(String.valueOf(hab.getOrDefault("precio", "0"))))
-                        .estado(String.valueOf(hab.get("estado")))
+                        .estado(String.valueOf(hab.get(ESTADO)))
                         .build();
             }
         }
 
         long noches = calcularNoches(
-                String.valueOf(reserva.getOrDefault("fechaEntrada", "")),
-                String.valueOf(reserva.getOrDefault("fechaSalida", "")));
+                String.valueOf(reserva.getOrDefault(FECHA_ENTRADA, "")),
+                String.valueOf(reserva.getOrDefault(FECHA_SALIDA, "")));
 
         ReservaDetalleResponse detalle = ReservaDetalleResponse.builder()
                 .id(toLong(reserva.get("id")))
                 .codigoReserva(String.valueOf(reserva.getOrDefault("codigoReserva", "")))
-                .estado(String.valueOf(reserva.getOrDefault("estado", "")))
+                .estado(String.valueOf(reserva.getOrDefault(ESTADO, "")))
                 .fuente(String.valueOf(reserva.getOrDefault("fuente", "")))
-                .fechaEntrada(String.valueOf(reserva.getOrDefault("fechaEntrada", "")))
-                .fechaSalida(String.valueOf(reserva.getOrDefault("fechaSalida", "")))
+                .fechaEntrada(String.valueOf(reserva.getOrDefault(FECHA_ENTRADA, "")))
+                .fechaSalida(String.valueOf(reserva.getOrDefault(FECHA_SALIDA, "")))
                 .habitacionId(habitacionId)
-                .usuarioId(toLong(reserva.get("usuarioId")))
+                .usuarioId(toLong(reserva.get(USUARIO_ID)))
                 .precioTotal(new BigDecimal(String.valueOf(reserva.getOrDefault("precioTotal", "0"))))
                 .notas(String.valueOf(reserva.getOrDefault("notas", "")))
                 .habitacion(habitacionInfo)
@@ -111,18 +120,17 @@ public class ReservaBffController {
                 String email         = extractEmail(authHeader);
                 String nombreUsuario = emailToNombre(email);
 
-                notificacionPublisher.publishReservaCreada(
+                notificacionPublisher.publishReservaCreada(new ReservaCreadaEvent(
                         toLong(reserva.get("id")),
-                        toLong(reserva.get("usuarioId")),
+                        toLong(reserva.get(USUARIO_ID)),
                         email,
                         nombreUsuario,
-                        String.valueOf(reserva.getOrDefault("codigo", "")),
-                        "Hab. " + reserva.getOrDefault("habitacionNumero",
-                                                        reserva.getOrDefault("habitacionId", "")),
-                        String.valueOf(reserva.getOrDefault("fechaEntrada", "")),
-                        String.valueOf(reserva.getOrDefault("fechaSalida", "")),
+                        String.valueOf(reserva.getOrDefault(CODIGO, "")),
+                        etiquetaHabitacion(reserva),
+                        String.valueOf(reserva.getOrDefault(FECHA_ENTRADA, "")),
+                        String.valueOf(reserva.getOrDefault(FECHA_SALIDA, "")),
                         toDouble(reserva.get("precioTotal"))
-                );
+                ));
             } catch (Exception e) {
                 log.warn("No se pudo publicar notificación de reserva creada: {}", e.getMessage());
             }
@@ -149,13 +157,12 @@ public class ReservaBffController {
 
                 notificacionPublisher.publishReservaEstadoCambiado(
                         toLong(reserva.get("id")),
-                        toLong(reserva.get("usuarioId")),
+                        toLong(reserva.get(USUARIO_ID)),
                         email,
                         nombreUsuario,
-                        String.valueOf(reserva.getOrDefault("codigo", "")),
-                        "Hab. " + reserva.getOrDefault("habitacionNumero",
-                                                        reserva.getOrDefault("habitacionId", "")),
-                        String.valueOf(reserva.getOrDefault("estado", ""))
+                        String.valueOf(reserva.getOrDefault(CODIGO, "")),
+                        etiquetaHabitacion(reserva),
+                        String.valueOf(reserva.getOrDefault(ESTADO, ""))
                 );
             } catch (Exception e) {
                 log.warn("No se pudo publicar notificación de cambio de estado: {}", e.getMessage());
@@ -182,12 +189,11 @@ public class ReservaBffController {
 
                 notificacionPublisher.publishReservaEstadoCambiado(
                         toLong(reserva.get("id")),
-                        toLong(reserva.get("usuarioId")),
+                        toLong(reserva.get(USUARIO_ID)),
                         email,
                         nombreUsuario,
-                        String.valueOf(reserva.getOrDefault("codigo", "")),
-                        "Hab. " + reserva.getOrDefault("habitacionNumero",
-                                                        reserva.getOrDefault("habitacionId", "")),
+                        String.valueOf(reserva.getOrDefault(CODIGO, "")),
+                        etiquetaHabitacion(reserva),
                         "CANCELADA"
                 );
             } catch (Exception e) {
@@ -227,6 +233,10 @@ public class ReservaBffController {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    private String etiquetaHabitacion(Map<String, Object> reserva) {
+        return "Hab. " + reserva.getOrDefault(HABITACION_NUMERO, reserva.getOrDefault(HABITACION_ID, ""));
     }
 
     @SuppressWarnings("unchecked")

@@ -4,12 +4,14 @@ import { logoutServer } from '../../services/authService';
 import { cognitoLogoutUrl } from '../../config/cognito';
 
 const PORTAL_LABELS = {
+  SUPER_ADMIN:   'Plataforma',
   ADMIN:         'Administración',
   RECEPCIONISTA: 'Recepción',
   HUESPED:       'Portal Huésped',
 };
 
 const HOME_ROUTE = {
+  SUPER_ADMIN:   '/recepcion',
   ADMIN:         '/recepcion',
   RECEPCIONISTA: '/recepcion',
   HUESPED:       '/huesped',
@@ -53,8 +55,7 @@ export default function Navbar({ onToggleSidebar }) {
         </button>
 
         <Link to={HOME_ROUTE[user?.rol] ?? '/'} className="navbar-brand mb-0">
-          <i className="bi bi-building me-2" />
-          StaySync
+          <i className="bi bi-building me-2" />StaySync
         </Link>
 
         {user && (

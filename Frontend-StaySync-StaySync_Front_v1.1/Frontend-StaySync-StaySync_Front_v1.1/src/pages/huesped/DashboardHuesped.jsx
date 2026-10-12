@@ -119,47 +119,44 @@ export default function DashboardHuesped() {
         </Link>
       </div>
 
-      {loading
-        ? <LoadingSpinner message="Cargando tus reservas..." />
-        : reservas.length === 0
-          ? (
-            <div className="text-center py-5 text-muted">
-              <i className="bi bi-calendar-x fs-1 d-block mb-2" />
-              <p>Aún no tienes reservas.</p>
-              <p className="small">Contacta a recepción para hacer una reserva.</p>
-            </div>
-          )
-          : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle">
-                <thead className="table-light">
-                  <tr>
-                    <th>Habitación</th>
-                    <th>Entrada</th>
-                    <th>Salida</th>
-                    <th>Estado</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reservas.slice(0, 5).map(r => (
-                    <tr key={r.id}>
-                      <td className="fw-medium">Hab. {r.habitacionNumero ?? r.habitacionId}</td>
-                      <td>{r.fechaEntrada ? new Date(r.fechaEntrada).toLocaleDateString('es-CO') : '—'}</td>
-                      <td>{r.fechaSalida  ? new Date(r.fechaSalida).toLocaleDateString('es-CO')  : '—'}</td>
-                      <td>
-                        <span className={`badge ${ESTADO_BADGE[r.estado] ?? 'bg-secondary'}`}>
-                          {ESTADO_LABEL[r.estado] ?? r.estado}
-                        </span>
-                      </td>
-                      <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString()}` : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-      }
+      {loading && <LoadingSpinner message="Cargando tus reservas..." />}
+      {!loading && reservas.length === 0 && (
+        <div className="text-center py-5 text-muted">
+          <i className="bi bi-calendar-x fs-1 d-block mb-2" />
+          <p>Aún no tienes reservas.</p>
+          <p className="small">Contacta a recepción para hacer una reserva.</p>
+        </div>
+      )}
+      {!loading && reservas.length > 0 && (
+        <div className="table-responsive">
+          <table className="table table-hover align-middle">
+            <thead className="table-light">
+              <tr>
+                <th>Habitación</th>
+                <th>Entrada</th>
+                <th>Salida</th>
+                <th>Estado</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reservas.slice(0, 5).map(r => (
+                <tr key={r.id}>
+                  <td className="fw-medium">Hab. {r.habitacionNumero ?? r.habitacionId}</td>
+                  <td>{r.fechaEntrada ? new Date(r.fechaEntrada).toLocaleDateString('es-CO') : '—'}</td>
+                  <td>{r.fechaSalida  ? new Date(r.fechaSalida).toLocaleDateString('es-CO')  : '—'}</td>
+                  <td>
+                    <span className={`badge ${ESTADO_BADGE[r.estado] ?? 'bg-secondary'}`}>
+                      {ESTADO_LABEL[r.estado] ?? r.estado}
+                    </span>
+                  </td>
+                  <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString()}` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

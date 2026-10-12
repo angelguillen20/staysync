@@ -4,6 +4,8 @@ import com.staysync.usuarios.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.*;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -27,8 +29,11 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
+    private static final String ADMIN = "ADMIN";
+
     private static final String[] PUBLIC_ENDPOINTS = {
             "/api/v1/auth/**",
+            "/api/v1/public/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/api-docs/**",
@@ -43,15 +48,24 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                 // /huespedes y /buscar son accesibles para RECEPCIONISTA también (método @PreAuthorize aplica)
-                .requestMatchers(HttpMethod.GET, "/api/v1/usuarios/huespedes").hasAnyRole("ADMIN", "RECEPCIONISTA")
-                .requestMatchers(HttpMethod.GET, "/api/v1/usuarios/buscar").hasAnyRole("ADMIN", "RECEPCIONISTA")
-                .requestMatchers(HttpMethod.GET, "/api/v1/usuarios").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/v1/usuarios/huespedes").hasAnyRole(ADMIN, "RECEPCIONISTA")
+                .requestMatchers(HttpMethod.GET, "/api/v1/usuarios/buscar").hasAnyRole(ADMIN, "RECEPCIONISTA")
+                .requestMatchers(HttpMethod.GET, "/api/v1/usuarios").hasRole(ADMIN)
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * SUPER_ADMIN hereda todo lo de ADMIN: las reglas hasRole('ADMIN') (URL y @PreAuthorize)
+     * también lo aceptan. El alcance por hotel lo aplica UsuarioService, no esta jerarquía.
+     */
+    @Bean
+    public static RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.fromHierarchy("ROLE_SUPER_ADMIN > ROLE_ADMIN");
     }
 
     @Bean

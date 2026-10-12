@@ -57,8 +57,7 @@ export default function ModalReserva({ show, onClose, onCreated }) {
         <div className="modal-content">
           <div className="modal-header" style={{ borderBottom: '2px solid var(--ss-gold)' }}>
             <h5 className="modal-title fw-bold" style={{ color: 'var(--ss-dark)' }}>
-              <i className="bi bi-calendar-plus me-2" style={{ color: 'var(--ss-gold)' }} />
-              Nueva reserva manual
+              <i className="bi bi-calendar-plus me-2" style={{ color: 'var(--ss-gold)' }} />Nueva reserva manual
             </h5>
             <button className="btn-close" onClick={onClose} />
           </div>
@@ -70,8 +69,9 @@ export default function ModalReserva({ show, onClose, onCreated }) {
               <div className="row g-3">
                 {/* Habitación */}
                 <div className="col-12">
-                  <label className="form-label fw-medium small">Habitación disponible</label>
+                  <label htmlFor="reserva-habitacion" className="form-label fw-medium small">Habitación disponible</label>
                   <select
+                    id="reserva-habitacion"
                     className="form-select"
                     name="habitacionId"
                     value={form.habitacionId}
@@ -92,8 +92,9 @@ export default function ModalReserva({ show, onClose, onCreated }) {
 
                 {/* Fechas */}
                 <div className="col-md-6">
-                  <label className="form-label fw-medium small">Fecha de entrada</label>
+                  <label htmlFor="reserva-entrada" className="form-label fw-medium small">Fecha de entrada</label>
                   <input
+                    id="reserva-entrada"
                     type="date"
                     className="form-control"
                     name="fechaEntrada"
@@ -104,8 +105,9 @@ export default function ModalReserva({ show, onClose, onCreated }) {
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-medium small">Fecha de salida</label>
+                  <label htmlFor="reserva-salida" className="form-label fw-medium small">Fecha de salida</label>
                   <input
+                    id="reserva-salida"
                     type="date"
                     className="form-control"
                     name="fechaSalida"
@@ -118,8 +120,9 @@ export default function ModalReserva({ show, onClose, onCreated }) {
 
                 {/* N° huéspedes */}
                 <div className="col-md-4">
-                  <label className="form-label fw-medium small">N° huéspedes</label>
+                  <label htmlFor="reserva-huespedes" className="form-label fw-medium small">N° huéspedes</label>
                   <input
+                    id="reserva-huespedes"
                     type="number"
                     className="form-control"
                     name="numHuespedes"
@@ -132,8 +135,9 @@ export default function ModalReserva({ show, onClose, onCreated }) {
 
                 {/* Contacto */}
                 <div className="col-md-8">
-                  <label className="form-label fw-medium small">Nombre del contacto</label>
+                  <label htmlFor="reserva-contacto-nombre" className="form-label fw-medium small">Nombre del contacto</label>
                   <input
+                    id="reserva-contacto-nombre"
                     className="form-control"
                     name="nombreContacto"
                     placeholder="Juan García"
@@ -143,8 +147,9 @@ export default function ModalReserva({ show, onClose, onCreated }) {
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-medium small">Email de contacto</label>
+                  <label htmlFor="reserva-contacto-email" className="form-label fw-medium small">Email de contacto</label>
                   <input
+                    id="reserva-contacto-email"
                     type="email"
                     className="form-control"
                     name="emailContacto"
@@ -154,8 +159,9 @@ export default function ModalReserva({ show, onClose, onCreated }) {
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label fw-medium small">Teléfono</label>
+                  <label htmlFor="reserva-contacto-telefono" className="form-label fw-medium small">Teléfono</label>
                   <input
+                    id="reserva-contacto-telefono"
                     type="tel"
                     className="form-control"
                     name="telefonoContacto"
@@ -165,8 +171,9 @@ export default function ModalReserva({ show, onClose, onCreated }) {
                   />
                 </div>
                 <div className="col-12">
-                  <label className="form-label fw-medium small">Observaciones</label>
+                  <label htmlFor="reserva-observaciones" className="form-label fw-medium small">Observaciones</label>
                   <textarea
+                    id="reserva-observaciones"
                     className="form-control"
                     name="observaciones"
                     rows={2}

@@ -7,6 +7,7 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
+import com.staysync.bff.security.TenantHeaderInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -64,7 +65,9 @@ public class RestTemplateConfig {
     }
 
     @Bean
-    public RestTemplate restTemplate(CloseableHttpClient httpClient) {
-        return new RestTemplate(new HttpComponentsClientHttpRequestFactory(httpClient));
+    public RestTemplate restTemplate(CloseableHttpClient httpClient, ServicesProperties services) {
+        RestTemplate restTemplate = new RestTemplate(new HttpComponentsClientHttpRequestFactory(httpClient));
+        restTemplate.getInterceptors().add(new TenantHeaderInterceptor(services));
+        return restTemplate;
     }
 }

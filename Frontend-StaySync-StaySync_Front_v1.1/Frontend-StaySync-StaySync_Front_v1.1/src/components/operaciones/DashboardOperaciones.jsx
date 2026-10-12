@@ -55,8 +55,7 @@ function TareaCard({ tarea, onActualizar, updating }) {
 
         {tarea.precioTotal != null && (
           <div className="small mb-2" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-cash me-1" style={{ color: 'var(--ss-gold)' }} />
-            ${Number(tarea.precioTotal).toLocaleString('es-CO')}
+            <i className="bi bi-cash me-1" style={{ color: 'var(--ss-gold)' }} />${Number(tarea.precioTotal).toLocaleString('es-CO')}
           </div>
         )}
 
@@ -139,8 +138,7 @@ export default function DashboardOperaciones() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-clipboard-check me-2" style={{ color: 'var(--ss-gold)' }} />
-            Operaciones
+            <i className="bi bi-clipboard-check me-2" style={{ color: 'var(--ss-gold)' }} />Operaciones
           </h2>
           <small className="text-muted">
             Tareas de servicios adicionales · {tareas.length} en total
@@ -215,27 +213,26 @@ export default function DashboardOperaciones() {
       </div>
 
       {/* List */}
-      {loading
-        ? <LoadingSpinner message="Cargando tareas..." />
-        : tareasFiltradas.length === 0
-          ? (
-            <div className="text-center py-5 text-muted">
-              <i className="bi bi-clipboard-x fs-1 d-block mb-2" />
-              {filtro === 'TODOS'
-                ? 'No hay tareas de operaciones registradas.'
-                : `No hay tareas en estado "${ESTADO_META[filtro]?.label ?? filtro}".`
-              }
-            </div>
-          )
-          : tareasFiltradas.map(t => (
-              <TareaCard
-                key={t.id}
-                tarea={t}
-                onActualizar={handleActualizar}
-                updating={updating}
-              />
-            ))
-      }
+      {loading && <LoadingSpinner message="Cargando tareas..." />}
+      {!loading && tareasFiltradas.length === 0 && (
+        <div className="text-center py-5 text-muted">
+          <i className="bi bi-clipboard-x fs-1 d-block mb-2" />
+          {filtro === 'TODOS'
+            ? 'No hay tareas de operaciones registradas.'
+            : `No hay tareas en estado "${ESTADO_META[filtro]?.label ?? filtro}".`
+          }
+        </div>
+      )}
+      {!loading && tareasFiltradas.length > 0 && (
+        tareasFiltradas.map(t => (
+          <TareaCard
+            key={t.id}
+            tarea={t}
+            onActualizar={handleActualizar}
+            updating={updating}
+          />
+        ))
+      )}
     </div>
   );
 }

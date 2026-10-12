@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @Schema(description = "Información pública del usuario")
 public class UsuarioResponse {
     private Long id;
+    private String tenantId;
     private String nombre;
     private String apellido;
     private String email;

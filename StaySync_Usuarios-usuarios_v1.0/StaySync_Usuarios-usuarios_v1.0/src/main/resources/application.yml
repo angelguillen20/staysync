@@ -30,8 +30,16 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET:StaySyncJWT_SuperSecretKey_Min256Bits_2024!XyZ#AbC}
-  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  # 15 min: el rol y el hotel viajan en el token, y un cambio de rol/hotel (que revoca los
+  # refresh tokens) obliga a reingresar en como máximo este tiempo. El frontend renueva solo.
+  expiration-ms: ${JWT_EXPIRATION_MS:900000}
   refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+
+staysync:
+  tenant:
+    # Hotel asignado a los usuarios sin hotel (filas previas al multi-tenant) y a los
+    # registros que no indican hotelSlug. DataInitializer lo crea si no existe.
+    default-id: ${DEFAULT_TENANT_ID:staysync-demo}
 
 security:
   encryption:

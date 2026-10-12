@@ -56,6 +56,29 @@ class JwtServiceTest {
     }
 
     @Test
+    @DisplayName("extractTenantId() - debe extraer el hotel del token")
+    void debeExtraerTenantId() {
+        SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+        String token = Jwts.builder()
+                .subject("admin@hotelandes.com")
+                .claim("rol", "ADMIN")
+                .claim("tenantId", "hotel-andes")
+                .expiration(new Date(System.currentTimeMillis() + 60_000))
+                .signWith(key)
+                .compact();
+
+        assertThat(jwtService.extractTenantId(token)).isEqualTo("hotel-andes");
+    }
+
+    @Test
+    @DisplayName("extractTenantId() - token antiguo sin hotel devuelve null")
+    void tokenSinTenantDevuelveNull() {
+        String token = buildToken("admin@hotel.com", "ADMIN", 60_000);
+
+        assertThat(jwtService.extractTenantId(token)).isNull();
+    }
+
+    @Test
     @DisplayName("isTokenValid() - token vigente debe ser válido")
     void tokenVigenteEsValido() {
         String token = buildToken("user@hotel.com", "HUESPED", 60_000);

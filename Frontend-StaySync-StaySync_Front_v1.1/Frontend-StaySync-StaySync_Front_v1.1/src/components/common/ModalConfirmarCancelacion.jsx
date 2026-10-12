@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ModalBackdrop from './ModalBackdrop';
 
 const PALABRA_CLAVE = 'confirmar';
 
@@ -18,6 +19,14 @@ export default function ModalConfirmarCancelacion({ show, onClose, onConfirm, lo
 
   const valido = texto.trim().toLowerCase() === PALABRA_CLAVE;
 
+  // Sin texto no se marca el input; luego verde/rojo según coincida con la palabra clave
+  let estiloValidacion = {};
+  if (texto.length > 0) {
+    estiloValidacion = valido
+      ? { borderColor: 'var(--ss-success)', boxShadow: '0 0 0 0.2rem rgba(40,167,69,0.2)' }
+      : { borderColor: 'var(--ss-danger)',  boxShadow: '0 0 0 0.2rem rgba(220,53,69,0.15)' };
+  }
+
   const handleConfirm = () => {
     if (valido) onConfirm();
   };
@@ -33,9 +42,9 @@ export default function ModalConfirmarCancelacion({ show, onClose, onConfirm, lo
         justifyContent: 'center',
         padding: '1rem',
       }}
-      onClick={e => { if (e.target === e.currentTarget && !loading) onClose(); }}
     >
-      <div style={{ width: '100%', maxWidth: 440 }}>
+      <ModalBackdrop onClose={onClose} disabled={loading} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 440 }}>
         <div className="modal-content border-0" style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(34,32,22,0.35), 0 2px 12px rgba(34,32,22,0.18)' }}>
 
           {/* Header */}
@@ -89,7 +98,7 @@ export default function ModalConfirmarCancelacion({ show, onClose, onConfirm, lo
               </p>
             </div>
 
-            <label className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>
+            <label htmlFor="cancelacion-confirmar" className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>
               Para confirmar, escribe{' '}
               <span
                 className="px-2 py-1 rounded"
@@ -106,6 +115,7 @@ export default function ModalConfirmarCancelacion({ show, onClose, onConfirm, lo
             </label>
 
             <input
+              id="cancelacion-confirmar"
               type="text"
               className="form-control mt-2"
               placeholder="Escribe confirmar…"
@@ -114,29 +124,18 @@ export default function ModalConfirmarCancelacion({ show, onClose, onConfirm, lo
               disabled={loading}
               autoComplete="off"
               style={{
-                borderColor: texto.length === 0
-                  ? undefined
-                  : valido
-                    ? 'var(--ss-success)'
-                    : 'var(--ss-danger)',
-                boxShadow: texto.length === 0
-                  ? undefined
-                  : valido
-                    ? '0 0 0 0.2rem rgba(40,167,69,0.2)'
-                    : '0 0 0 0.2rem rgba(220,53,69,0.15)',
+                ...estiloValidacion,
                 transition: 'border-color 0.2s, box-shadow 0.2s',
               }}
             />
             {texto.length > 0 && !valido && (
               <p className="small mt-1 mb-0" style={{ color: 'var(--ss-danger)' }}>
-                <i className="bi bi-x-circle me-1" />
-                Debes escribir exactamente <em>confirmar</em>
+                <i className="bi bi-x-circle me-1" />Debes escribir exactamente <em>confirmar</em>
               </p>
             )}
             {valido && (
               <p className="small mt-1 mb-0" style={{ color: 'var(--ss-success)' }}>
-                <i className="bi bi-check-circle me-1" />
-                Listo, puedes confirmar la cancelación
+                <i className="bi bi-check-circle me-1" />Listo, puedes confirmar la cancelación
               </p>
             )}
           </div>
@@ -151,8 +150,7 @@ export default function ModalConfirmarCancelacion({ show, onClose, onConfirm, lo
               onClick={onClose}
               disabled={loading}
             >
-              <i className="bi bi-arrow-left me-1" />
-              Volver
+              <i className="bi bi-arrow-left me-1" />Volver
             </button>
             <button
               className="btn text-white fw-semibold"

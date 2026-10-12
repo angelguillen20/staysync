@@ -1,6 +1,5 @@
 package com.staysync.bff.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.staysync.bff.client.HabitacionesClient;
 import com.staysync.bff.client.ReservasClient;
 import com.staysync.bff.client.WeatherClient;
@@ -27,7 +26,6 @@ public class DashboardBffController {
     private final ReservasClient reservasClient;
     private final HabitacionesClient habitacionesClient;
     private final WeatherClient weatherClient;
-    private final ObjectMapper mapper;
     private final ExecutorService bffTaskExecutor;
 
     @Operation(summary = "Obtener datos agregados del dashboard",

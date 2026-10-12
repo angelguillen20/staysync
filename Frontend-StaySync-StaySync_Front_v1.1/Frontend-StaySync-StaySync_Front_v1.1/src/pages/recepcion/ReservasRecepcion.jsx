@@ -145,8 +145,7 @@ export default function ReservasRecepcion() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-calendar-check me-2" style={{ color: 'var(--ss-gold)' }} />
-            Reservas
+            <i className="bi bi-calendar-check me-2" style={{ color: 'var(--ss-gold)' }} />Reservas
           </h2>
           <small className="text-muted">Gestión de reservas del hotel</small>
         </div>
@@ -174,77 +173,73 @@ export default function ReservasRecepcion() {
         </div>
       </div>
 
-      {loading
-        ? <LoadingSpinner message="Cargando reservas..." />
-        : filtradas.length === 0
-          ? (
-            <div className="text-center py-5 text-muted">
-              <i className="bi bi-calendar-x fs-1 d-block mb-2" />
-              No se encontraron reservas.
-            </div>
-          )
-          : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle">
-                <thead className="table-light">
-                  <tr>
-                    <th>#</th>
-                    <th>Código / Usuario</th>
-                    {thSort('habitacion',   'Habitación')}
-                    {thSort('fechaEntrada', 'Entrada')}
-                    {thSort('fechaSalida',  'Salida')}
-                    <th>Huésp.</th>
-                    {thSort('total', 'Total')}
-                    <th>Estado</th>
-                    <th>Acciones</th>
+      {loading && <LoadingSpinner message="Cargando reservas..." />}
+      {!loading && filtradas.length === 0 && (
+        <div className="text-center py-5 text-muted">
+          <i className="bi bi-calendar-x fs-1 d-block mb-2" />No se encontraron reservas.
+        </div>
+      )}
+      {!loading && filtradas.length > 0 && (
+        <div className="table-responsive">
+          <table className="table table-hover align-middle">
+            <thead className="table-light">
+              <tr>
+                <th>#</th>
+                <th>Código / Usuario</th>
+                {thSort('habitacion',   'Habitación')}
+                {thSort('fechaEntrada', 'Entrada')}
+                {thSort('fechaSalida',  'Salida')}
+                <th>Huésp.</th>
+                {thSort('total', 'Total')}
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtradas.map(r => {
+                const next = TRANSICIONES[r.estado] ?? [];
+                return (
+                  <tr key={r.id}>
+                    <td className="text-muted small">#{r.id}</td>
+                    <td>
+                      <div className="fw-medium small">{r.codigo ?? '—'}</div>
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>Usr. #{r.usuarioId}</div>
+                    </td>
+                    <td className="fw-medium">Hab. {r.habitacionNumero ?? r.habitacionId}</td>
+                    <td>{r.fechaEntrada ? new Date(r.fechaEntrada).toLocaleDateString('es-CO') : '—'}</td>
+                    <td>{r.fechaSalida  ? new Date(r.fechaSalida).toLocaleDateString('es-CO')  : '—'}</td>
+                    <td>{r.numHuespedes ?? '—'}</td>
+                    <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString()}` : '—'}</td>
+                    <td>
+                      <span className={`badge ${ESTADO_BADGE[r.estado] ?? 'bg-secondary'}`}>
+                        {ESTADO_LABEL[r.estado] ?? r.estado}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="d-flex gap-1 flex-wrap">
+                        {next.map(estado => (
+                          <button
+                            key={estado}
+                            className={`btn btn-sm ${estado === 'CANCELADA' ? 'btn-outline-danger' : 'btn-outline-primary'}`}
+                            style={{ fontSize: '0.72rem' }}
+                            disabled={updating === r.id + estado}
+                            onClick={() => handleCambiarEstado(r.id, estado)}
+                          >
+                            {updating === r.id + estado
+                              ? <span className="spinner-border spinner-border-sm" />
+                              : TRANSICION_LABEL[estado] ?? estado
+                            }
+                          </button>
+                        ))}
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filtradas.map(r => {
-                    const next = TRANSICIONES[r.estado] ?? [];
-                    return (
-                      <tr key={r.id}>
-                        <td className="text-muted small">#{r.id}</td>
-                        <td>
-                          <div className="fw-medium small">{r.codigo ?? '—'}</div>
-                          <div className="text-muted" style={{ fontSize: '0.72rem' }}>Usr. #{r.usuarioId}</div>
-                        </td>
-                        <td className="fw-medium">Hab. {r.habitacionNumero ?? r.habitacionId}</td>
-                        <td>{r.fechaEntrada ? new Date(r.fechaEntrada).toLocaleDateString('es-CO') : '—'}</td>
-                        <td>{r.fechaSalida  ? new Date(r.fechaSalida).toLocaleDateString('es-CO')  : '—'}</td>
-                        <td>{r.numHuespedes ?? '—'}</td>
-                        <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString()}` : '—'}</td>
-                        <td>
-                          <span className={`badge ${ESTADO_BADGE[r.estado] ?? 'bg-secondary'}`}>
-                            {ESTADO_LABEL[r.estado] ?? r.estado}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="d-flex gap-1 flex-wrap">
-                            {next.map(estado => (
-                              <button
-                                key={estado}
-                                className={`btn btn-sm ${estado === 'CANCELADA' ? 'btn-outline-danger' : 'btn-outline-primary'}`}
-                                style={{ fontSize: '0.72rem' }}
-                                disabled={updating === r.id + estado}
-                                onClick={() => handleCambiarEstado(r.id, estado)}
-                              >
-                                {updating === r.id + estado
-                                  ? <span className="spinner-border spinner-border-sm" />
-                                  : TRANSICION_LABEL[estado] ?? estado
-                                }
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )
-      }
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <ModalReserva
         show={modalOpen}

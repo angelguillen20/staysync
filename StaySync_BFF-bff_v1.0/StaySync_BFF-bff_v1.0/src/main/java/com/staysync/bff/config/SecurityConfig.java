@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -22,6 +24,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private static final String ADMIN         = "ADMIN";
+    private static final String RECEPCIONISTA = "RECEPCIONISTA";
+
     private final JwtAuthFilter jwtAuthFilter;
 
     private static final String[] PUBLIC_PATHS = {
@@ -30,12 +35,22 @@ public class SecurityConfig {
             "/bff/auth/refresh",
             "/bff/auth/google",
             "/bff/habitaciones/disponibles",
+            "/bff/public/**",
             "/bff/pagos/stripe/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/api-docs/**",
             "/actuator/health"
     };
+
+    /**
+     * SUPER_ADMIN (operador de la plataforma) hereda todos los permisos de ADMIN, tanto en
+     * las reglas de URL como en @PreAuthorize. El alcance por hotel lo aplica usuarios-service.
+     */
+    @Bean
+    public static RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.fromHierarchy("ROLE_SUPER_ADMIN > ROLE_ADMIN");
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -53,9 +68,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/bff/usuarios/perfil").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/bff/usuarios/perfil").authenticated()
                         // Admin + Recepcionista routes (also enforced by @PreAuthorize)
-                        .requestMatchers("/bff/habitaciones/**").hasAnyRole("ADMIN", "RECEPCIONISTA")
-                        .requestMatchers("/bff/dashboard/**").hasAnyRole("ADMIN", "RECEPCIONISTA")
-                        .requestMatchers("/bff/usuarios/**").hasAnyRole("ADMIN", "RECEPCIONISTA")
+                        .requestMatchers("/bff/habitaciones/**").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers("/bff/dashboard/**").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers("/bff/usuarios/**").hasAnyRole(ADMIN, RECEPCIONISTA)
                         // All remaining routes require authentication
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

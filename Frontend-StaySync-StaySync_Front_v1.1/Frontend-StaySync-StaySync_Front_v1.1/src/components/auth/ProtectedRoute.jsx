@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, tieneRol } from '../../context/AuthContext';
 
 /**
  * RBAC guard.
@@ -20,7 +20,7 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
     );
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user?.rol)) {
+  if (allowedRoles.length > 0 && !tieneRol(user?.rol, allowedRoles)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

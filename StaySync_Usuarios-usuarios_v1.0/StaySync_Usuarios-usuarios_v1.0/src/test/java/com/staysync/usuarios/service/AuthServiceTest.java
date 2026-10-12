@@ -7,6 +7,8 @@ import com.staysync.usuarios.model.RefreshToken;
 import com.staysync.usuarios.model.Usuario;
 import com.staysync.usuarios.repository.RefreshTokenRepository;
 import com.staysync.usuarios.repository.UsuarioRepository;
+import com.staysync.usuarios.tenant.dto.HotelResponse;
+import com.staysync.usuarios.tenant.service.HotelService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -18,6 +20,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -34,6 +37,7 @@ class AuthServiceTest {
     @Mock private RefreshTokenRepository refreshTokenRepository;
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private UsuarioService usuarioService;
+    @Mock private HotelService hotelService;
     @Mock private UserDetails userDetails;
 
     @InjectMocks private AuthService authService;
@@ -44,6 +48,7 @@ class AuthServiceTest {
     void setUp() {
         usuario = Usuario.builder()
                 .id(1L)
+                .tenantId("staysync-demo")
                 .nombre("Admin")
                 .apellido("StaySync")
                 .email("admin@test.com")
@@ -70,6 +75,11 @@ class AuthServiceTest {
                 .expiraEn(LocalDateTime.now().plusDays(7))
                 .build();
         when(refreshTokenRepository.save(any())).thenReturn(rt);
+        HotelResponse hotel = HotelResponse.builder()
+                .tenantId("staysync-demo").nombre("StaySync Demo").slug("staysync-demo")
+                .theme(Map.of("primary", "#1F4E79"))
+                .build();
+        when(hotelService.buscarPorTenantId("staysync-demo")).thenReturn(Optional.of(hotel));
 
         AuthResponse response = authService.login(request);
 
@@ -78,6 +88,55 @@ class AuthServiceTest {
         assertThat(response.getRefreshToken()).isEqualTo("refresh-uuid");
         assertThat(response.getEmail()).isEqualTo("admin@test.com");
         assertThat(response.getRol()).isEqualTo(Usuario.Rol.ADMIN);
+        assertThat(response.getTenantId()).isEqualTo("staysync-demo");
+        assertThat(response.getHotel().getTheme()).containsEntry("primary", "#1F4E79");
+    }
+
+    @Test
+    @DisplayName("login() - el JWT debe llevar el claim tenantId del usuario")
+    @SuppressWarnings("unchecked")
+    void debeIncluirTenantIdEnClaimsDelJwt() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("admin@test.com");
+        request.setPassword("Pass@123");
+
+        when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(usuario));
+        when(userDetailsService.loadUserByUsername("admin@test.com")).thenReturn(userDetails);
+        when(jwtService.generateToken(eq(userDetails), anyMap())).thenReturn("jwt-token");
+        when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(hotelService.buscarPorTenantId("staysync-demo")).thenReturn(Optional.empty());
+
+        authService.login(request);
+
+        ArgumentCaptor<Map<String, Object>> claims = ArgumentCaptor.forClass(Map.class);
+        verify(jwtService).generateToken(eq(userDetails), claims.capture());
+        assertThat(claims.getValue())
+                .containsEntry("tenantId", "staysync-demo")
+                .containsEntry("rol", "ADMIN")
+                .containsEntry("userId", 1L);
+    }
+
+    @Test
+    @DisplayName("login() - usuario sin hotel no debe llevar claim tenantId")
+    @SuppressWarnings("unchecked")
+    void noDebeIncluirTenantIdSiUsuarioNoTieneHotel() {
+        usuario.setTenantId(null);
+        LoginRequest request = new LoginRequest();
+        request.setEmail("admin@test.com");
+        request.setPassword("Pass@123");
+
+        when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(usuario));
+        when(userDetailsService.loadUserByUsername("admin@test.com")).thenReturn(userDetails);
+        when(jwtService.generateToken(eq(userDetails), anyMap())).thenReturn("jwt-token");
+        when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(hotelService.buscarPorTenantId(null)).thenReturn(Optional.empty());
+
+        AuthResponse response = authService.login(request);
+
+        ArgumentCaptor<Map<String, Object>> claims = ArgumentCaptor.forClass(Map.class);
+        verify(jwtService).generateToken(eq(userDetails), claims.capture());
+        assertThat(claims.getValue()).doesNotContainKey("tenantId");
+        assertThat(response.getHotel()).isNull();
     }
 
     @Test

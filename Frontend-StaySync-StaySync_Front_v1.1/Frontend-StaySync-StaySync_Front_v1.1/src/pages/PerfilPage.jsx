@@ -5,6 +5,7 @@ import AlertMessage  from '../components/common/AlertMessage';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const ROL_LABEL = {
+  SUPER_ADMIN:   'Super administrador',
   ADMIN:         'Administrador',
   RECEPCIONISTA: 'Recepcionista',
   HUESPED:       'Huésped',
@@ -71,7 +72,7 @@ export default function PerfilPage() {
     }
     setSaving(true); setError('');
     try {
-      const updated = await updatePerfilPropio(user.email, password, form);
+      const updated = await updatePerfilPropio(form);
       const saved = {
         nombre:   updated.nombre   ?? form.nombre,
         apellido: updated.apellido ?? form.apellido,
@@ -97,8 +98,7 @@ export default function PerfilPage() {
   return (
     <div className="fade-in-up p-3 p-md-4" style={{ maxWidth: 560 }}>
       <h2 className="fw-bold mb-4" style={{ color: 'var(--ss-dark)' }}>
-        <i className="bi bi-person-gear me-2" style={{ color: 'var(--ss-gold)' }} />
-        Mi Perfil
+        <i className="bi bi-person-gear me-2" style={{ color: 'var(--ss-gold)' }} />Mi Perfil
       </h2>
 
       <div className="card border-0 shadow-sm">
@@ -143,8 +143,7 @@ export default function PerfilPage() {
               className="btn btn-ss-dark mt-3 px-4"
               onClick={handleEdit}
             >
-              <i className="bi bi-pencil me-2" />
-              Editar perfil
+              <i className="bi bi-pencil me-2" />Editar perfil
             </button>
           </div>
         )}
@@ -155,8 +154,9 @@ export default function PerfilPage() {
             <form onSubmit={handleSubmit} noValidate>
               <div className="row g-3">
                 <div className="col-sm-6">
-                  <label className="form-label fw-medium small">Nombre</label>
+                  <label htmlFor="perfil-nombre" className="form-label fw-medium small">Nombre</label>
                   <input
+                    id="perfil-nombre"
                     className="form-control"
                     value={form.nombre}
                     onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))}
@@ -165,16 +165,18 @@ export default function PerfilPage() {
                   />
                 </div>
                 <div className="col-sm-6">
-                  <label className="form-label fw-medium small">Apellido</label>
+                  <label htmlFor="perfil-apellido" className="form-label fw-medium small">Apellido</label>
                   <input
+                    id="perfil-apellido"
                     className="form-control"
                     value={form.apellido}
                     onChange={e => setForm(p => ({ ...p, apellido: e.target.value }))}
                   />
                 </div>
                 <div className="col-12">
-                  <label className="form-label fw-medium small">Teléfono</label>
+                  <label htmlFor="perfil-telefono" className="form-label fw-medium small">Teléfono</label>
                   <input
+                    id="perfil-telefono"
                     type="tel"
                     className="form-control"
                     placeholder="+573001234567"
@@ -185,13 +187,13 @@ export default function PerfilPage() {
 
                 <div className="col-12">
                   <hr className="my-1" />
-                  <label className="form-label fw-medium small">
-                    Contraseña actual
-                    <span className="text-danger ms-1">*</span>
+                  <label htmlFor="perfil-password" className="form-label fw-medium small">
+                    Contraseña actual<span className="text-danger ms-1">*</span>
                   </label>
                   <div className="input-group">
                     <span className="input-group-text"><i className="bi bi-lock" /></span>
                     <input
+                      id="perfil-password"
                       type={showPass ? 'text' : 'password'}
                       className="form-control"
                       placeholder="Ingresa tu contraseña para confirmar"

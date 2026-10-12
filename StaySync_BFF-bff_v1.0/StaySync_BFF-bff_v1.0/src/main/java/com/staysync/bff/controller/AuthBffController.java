@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -18,6 +19,8 @@ import java.util.Map;
 @Slf4j
 @Tag(name = "BFF Auth", description = "Autenticación — proxy directo a usuarios-service")
 public class AuthBffController {
+
+    private static final String EMAIL = "email";
 
     private final UsuariosClient             usuariosClient;
     private final NotificacionEventPublisher notificacionPublisher;
@@ -40,7 +43,7 @@ public class AuthBffController {
                 Map<String, Object> usuario = (Map<String, Object>) response.getBody();
                 Long   usuarioId = toLong(usuario.get("id"));
                 String nombre    = String.valueOf(usuario.getOrDefault("nombre", ""));
-                String email     = String.valueOf(usuario.getOrDefault("email", ""));
+                String email     = String.valueOf(usuario.getOrDefault(EMAIL, ""));
                 if (!email.isBlank()) {
                     notificacionPublisher.publishUsuarioRegistrado(usuarioId, nombre, email);
                 }
@@ -59,15 +62,19 @@ public class AuthBffController {
         Map<String, Object> claims = cognitoClient.obtenerClaimsUsuario(
                 body.get("code"), body.get("codeVerifier"), body.get("redirectUri"));
 
-        String email     = String.valueOf(claims.getOrDefault("email", ""));
+        String email     = String.valueOf(claims.getOrDefault(EMAIL, ""));
         String nombre    = String.valueOf(claims.getOrDefault("given_name", ""));
         String apellido  = String.valueOf(claims.getOrDefault("family_name", ""));
 
-        return usuariosClient.loginConGoogle(Map.of(
-                "email", email,
-                "nombre", nombre,
-                "apellido", apellido
-        ));
+        Map<String, String> datos = new HashMap<>();
+        datos.put(EMAIL, email);
+        datos.put("nombre", nombre);
+        datos.put("apellido", apellido);
+        // Portal del hotel desde el que entró; solo se usa si el usuario es nuevo
+        if (body.get("hotelSlug") != null) {
+            datos.put("hotelSlug", body.get("hotelSlug"));
+        }
+        return usuariosClient.loginConGoogle(datos);
     }
 
     @Operation(summary = "Renovar access token usando refresh token")

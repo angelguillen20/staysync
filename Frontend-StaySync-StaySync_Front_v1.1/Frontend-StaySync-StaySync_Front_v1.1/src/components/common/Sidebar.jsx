@@ -29,6 +29,8 @@ const NAV = {
   ],
 };
 
+NAV.SUPER_ADMIN = NAV.ADMIN;
+
 export default function Sidebar({ open }) {
   const { user } = useAuth();
   const links = NAV[user?.rol] ?? [];

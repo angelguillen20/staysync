@@ -50,7 +50,7 @@ public class PagoService {
         pago = pagoRepository.save(pago);
 
         // Simular llamada al gateway de pago externo
-        boolean pagoExitoso = procesarConGateway(request.getGatewayToken(), request.getMonto());
+        boolean pagoExitoso = procesarConGateway(request.getGatewayToken());
 
         if (pagoExitoso) {
             pago.setEstado(EstadoPago.COMPLETADO);
@@ -97,7 +97,7 @@ public class PagoService {
         return toResponse(pago);
     }
 
-    private boolean procesarConGateway(String token, java.math.BigDecimal monto) {
+    private boolean procesarConGateway(String token) {
         // Simulación local: aprueba cualquier pago que traiga token del gateway
         return token != null && !token.isBlank();
     }

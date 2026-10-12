@@ -6,20 +6,41 @@ import { generateCodeVerifier, generateCodeChallenge } from '../services/pkce';
 import AlertMessage from '../components/common/AlertMessage';
 import { COGNITO_DOMAIN, COGNITO_CLIENT_ID, COGNITO_REDIRECT_URI } from '../config/cognito';
 
-const REDIRECT = { ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
+const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
 
 const PW_RULES = [
   { id: 'len', label: 'Al menos 8 caracteres',  test: pw => pw.length >= 8 },
   { id: 'up',  label: 'Una letra mayúscula',     test: pw => /[A-Z]/.test(pw) },
   { id: 'low', label: 'Una letra minúscula',     test: pw => /[a-z]/.test(pw) },
-  { id: 'num', label: 'Un número (0–9)',         test: pw => /[0-9]/.test(pw) },
+  { id: 'num', label: 'Un número (0–9)',         test: pw => /\d/.test(pw) },
   { id: 'sym', label: 'Un símbolo (@$!%*?&)',   test: pw => /[@$!%*?&]/.test(pw) },
 ];
 
-function validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
-function validTel(t)   { return !t || /^[+]?[0-9]{7,15}$/.test(t); }
+// Equivale a /^[^\s@]+@[^\s@]+\.[^\s@]+$/ pero sin regex, para evitar el backtracking superlineal.
+function validEmail(e) {
+  if (/\s/.test(e)) return false;
+  const at = e.indexOf('@');
+  if (at < 1 || at !== e.lastIndexOf('@')) return false;
+  const dominio = e.slice(at + 1);
+  const punto = dominio.indexOf('.', 1);
+  return punto !== -1 && punto < dominio.length - 1;
+}
+function validTel(t)   { return !t || /^[+]?\d{7,15}$/.test(t); }
 function validPw(pw)   { return PW_RULES.every(r => r.test(pw)); }
+
+// Devuelve los campos del registro que no pasan la validación
+function camposInvalidos(reg, confirmar) {
+  const checks = {
+    nombre:    reg.nombre.trim() !== '',
+    apellido:  reg.apellido.trim() !== '',
+    email:     validEmail(reg.email),
+    telefono:  validTel(reg.telefono),
+    password:  validPw(reg.password),
+    confirmar: confirmar === reg.password,
+  };
+  return Object.keys(checks).filter(k => !checks[k]);
+}
 
 function PasswordChecklist({ password }) {
   if (!password) return null;
@@ -71,8 +92,10 @@ export default function LoginPage() {
     if (regTouched[field]) touch(field);
   };
 
-  const fieldClass = (field, ok) =>
-    `form-control${regTouched[field] ? (ok ? ' is-valid' : ' is-invalid') : ''}`;
+  const fieldClass = (field, ok) => {
+    if (!regTouched[field]) return 'form-control';
+    return ok ? 'form-control is-valid' : 'form-control is-invalid';
+  };
 
   /* ── Login ───────────────────────────────────────────── */
   const handleLogin = async e => {
@@ -113,15 +136,7 @@ export default function LoginPage() {
     e.preventDefault();
     setRegTouched({ nombre: true, apellido: true, email: true, telefono: true, password: true, confirmar: true });
 
-    const errors = [];
-    if (!reg.nombre.trim())        errors.push('nombre');
-    if (!reg.apellido.trim())      errors.push('apellido');
-    if (!validEmail(reg.email))    errors.push('email');
-    if (!validTel(reg.telefono))   errors.push('telefono');
-    if (!validPw(reg.password))    errors.push('password');
-    if (confirmar !== reg.password) errors.push('confirmar');
-
-    if (errors.length > 0) {
+    if (camposInvalidos(reg, confirmar).length > 0) {
       setRegErr('Corrige los campos marcados en rojo antes de continuar.');
       return;
     }
@@ -207,10 +222,11 @@ export default function LoginPage() {
 
               <form onSubmit={handleLogin} noValidate>
                 <div className="mb-3">
-                  <label className="form-label fw-medium small">Correo electrónico</label>
+                  <label htmlFor="login-email" className="form-label fw-medium small">Correo electrónico</label>
                   <div className="input-group">
                     <span className="input-group-text"><i className="bi bi-envelope" /></span>
                     <input
+                      id="login-email"
                       type="email"
                       className="form-control"
                       placeholder="usuario@staysync.com"
@@ -223,10 +239,11 @@ export default function LoginPage() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="form-label fw-medium small">Contraseña</label>
+                  <label htmlFor="login-password" className="form-label fw-medium small">Contraseña</label>
                   <div className="input-group">
                     <span className="input-group-text"><i className="bi bi-lock" /></span>
                     <input
+                      id="login-password"
                       type={showPass ? 'text' : 'password'}
                       className="form-control"
                       placeholder="••••••••"
@@ -265,8 +282,7 @@ export default function LoginPage() {
                 className="btn btn-outline-secondary w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2"
                 onClick={handleGoogleLogin}
               >
-                <i className="bi bi-google" />
-                Continuar con Google
+                <i className="bi bi-google" />Continuar con Google
               </button>
 
               <div className="mt-4 p-3 rounded" style={{ background: 'rgba(239,193,67,0.1)', border: '1px solid rgba(239,193,67,0.3)' }}>
@@ -290,8 +306,7 @@ export default function LoginPage() {
 
               {regOk ? (
                 <div className="alert alert-success text-center">
-                  <i className="bi bi-check-circle-fill me-2" />
-                  ¡Registro exitoso! Redirigiendo al login...
+                  <i className="bi bi-check-circle-fill me-2" />¡Registro exitoso! Redirigiendo al login...
                 </div>
               ) : (
                 <>
@@ -302,10 +317,11 @@ export default function LoginPage() {
                     {/* Nombre / Apellido */}
                     <div className="row g-3 mb-3">
                       <div className="col-6">
-                        <label className="form-label fw-medium small">
+                        <label htmlFor="registro-nombre" className="form-label fw-medium small">
                           Nombre <span className="text-danger">*</span>
                         </label>
                         <input
+                          id="registro-nombre"
                           className={fieldClass('nombre', reg.nombre.trim().length > 0)}
                           placeholder="Juan"
                           value={reg.nombre}
@@ -315,10 +331,11 @@ export default function LoginPage() {
                         <div className="invalid-feedback">El nombre es requerido.</div>
                       </div>
                       <div className="col-6">
-                        <label className="form-label fw-medium small">
+                        <label htmlFor="registro-apellido" className="form-label fw-medium small">
                           Apellido <span className="text-danger">*</span>
                         </label>
                         <input
+                          id="registro-apellido"
                           className={fieldClass('apellido', reg.apellido.trim().length > 0)}
                           placeholder="García"
                           value={reg.apellido}
@@ -331,12 +348,13 @@ export default function LoginPage() {
 
                     {/* Email */}
                     <div className="mb-3">
-                      <label className="form-label fw-medium small">
+                      <label htmlFor="registro-email" className="form-label fw-medium small">
                         Correo electrónico <span className="text-danger">*</span>
                       </label>
                       <div className="input-group">
                         <span className="input-group-text"><i className="bi bi-envelope" /></span>
                         <input
+                          id="registro-email"
                           type="email"
                           className={fieldClass('email', validEmail(reg.email))}
                           placeholder="tu@email.com"
@@ -353,12 +371,13 @@ export default function LoginPage() {
 
                     {/* Teléfono */}
                     <div className="mb-3">
-                      <label className="form-label fw-medium small">
+                      <label htmlFor="registro-telefono" className="form-label fw-medium small">
                         Teléfono <span className="text-muted fw-normal">(opcional)</span>
                       </label>
                       <div className="input-group">
                         <span className="input-group-text"><i className="bi bi-telephone" /></span>
                         <input
+                          id="registro-telefono"
                           type="tel"
                           className={fieldClass('telefono', validTel(reg.telefono))}
                           placeholder="+573001234567"
@@ -372,12 +391,13 @@ export default function LoginPage() {
 
                     {/* Contraseña */}
                     <div className="mb-3">
-                      <label className="form-label fw-medium small">
+                      <label htmlFor="registro-password" className="form-label fw-medium small">
                         Contraseña <span className="text-danger">*</span>
                       </label>
                       <div className="input-group">
                         <span className="input-group-text"><i className="bi bi-lock" /></span>
                         <input
+                          id="registro-password"
                           type={showRegPass ? 'text' : 'password'}
                           className={fieldClass('password', validPw(reg.password))}
                           placeholder="Crea una contraseña segura"
@@ -400,12 +420,13 @@ export default function LoginPage() {
 
                     {/* Confirmar contraseña */}
                     <div className="mb-4">
-                      <label className="form-label fw-medium small">
+                      <label htmlFor="registro-confirmar" className="form-label fw-medium small">
                         Confirmar contraseña <span className="text-danger">*</span>
                       </label>
                       <div className="input-group">
                         <span className="input-group-text"><i className="bi bi-lock-fill" /></span>
                         <input
+                          id="registro-confirmar"
                           type={showConfPass ? 'text' : 'password'}
                           className={fieldClass('confirmar', confirmar.length > 0 && confirmar === reg.password)}
                           placeholder="Repite tu contraseña"
