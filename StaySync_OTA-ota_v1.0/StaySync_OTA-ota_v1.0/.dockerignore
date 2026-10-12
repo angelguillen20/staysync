@@ -1,0 +1,5 @@
+# No enviar al build de Docker: Maven compila dentro de la imagen
+target
+.idea
+.vscode
+*.log
