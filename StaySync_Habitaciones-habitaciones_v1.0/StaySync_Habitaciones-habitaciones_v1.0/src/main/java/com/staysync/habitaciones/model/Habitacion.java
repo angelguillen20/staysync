@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 @Entity
@@ -65,10 +66,10 @@ public class Habitacion {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
+    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     @PreUpdate
-    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() { updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     public enum EstadoHabitacion {
         DISPONIBLE, OCUPADA, EN_LIMPIEZA, MANTENIMIENTO, FUERA_DE_SERVICIO

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "imagenes_habitacion")
@@ -31,5 +32,5 @@ public class ImagenHabitacion {
     private LocalDateTime createdAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = LocalDateTime.now(); }
+    protected void onCreate() { createdAt = LocalDateTime.now(ZoneId.systemDefault()); }
 }

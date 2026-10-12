@@ -40,6 +40,9 @@ jobs:
             path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
           - service: ota
             path: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+          # Librería compartida: solo se testea, no tiene imagen ni servicio en ECS
+          - service: commons-tenant
+            path: StaySync_Commons/staysync-tenant
     steps:
       - name: Checkout
         uses: actions/checkout@v4

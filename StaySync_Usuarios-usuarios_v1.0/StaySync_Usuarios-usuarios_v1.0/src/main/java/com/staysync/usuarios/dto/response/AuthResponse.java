@@ -1,6 +1,7 @@
 package com.staysync.usuarios.dto.response;
 
 import com.staysync.usuarios.model.Usuario.Rol;
+import com.staysync.usuarios.tenant.dto.HotelResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
@@ -34,4 +35,10 @@ public class AuthResponse {
 
     @Schema(description = "Rol del usuario")
     private Rol rol;
+
+    @Schema(description = "Hotel (tenant) del usuario", example = "staysync-demo")
+    private String tenantId;
+
+    @Schema(description = "Nombre, logo y colores del hotel para el ThemeProvider del frontend")
+    private HotelResponse hotel;
 }

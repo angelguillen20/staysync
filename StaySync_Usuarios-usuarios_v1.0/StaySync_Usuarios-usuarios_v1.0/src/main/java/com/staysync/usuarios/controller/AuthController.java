@@ -54,7 +54,7 @@ public class AuthController {
                })
     public ResponseEntity<AuthResponse> google(@RequestBody Map<String, String> body) {
         return ResponseEntity.ok(authService.loginConGoogle(
-                body.get("email"), body.get("nombre"), body.get("apellido")));
+                body.get("email"), body.get("nombre"), body.get("apellido"), body.get("hotelSlug")));
     }
 
     @PostMapping("/refresh")

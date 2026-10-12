@@ -84,6 +84,17 @@ public class UsuarioBffController {
         return usuariosClient.cambiarRol(authHeader, id, body);
     }
 
+    @Operation(summary = "Mover una cuenta de personal a otro hotel (solo SUPER_ADMIN)",
+               description = "Body: {\"tenantId\": \"hotel-andes\"}. Cierra las sesiones del usuario.")
+    @PatchMapping("/{id}/hotel")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Object> cambiarHotel(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id,
+            @RequestBody Object body) {
+        return usuariosClient.cambiarHotel(authHeader, id, body);
+    }
+
     @Operation(summary = "Desactivar usuario (soft delete)")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

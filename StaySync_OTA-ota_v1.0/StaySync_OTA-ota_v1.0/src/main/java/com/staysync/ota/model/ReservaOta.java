@@ -6,6 +6,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 @Entity
@@ -58,8 +59,8 @@ public class ReservaOta {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
+    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     @PreUpdate
-    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() { updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 }

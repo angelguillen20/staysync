@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { loginWithGoogle } from '../services/authService';
 
-const REDIRECT = { ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
+const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
 export default function AuthCallbackPage() {
   const [error, setError] = useState('');
@@ -55,7 +55,7 @@ export default function AuthCallbackPage() {
           </>
         ) : (
           <>
-            <div className="spinner-border" style={{ color: 'var(--ss-gold)', width: '3rem', height: '3rem' }} role="status" />
+            <output className="spinner-border" style={{ color: 'var(--ss-gold)', width: '3rem', height: '3rem' }} />
             <p className="mt-3 text-muted">Completando inicio de sesión con Google…</p>
           </>
         )}

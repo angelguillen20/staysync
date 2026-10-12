@@ -30,29 +30,31 @@ public class UsuarioController {
 
     @GetMapping("/huespedes")
     @PreAuthorize("hasAnyRole('ADMIN','RECEPCIONISTA')")
-    @Operation(summary = "Listar todos los huéspedes activos (uso de recepción)")
-    public ResponseEntity<List<UsuarioResponse>> listarHuespedes() {
-        return ResponseEntity.ok(usuarioService.listarHuespedes());
+    @Operation(summary = "Listar los huéspedes activos del hotel (uso de recepción)")
+    public ResponseEntity<List<UsuarioResponse>> listarHuespedes(Authentication auth) {
+        return ResponseEntity.ok(usuarioService.listarHuespedes(auth.getName()));
     }
 
     @GetMapping("/buscar")
     @PreAuthorize("hasAnyRole('ADMIN','RECEPCIONISTA')")
-    @Operation(summary = "Buscar usuarios por nombre, apellido o email; filtrar por rol")
+    @Operation(summary = "Buscar usuarios del hotel por nombre, apellido o email; filtrar por rol")
     public ResponseEntity<List<UsuarioResponse>> buscar(
             @RequestParam(required = false, defaultValue = "") String q,
-            @RequestParam(required = false, defaultValue = "") String rol) {
-        return ResponseEntity.ok(usuarioService.buscar(q, rol));
+            @RequestParam(required = false, defaultValue = "") String rol,
+            Authentication auth) {
+        return ResponseEntity.ok(usuarioService.buscar(q, rol, auth.getName()));
     }
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Listar todos los usuarios (solo ADMIN)")
+    @Operation(summary = "Listar usuarios (ADMIN: los de su hotel; SUPER_ADMIN: todos)")
     public ResponseEntity<Page<UsuarioResponse>> listar(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sort) {
+            @RequestParam(defaultValue = "id") String sort,
+            Authentication auth) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
-        return ResponseEntity.ok(usuarioService.listarTodos(pageable));
+        return ResponseEntity.ok(usuarioService.listarTodos(pageable, auth.getName()));
     }
 
     @GetMapping("/{id}")
@@ -62,8 +64,8 @@ public class UsuarioController {
                    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = UsuarioResponse.class))),
                    @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
                })
-    public ResponseEntity<UsuarioResponse> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(usuarioService.obtenerPorId(id));
+    public ResponseEntity<UsuarioResponse> obtenerPorId(@PathVariable Long id, Authentication auth) {
+        return ResponseEntity.ok(usuarioService.obtenerPorId(id, auth.getName()));
     }
 
     @GetMapping("/perfil")
@@ -76,8 +78,9 @@ public class UsuarioController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Actualizar usuario (solo ADMIN)")
     public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id,
-                                                       @Valid @RequestBody ActualizarUsuarioRequest request) {
-        return ResponseEntity.ok(usuarioService.actualizar(id, request));
+                                                       @Valid @RequestBody ActualizarUsuarioRequest request,
+                                                       Authentication auth) {
+        return ResponseEntity.ok(usuarioService.actualizar(id, request, auth.getName()));
     }
 
     @PatchMapping("/{id}/rol")
@@ -90,12 +93,23 @@ public class UsuarioController {
         return ResponseEntity.ok(usuarioService.cambiarRol(id, body.get("rol"), auth.getName()));
     }
 
+    @PatchMapping("/{id}/hotel")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Mover una cuenta de personal a otro hotel (solo SUPER_ADMIN)",
+               description = "Body: {\"tenantId\": \"hotel-andes\"}. Cierra las sesiones del usuario; "
+                       + "el nuevo hotel se aplica en su siguiente login.")
+    public ResponseEntity<UsuarioResponse> cambiarHotel(@PathVariable Long id,
+                                                         @RequestBody Map<String, String> body,
+                                                         Authentication auth) {
+        return ResponseEntity.ok(usuarioService.cambiarHotel(id, body.get("tenantId"), auth.getName()));
+    }
+
     @PutMapping("/perfil")
     @Operation(summary = "Actualizar perfil propio")
     public ResponseEntity<UsuarioResponse> actualizarPerfil(Authentication auth,
                                                               @Valid @RequestBody ActualizarUsuarioRequest request) {
         UsuarioResponse usuario = usuarioService.obtenerPorEmail(auth.getName());
-        return ResponseEntity.ok(usuarioService.actualizar(usuario.getId(), request));
+        return ResponseEntity.ok(usuarioService.actualizar(usuario.getId(), request, auth.getName()));
     }
 
     @DeleteMapping("/{id}")
@@ -105,8 +119,8 @@ public class UsuarioController {
                    @ApiResponse(responseCode = "204", description = "Usuario desactivado"),
                    @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
                })
-    public ResponseEntity<Void> desactivar(@PathVariable Long id) {
-        usuarioService.desactivar(id);
+    public ResponseEntity<Void> desactivar(@PathVariable Long id, Authentication auth) {
+        usuarioService.desactivar(id, auth.getName());
         return ResponseEntity.noContent().build();
     }
 }

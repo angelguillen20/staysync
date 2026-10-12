@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
+import ModalBackdrop  from '../../components/common/ModalBackdrop';
 
 const ESTADO_META = {
   DISPONIBLE:      { label: 'Disponible',        badge: 'bg-success',           icon: 'bi-check-circle-fill',  color: '#198754', bg: '#f0fdf4' },
@@ -98,13 +99,11 @@ function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactiv
               {hab.tipoNombre ?? 'Estándar'}
             </span>
             <span className="badge bg-light text-dark border small">
-              <i className="bi bi-people me-1" style={{ color: 'var(--ss-gold)' }} />
-              Cap. {hab.capacidad ?? '—'}
+              <i className="bi bi-people me-1" style={{ color: 'var(--ss-gold)' }} />Cap. {hab.capacidad ?? '—'}
             </span>
             {hab.piso && (
               <span className="badge bg-light text-dark border small">
-                <i className="bi bi-building me-1" style={{ color: 'var(--ss-gold)' }} />
-                Piso {hab.piso}
+                <i className="bi bi-building me-1" style={{ color: 'var(--ss-gold)' }} />Piso {hab.piso}
               </span>
             )}
           </div>
@@ -209,15 +208,14 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 1055, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(34,32,22,0.45)' }}
-      onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}
     >
-      <div style={{ width: '100%', maxWidth: 520 }}>
+      <ModalBackdrop onClose={onClose} disabled={saving} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 520 }}>
         <div className="modal-content border-0" style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(34,32,22,0.35)' }}>
 
           <div className="modal-header" style={{ background: 'var(--ss-dark)', borderBottom: '3px solid var(--ss-gold)', padding: '1.1rem 1.5rem' }}>
             <h5 className="modal-title mb-0 fw-bold" style={{ color: '#fff' }}>
-              <i className="bi bi-building-add me-2" style={{ color: 'var(--ss-gold)' }} />
-              Nueva habitación
+              <i className="bi bi-building-add me-2" style={{ color: 'var(--ss-gold)' }} />Nueva habitación
             </h5>
             <button className="btn-close btn-close-white" onClick={onClose} disabled={saving} aria-label="Cerrar" />
           </div>
@@ -235,8 +233,9 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
                 <>
                   <div className="row g-3 mb-3">
                     <div className="col-sm-6">
-                      <label className="form-label fw-medium small">N.° de habitación</label>
+                      <label htmlFor="habitacion-numero" className="form-label fw-medium small">N.° de habitación</label>
                       <input
+                        id="habitacion-numero"
                         className="form-control"
                         placeholder="Ej: 305"
                         value={form.numero}
@@ -246,8 +245,9 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
                       />
                     </div>
                     <div className="col-sm-6">
-                      <label className="form-label fw-medium small">Piso</label>
+                      <label htmlFor="habitacion-piso" className="form-label fw-medium small">Piso</label>
                       <input
+                        id="habitacion-piso"
                         type="number"
                         className="form-control"
                         min={1}
@@ -257,8 +257,9 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
                       />
                     </div>
                     <div className="col-sm-6">
-                      <label className="form-label fw-medium small">Tipo</label>
+                      <label htmlFor="habitacion-tipo" className="form-label fw-medium small">Tipo</label>
                       <select
+                        id="habitacion-tipo"
                         className="form-select"
                         value={form.tipoId}
                         onChange={(e) => setForm((p) => ({ ...p, tipoId: e.target.value }))}
@@ -270,8 +271,9 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
                       </select>
                     </div>
                     <div className="col-sm-6">
-                      <label className="form-label fw-medium small">Precio por noche ($)</label>
+                      <label htmlFor="habitacion-precio" className="form-label fw-medium small">Precio por noche ($)</label>
                       <input
+                        id="habitacion-precio"
                         type="number"
                         className="form-control"
                         min="0.01"
@@ -282,8 +284,9 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
                       />
                     </div>
                     <div className="col-12">
-                      <label className="form-label fw-medium small">Descripción <span className="text-muted fw-normal">(opcional)</span></label>
+                      <label htmlFor="habitacion-descripcion" className="form-label fw-medium small">Descripción <span className="text-muted fw-normal">(opcional)</span></label>
                       <textarea
+                        id="habitacion-descripcion"
                         className="form-control"
                         rows={2}
                         value={form.descripcion}
@@ -294,8 +297,8 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
                   </div>
 
                   {amenidades.length > 0 && (
-                    <div>
-                      <label className="form-label fw-medium small mb-2">Amenidades <span className="text-muted fw-normal">(opcional)</span></label>
+                    <fieldset>
+                      <legend className="form-label d-block fw-medium small mb-2">Amenidades <span className="text-muted fw-normal">(opcional)</span></legend>
                       <div className="d-flex flex-wrap gap-2">
                         {amenidades.map((a) => {
                           const checked = amenidadIds.includes(a.id);
@@ -320,7 +323,7 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
                           );
                         })}
                       </div>
-                    </div>
+                    </fieldset>
                   )}
                 </>
               )}
@@ -461,8 +464,7 @@ export default function HabitacionesRecepcion() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-building me-2" style={{ color: 'var(--ss-gold)' }} />
-            Habitaciones
+            <i className="bi bi-building me-2" style={{ color: 'var(--ss-gold)' }} />Habitaciones
           </h2>
           <small className="text-muted">
             {habitaciones.length} habitaciones en total · {conteo.DISPONIBLE ?? 0} disponibles
@@ -539,32 +541,28 @@ export default function HabitacionesRecepcion() {
       </div>
 
       {/* Grid */}
-      {loading
-        ? <LoadingSpinner message="Cargando habitaciones..." />
-        : habsFiltradas.length === 0
-          ? (
-            <div className="text-center py-5 text-muted">
-              <i className="bi bi-building-slash fs-1 d-block mb-2" />
-              No hay habitaciones{filtro !== 'TODOS' ? ` en estado "${ESTADO_META[filtro]?.label ?? filtro}"` : ''}.
-            </div>
-          )
-          : (
-            <div className="row g-3">
-              {habsFiltradas.map(h => (
-                <HabitacionCard
-                  key={h.id}
-                  hab={h}
-                  onCambiar={handleCambiarEstado}
-                  updating={updating}
-                  success={successId}
-                  isAdmin={isAdmin}
-                  onDesactivar={handleDesactivar}
-                  deactivating={deactivating}
-                />
-              ))}
-            </div>
-          )
-      }
+      {loading && <LoadingSpinner message="Cargando habitaciones..." />}
+      {!loading && habsFiltradas.length === 0 && (
+        <div className="text-center py-5 text-muted">
+          <i className="bi bi-building-slash fs-1 d-block mb-2" />No hay habitaciones{filtro !== 'TODOS' ? ` en estado "${ESTADO_META[filtro]?.label ?? filtro}"` : ''}.
+        </div>
+      )}
+      {!loading && habsFiltradas.length > 0 && (
+        <div className="row g-3">
+          {habsFiltradas.map(h => (
+            <HabitacionCard
+              key={h.id}
+              hab={h}
+              onCambiar={handleCambiarEstado}
+              updating={updating}
+              success={successId}
+              isAdmin={isAdmin}
+              onDesactivar={handleDesactivar}
+              deactivating={deactivating}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

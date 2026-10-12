@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 @Service
@@ -112,7 +113,7 @@ public class NotificacionService {
                     notificacion.getAsunto(),
                     notificacion.getCuerpo());
             notificacion.setEstado(EstadoNotificacion.ENVIADO);
-            notificacion.setEnviadoEn(LocalDateTime.now());
+            notificacion.setEnviadoEn(LocalDateTime.now(ZoneId.systemDefault()));
             notificacionRepository.save(notificacion);
             return;
         }
@@ -127,7 +128,7 @@ public class NotificacionService {
             mailSender.send(mensaje);
 
             notificacion.setEstado(EstadoNotificacion.ENVIADO);
-            notificacion.setEnviadoEn(LocalDateTime.now());
+            notificacion.setEnviadoEn(LocalDateTime.now(ZoneId.systemDefault()));
             log.info("Email enviado a: {}", notificacion.getDestinatario());
         } catch (Exception e) {
             notificacion.setIntentos(notificacion.getIntentos() + 1);

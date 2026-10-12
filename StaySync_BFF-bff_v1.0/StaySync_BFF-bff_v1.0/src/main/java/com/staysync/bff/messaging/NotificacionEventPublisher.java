@@ -40,14 +40,10 @@ public class NotificacionEventPublisher {
         }
     }
 
-    public void publishReservaCreada(Long reservaId, Long usuarioId, String email,
-                                     String nombreUsuario, String codigo, String habitacion,
-                                     String fechaEntrada, String fechaSalida, Double precioTotal) {
+    public void publishReservaCreada(ReservaCreadaEvent evento) {
         if (!enabled) return;
+        Long reservaId = evento.reservaId();
         try {
-            var evento = new ReservaCreadaEvent(
-                    reservaId, usuarioId, email, nombreUsuario,
-                    codigo, habitacion, fechaEntrada, fechaSalida, precioTotal);
             restTemplate.postForEntity(baseUrl + "/api/v1/notificaciones/reserva-creada", evento, Void.class);
             log.info("Notificación enviada [reserva.creada]: reservaId={}", reservaId);
         } catch (Exception e) {

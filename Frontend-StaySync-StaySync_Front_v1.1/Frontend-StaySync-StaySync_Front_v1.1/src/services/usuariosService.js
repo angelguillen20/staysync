@@ -1,5 +1,4 @@
 import apiClient from './apiClient';
-import { isDemoUser, validateDemoPassword } from './authService';
 
 // params: { page?: number, size?: number, sort?: string } — respuesta paginada (Page<Usuario>)
 export const getUsuarios    = (params = {}) =>
@@ -15,9 +14,17 @@ export const getPerfil      = (id)      => apiClient.get(`/usuarios/${id}`).then
 export const updateUsuarioAdmin = (id, campos) =>
   apiClient.put(`/usuarios/${id}`, campos).then(r => r.data);
 
-// Solo ADMIN. rol: 'ADMIN' | 'RECEPCIONISTA' | 'HUESPED'. Se aplica en el siguiente login del usuario.
+// ADMIN (su hotel) o SUPER_ADMIN. rol: 'SUPER_ADMIN' | 'ADMIN' | 'RECEPCIONISTA' | 'HUESPED'.
+// Se aplica en el siguiente login del usuario (el backend cierra sus sesiones).
 export const cambiarRolUsuario = (id, rol) =>
   apiClient.patch(`/usuarios/${id}/rol`, { rol }).then(r => r.data);
+
+// Solo SUPER_ADMIN. Mueve una cuenta de personal a otro hotel; cierra sus sesiones.
+export const cambiarHotelUsuario = (id, tenantId) =>
+  apiClient.patch(`/usuarios/${id}/hotel`, { tenantId }).then(r => r.data);
+
+// Solo SUPER_ADMIN. Hoteles activos para el selector: [{ tenantId, nombre, slug, ... }]
+export const getHoteles = () => apiClient.get('/hoteles').then(r => r.data);
 
 export const desactivarUsuarioAdmin = (id) =>
   apiClient.delete(`/usuarios/${id}`).then(r => r.data);
@@ -25,26 +32,10 @@ export const desactivarUsuarioAdmin = (id) =>
 // Perfil propio — usa el JWT para identificar al usuario (accesible para cualquier rol)
 export const getPerfilPropio = () => apiClient.get('/usuarios/perfil').then(r => r.data);
 
-export async function updatePerfilPropio(email, passwordActual, campos) {
-  if (isDemoUser(email)) {
-    if (!validateDemoPassword(email, passwordActual)) {
-      const err = new Error('Contraseña incorrecta.');
-      err.response = { data: { message: 'Contraseña incorrecta.' } };
-      throw err;
-    }
-    return campos;
-  }
+export async function updatePerfilPropio(campos) {
   return apiClient.put('/usuarios/perfil', campos).then(r => r.data);
 }
 
 export async function updatePerfil(id, { email, passwordActual, ...campos }) {
-  if (isDemoUser(email)) {
-    if (!validateDemoPassword(email, passwordActual)) {
-      const err = new Error('Contraseña incorrecta.');
-      err.response = { data: { message: 'Contraseña incorrecta.' } };
-      throw err;
-    }
-    return campos;
-  }
   return apiClient.put(`/usuarios/${id}`, { ...campos, passwordActual }).then(r => r.data);
 }

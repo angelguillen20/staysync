@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const REDIRECT = { ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
+const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
 export default function UnauthorizedPage() {
   const { user } = useAuth();
@@ -17,8 +17,7 @@ export default function UnauthorizedPage() {
         to={user ? (REDIRECT[user.rol] ?? '/') : '/login'}
         className="btn btn-ss-dark px-4 py-2"
       >
-        <i className="bi bi-arrow-left me-2" />
-        Volver al inicio
+        <i className="bi bi-arrow-left me-2" />Volver al inicio
       </Link>
     </div>
   );

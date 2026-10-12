@@ -71,8 +71,7 @@ export default function PagosRecepcion() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-credit-card me-2" style={{ color: 'var(--ss-gold)' }} />
-            Pagos
+            <i className="bi bi-credit-card me-2" style={{ color: 'var(--ss-gold)' }} />Pagos
           </h2>
           <small className="text-muted">Procesamiento de pagos — pagos-service</small>
         </div>
@@ -88,15 +87,15 @@ export default function PagosRecepcion() {
       {showForm && (
         <div className="card border-0 shadow-sm mb-4">
           <div className="card-header fw-semibold" style={{ background: 'var(--ss-cream)', borderBottom: '2px solid var(--ss-gold)' }}>
-            <i className="bi bi-cash-coin me-2" style={{ color: 'var(--ss-gold)' }} />
-            Procesar pago
+            <i className="bi bi-cash-coin me-2" style={{ color: 'var(--ss-gold)' }} />Procesar pago
           </div>
           <div className="card-body">
             <form onSubmit={handleProcesar} noValidate>
               <div className="row g-3">
                 <div className="col-md-4">
-                  <label className="form-label fw-medium small">ID de Reserva</label>
+                  <label htmlFor="pago-reserva" className="form-label fw-medium small">ID de Reserva</label>
                   <input
+                    id="pago-reserva"
                     type="number"
                     className="form-control"
                     placeholder="Ej: 42"
@@ -106,8 +105,9 @@ export default function PagosRecepcion() {
                   />
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label fw-medium small">Monto ($)</label>
+                  <label htmlFor="pago-monto" className="form-label fw-medium small">Monto ($)</label>
                   <input
+                    id="pago-monto"
                     type="number"
                     className="form-control"
                     placeholder="0.00"
@@ -119,18 +119,20 @@ export default function PagosRecepcion() {
                   />
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label fw-medium small">Método de pago</label>
+                  <label htmlFor="pago-metodo" className="form-label fw-medium small">Método de pago</label>
                   <select
+                    id="pago-metodo"
                     className="form-select"
                     value={form.metodoPago}
                     onChange={e => setForm(p => ({ ...p, metodoPago: e.target.value }))}
                   >
-                    {METODOS.map(m => <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>)}
+                    {METODOS.map(m => <option key={m} value={m}>{m.replaceAll('_', ' ')}</option>)}
                   </select>
                 </div>
                 <div className="col-12">
-                  <label className="form-label fw-medium small">Descripción (opcional)</label>
+                  <label htmlFor="pago-descripcion" className="form-label fw-medium small">Descripción (opcional)</label>
                   <input
+                    id="pago-descripcion"
                     className="form-control"
                     placeholder="Ej: Pago total estadía"
                     value={form.descripcion}
@@ -157,8 +159,7 @@ export default function PagosRecepcion() {
       {/* ── Buscar por reserva ── */}
       <div className="card border-0 shadow-sm">
         <div className="card-header fw-semibold" style={{ background: 'var(--ss-cream)', borderBottom: '2px solid var(--ss-gold)' }}>
-          <i className="bi bi-search me-2" style={{ color: 'var(--ss-gold)' }} />
-          Buscar pagos por reserva
+          <i className="bi bi-search me-2" style={{ color: 'var(--ss-gold)' }} />Buscar pagos por reserva
         </div>
         <div className="card-body">
           <div className="d-flex gap-2 mb-4" style={{ maxWidth: 400 }}>
@@ -179,8 +180,7 @@ export default function PagosRecepcion() {
 
           {!loading && buscado && pagos.length === 0 && (
             <div className="text-center py-4 text-muted">
-              <i className="bi bi-inbox fs-1 d-block mb-2" />
-              No hay pagos registrados para la reserva #{reservaId}.
+              <i className="bi bi-inbox fs-1 d-block mb-2" />No hay pagos registrados para la reserva #{reservaId}.
             </div>
           )}
 
@@ -202,7 +202,7 @@ export default function PagosRecepcion() {
                     <tr key={p.id}>
                       <td className="text-muted small">#{p.id}</td>
                       <td className="fw-bold">${Number(p.monto ?? 0).toLocaleString()}</td>
-                      <td className="text-muted small">{p.metodoPago?.replace(/_/g, ' ')}</td>
+                      <td className="text-muted small">{p.metodoPago?.replaceAll('_', ' ')}</td>
                       <td>
                         <span className={`badge ${ESTADO_BADGE[p.estado] ?? 'bg-secondary'}`}>
                           {p.estado}

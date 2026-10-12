@@ -14,6 +14,8 @@ import java.util.Collections;
 @Component
 public class ServiciosClient {
 
+    private static final String LOG_NO_DISPONIBLE = "servicios-service no disponible: {}";
+
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
@@ -76,23 +78,28 @@ public class ServiciosClient {
                 Object.class);
     }
 
+    // Fallbacks de Resilience4j: deben repetir la firma del método protegido aunque no usen todos sus parámetros.
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarFallback(String authHeader, Exception ex) {
-        log.warn("servicios-service no disponible: {}", ex.getMessage());
+        log.warn(LOG_NO_DISPONIBLE, ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarFallback(String authHeader, Long usuarioId, Exception ex) {
-        log.warn("servicios-service no disponible: {}", ex.getMessage());
+        log.warn(LOG_NO_DISPONIBLE, ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Object body, Exception ex) {
-        log.error("servicios-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de servicios adicionales no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Long id, Object body, Exception ex) {
-        log.error("servicios-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de servicios adicionales no está disponible.");
     }
 }

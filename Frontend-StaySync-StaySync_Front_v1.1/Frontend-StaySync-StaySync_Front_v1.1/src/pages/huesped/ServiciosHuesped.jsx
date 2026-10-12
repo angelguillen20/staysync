@@ -4,9 +4,10 @@ import { getServicios, getSolicitudes, solicitarServicio } from '../../services/
 import { getMisReservas } from '../../services/reservasService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
+import ModalBackdrop  from '../../components/common/ModalBackdrop';
 
 // Reservas desde las que tiene sentido pedir un servicio (estancia confirmada o en curso)
-const ESTADOS_RESERVA_ELEGIBLES = ['CONFIRMADA', 'CHECKIN'];
+const ESTADOS_RESERVA_ELEGIBLES = new Set(['CONFIRMADA', 'CHECKIN']);
 
 // Enum values match el backend EstadoSolicitud exactamente (ver DashboardOperaciones)
 const ESTADO_META = {
@@ -49,16 +50,15 @@ function ModalSolicitarServicio({ servicio, reservas, onClose, onConfirm, loadin
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 1055, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(34,32,22,0.45)' }}
-      onClick={(e) => { if (e.target === e.currentTarget && !loading) onClose(); }}
     >
-      <div style={{ width: '100%', maxWidth: 480 }}>
+      <ModalBackdrop onClose={onClose} disabled={loading} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 480 }}>
         <div className="modal-content border-0" style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(34,32,22,0.35)' }}>
 
           <div className="modal-header" style={{ background: 'var(--ss-dark)', borderBottom: '3px solid var(--ss-gold)', padding: '1.1rem 1.5rem' }}>
             <div>
               <h5 className="modal-title mb-0 fw-bold" style={{ color: '#fff' }}>
-                <i className="bi bi-bell-fill me-2" style={{ color: 'var(--ss-gold)' }} />
-                Solicitar servicio
+                <i className="bi bi-bell-fill me-2" style={{ color: 'var(--ss-gold)' }} />Solicitar servicio
               </h5>
               <small style={{ color: 'rgba(255,255,255,0.65)' }}>{servicio.nombre}</small>
             </div>
@@ -76,8 +76,8 @@ function ModalSolicitarServicio({ servicio, reservas, onClose, onConfirm, loadin
             ) : (
               <>
                 <div className="mb-3">
-                  <label className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>Reserva</label>
-                  <select className="form-select" value={reservaId} onChange={(e) => setReservaId(e.target.value)} disabled={loading}>
+                  <label htmlFor="servicio-reserva" className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>Reserva</label>
+                  <select id="servicio-reserva" className="form-select" value={reservaId} onChange={(e) => setReservaId(e.target.value)} disabled={loading}>
                     {reservas.map((r) => (
                       <option key={r.id} value={r.id}>
                         Hab. {r.habitacionNumero ?? r.habitacionId} · {r.codigo ?? `#${r.id}`}
@@ -88,8 +88,9 @@ function ModalSolicitarServicio({ servicio, reservas, onClose, onConfirm, loadin
 
                 <div className="row g-3 mb-3">
                   <div className="col-7">
-                    <label className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>Fecha y hora</label>
+                    <label htmlFor="servicio-fecha" className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>Fecha y hora</label>
                     <input
+                      id="servicio-fecha"
                       type="datetime-local"
                       className="form-control"
                       min={minFecha}
@@ -99,8 +100,9 @@ function ModalSolicitarServicio({ servicio, reservas, onClose, onConfirm, loadin
                     />
                   </div>
                   <div className="col-5">
-                    <label className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>Cantidad</label>
+                    <label htmlFor="servicio-cantidad" className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>Cantidad</label>
                     <input
+                      id="servicio-cantidad"
                       type="number"
                       className="form-control"
                       min={1}
@@ -113,10 +115,11 @@ function ModalSolicitarServicio({ servicio, reservas, onClose, onConfirm, loadin
                 </div>
 
                 <div className="mb-3">
-                  <label className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>
+                  <label htmlFor="servicio-notas" className="form-label fw-semibold small mb-1" style={{ color: 'var(--ss-dark)' }}>
                     Notas <span className="text-muted fw-normal">(opcional)</span>
                   </label>
                   <textarea
+                    id="servicio-notas"
                     className="form-control"
                     rows={2}
                     maxLength={500}
@@ -188,7 +191,7 @@ export default function ServiciosHuesped() {
       ]);
       setServicios(Array.isArray(svcs) ? svcs : []);
       const todasReservas = Array.isArray(mis) ? mis : mis?.content ?? [];
-      setReservas(todasReservas.filter((r) => ESTADOS_RESERVA_ELEGIBLES.includes(r.estado)));
+      setReservas(todasReservas.filter((r) => ESTADOS_RESERVA_ELEGIBLES.has(r.estado)));
       setSolicitudes(Array.isArray(sols) ? sols : []);
     } catch {
       setError('Error al cargar los servicios disponibles.');
@@ -231,8 +234,7 @@ export default function ServiciosHuesped() {
 
       <div className="mb-4">
         <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-          <i className="bi bi-bell-fill me-2" style={{ color: 'var(--ss-gold)' }} />
-          Servicios adicionales
+          <i className="bi bi-bell-fill me-2" style={{ color: 'var(--ss-gold)' }} />Servicios adicionales
         </h2>
         <p className="text-muted mb-0">Solicita servicios extra para tu estancia y revisa el estado de tus pedidos</p>
       </div>
@@ -285,13 +287,11 @@ export default function ServiciosHuesped() {
         })}
       </div>
 
-      {loading ? (
-        <LoadingSpinner message="Cargando servicios..." />
-      ) : tab === 'DISPONIBLES' ? (
+      {loading && <LoadingSpinner message="Cargando servicios..." />}
+      {!loading && tab === 'DISPONIBLES' && (
         categorias.length === 0 ? (
           <div className="text-center py-5 text-muted">
-            <i className="bi bi-bell-slash fs-1 d-block mb-2" />
-            No hay servicios adicionales disponibles por el momento.
+            <i className="bi bi-bell-slash fs-1 d-block mb-2" />No hay servicios adicionales disponibles por el momento.
           </div>
         ) : (
           categorias.map(([categoria, items]) => (
@@ -314,8 +314,7 @@ export default function ServiciosHuesped() {
                         )}
                         {s.requiereReserva && (
                           <span className="badge bg-light text-dark border small mb-3 align-self-start">
-                            <i className="bi bi-door-open me-1" style={{ color: 'var(--ss-gold)' }} />
-                            Requiere reserva activa
+                            <i className="bi bi-door-open me-1" style={{ color: 'var(--ss-gold)' }} />Requiere reserva activa
                           </span>
                         )}
                         <div className="d-flex justify-content-between align-items-center mt-auto">
@@ -338,49 +337,47 @@ export default function ServiciosHuesped() {
             </div>
           ))
         )
-      ) : (
-        solicitudes.length === 0 ? (
-          <div className="text-center py-5 text-muted">
-            <i className="bi bi-clipboard-x fs-1 d-block mb-2" />
-            Aún no has solicitado ningún servicio.
-          </div>
-        ) : (
-          solicitudes.map((sol) => {
-            const meta = ESTADO_META[sol.estado] ?? { label: sol.estado, badge: 'bg-secondary', icon: 'bi-question' };
-            return (
-              <div key={sol.id} className="card border-0 mb-3" style={{ borderRadius: 12, boxShadow: '0 2px 10px rgba(34,32,22,0.08)' }}>
-                <div className="card-body p-3">
-                  <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
-                    <div>
-                      <div className="fw-semibold" style={{ color: 'var(--ss-dark)' }}>{sol.servicioNombre ?? '—'}</div>
-                      <small className="text-muted">
-                        Reserva #{sol.reservaId}
-                        {sol.cantidad > 1 && <> · x{sol.cantidad}</>}
-                        {sol.fechaServicio && (
-                          <> · {new Date(sol.fechaServicio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</>
-                        )}
-                      </small>
-                    </div>
-                    <span className={`badge ${meta.badge} d-flex align-items-center gap-1`}>
-                      <i className={`bi ${meta.icon}`} />{meta.label}
-                    </span>
+      )}
+      {!loading && tab !== 'DISPONIBLES' && solicitudes.length === 0 && (
+        <div className="text-center py-5 text-muted">
+          <i className="bi bi-clipboard-x fs-1 d-block mb-2" />Aún no has solicitado ningún servicio.
+        </div>
+      )}
+      {!loading && tab !== 'DISPONIBLES' && solicitudes.length !== 0 && (
+        solicitudes.map((sol) => {
+          const meta = ESTADO_META[sol.estado] ?? { label: sol.estado, badge: 'bg-secondary', icon: 'bi-question' };
+          return (
+            <div key={sol.id} className="card border-0 mb-3" style={{ borderRadius: 12, boxShadow: '0 2px 10px rgba(34,32,22,0.08)' }}>
+              <div className="card-body p-3">
+                <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+                  <div>
+                    <div className="fw-semibold" style={{ color: 'var(--ss-dark)' }}>{sol.servicioNombre ?? '—'}</div>
+                    <small className="text-muted">
+                      Reserva #{sol.reservaId}
+                      {sol.cantidad > 1 && <> · x{sol.cantidad}</>}
+                      {sol.fechaServicio && (
+                        <> · {new Date(sol.fechaServicio).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</>
+                      )}
+                    </small>
                   </div>
-                  {sol.notas && (
-                    <p className="text-muted small mb-1 ps-1 mt-2" style={{ borderLeft: '2px solid rgba(239,193,67,0.4)' }}>
-                      {sol.notas}
-                    </p>
-                  )}
-                  {sol.precioTotal != null && (
-                    <div className="small mt-2" style={{ color: 'var(--ss-dark)' }}>
-                      <i className="bi bi-cash me-1" style={{ color: 'var(--ss-gold)' }} />
-                      ${Number(sol.precioTotal).toLocaleString('es-CO')}
-                    </div>
-                  )}
+                  <span className={`badge ${meta.badge} d-flex align-items-center gap-1`}>
+                    <i className={`bi ${meta.icon}`} />{meta.label}
+                  </span>
                 </div>
+                {sol.notas && (
+                  <p className="text-muted small mb-1 ps-1 mt-2" style={{ borderLeft: '2px solid rgba(239,193,67,0.4)' }}>
+                    {sol.notas}
+                  </p>
+                )}
+                {sol.precioTotal != null && (
+                  <div className="small mt-2" style={{ color: 'var(--ss-dark)' }}>
+                    <i className="bi bi-cash me-1" style={{ color: 'var(--ss-gold)' }} />${Number(sol.precioTotal).toLocaleString('es-CO')}
+                  </div>
+                )}
               </div>
-            );
-          })
-        )
+            </div>
+          );
+        })
       )}
     </div>
   );

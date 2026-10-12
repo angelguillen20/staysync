@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "notificaciones", indexes = {
@@ -67,10 +68,10 @@ public class Notificacion {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
+    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     @PreUpdate
-    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() { updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     public enum Canal { EMAIL, SMS, PUSH }
     public enum EstadoNotificacion { PENDIENTE, ENVIADO, FALLIDO, CANCELADO }

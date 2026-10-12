@@ -11,6 +11,46 @@ const METODOS = [
   { value: 'STRIPE',           label: 'Pago con tarjeta',     icon: 'bi-credit-card-fill'    },
 ];
 
+const mensajeError = (err, porDefecto) => err.response?.data?.message ?? porDefecto;
+
+/* Devuelve siempre un número: 0 si faltan fechas (el render muestra '—'). */
+function calcularNoches(fechaEntrada, fechaSalida) {
+  if (!fechaEntrada || !fechaSalida) return 0;
+  return Math.max(1, Math.round((new Date(fechaSalida) - new Date(fechaEntrada)) / 86400000));
+}
+
+/* Stripe: crea la sesión de Checkout y redirige. Solo vuelve si hubo error. */
+async function pagarConStripe({ reservaId, codigo, precioTotal }) {
+  try {
+    const data = await crearCheckoutStripe({
+      monto:         precioTotal,
+      tituloReserva: `Reserva ${codigo ?? '#' + reservaId} — StaySync`,
+      reservaId,
+    });
+    window.location.href = data.checkoutUrl;
+    return { redirigiendo: true };
+  } catch (err) {
+    return { error: mensajeError(err, 'No se pudo conectar con el servicio de pago.') };
+  }
+}
+
+/* Otros métodos: flujo local contra pagos-service */
+async function pagarLocal({ reservaId, codigo, precioTotal, usuarioId, metodo }) {
+  try {
+    const pago = await procesarPago({
+      reservaId,
+      usuarioId,
+      monto:       precioTotal,
+      moneda:      'CLP',
+      metodoPago:  metodo,
+      descripcion: `Pago reserva ${codigo ?? reservaId}`,
+    });
+    return { pago };
+  } catch (err) {
+    return { error: mensajeError(err, 'No se pudo procesar el pago. Intente nuevamente.') };
+  }
+}
+
 export default function PasarelaPago() {
   const { state }  = useLocation();
   const navigate   = useNavigate();
@@ -35,9 +75,7 @@ export default function PasarelaPago() {
 
   const { reservaId, codigo, habitacionNumero, fechaEntrada, fechaSalida, precioTotal } = state;
 
-  const noches = fechaEntrada && fechaSalida
-    ? Math.max(1, Math.round((new Date(fechaSalida) - new Date(fechaEntrada)) / 86400000))
-    : '—';
+  const noches = calcularNoches(fechaEntrada, fechaSalida);
 
   const fmt = (val) => `$${Number(val).toLocaleString('es-CL')}`;
 
@@ -47,38 +85,13 @@ export default function PasarelaPago() {
     setProcesando(true);
     setError('');
 
-    /* ── Stripe: redirige a Stripe Checkout ─────────────── */
-    if (metodo === 'STRIPE') {
-      try {
-        const data = await crearCheckoutStripe({
-          monto:         precioTotal,
-          tituloReserva: `Reserva ${codigo ?? `#${reservaId}`} — StaySync`,
-          reservaId,
-        });
-        window.location.href = data.checkoutUrl;
-      } catch (err) {
-        setError(err.response?.data?.message ?? 'No se pudo conectar con el servicio de pago.');
-        setProcesando(false);
-      }
-      return;
-    }
+    const datos = { reservaId, codigo, precioTotal, usuarioId: user?.userId, metodo };
+    const resultado = metodo === 'STRIPE' ? await pagarConStripe(datos) : await pagarLocal(datos);
+    if (resultado.redirigiendo) return;
 
-    /* ── Otros métodos: flujo local ──────────────────────── */
-    try {
-      const pago = await procesarPago({
-        reservaId,
-        usuarioId:   user?.userId,
-        monto:       precioTotal,
-        moneda:      'CLP',
-        metodoPago:  metodo,
-        descripcion: `Pago reserva ${codigo ?? reservaId}`,
-      });
-      setExitoso(pago);
-    } catch (err) {
-      setError(err.response?.data?.message ?? 'No se pudo procesar el pago. Intente nuevamente.');
-    } finally {
-      setProcesando(false);
-    }
+    if (resultado.error) setError(resultado.error);
+    else setExitoso(resultado.pago);
+    setProcesando(false);
   };
 
   /* ── Pantalla de éxito (métodos locales) ─────────────── */
@@ -110,8 +123,7 @@ export default function PasarelaPago() {
               </div>
             </div>
             <button className="btn btn-ss-dark w-100" onClick={() => navigate('/huesped/reservas')}>
-              <i className="bi bi-calendar-check me-2" />
-              Ver mis reservas
+              <i className="bi bi-calendar-check me-2" />Ver mis reservas
             </button>
           </div>
         </div>
@@ -133,8 +145,7 @@ export default function PasarelaPago() {
             <i className="bi bi-arrow-left me-1" /> Volver
           </button>
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-shield-lock me-2" style={{ color: 'var(--ss-gold)' }} />
-            Pasarela de pago
+            <i className="bi bi-shield-lock me-2" style={{ color: 'var(--ss-gold)' }} />Pasarela de pago
           </h2>
           <p className="text-muted small mt-1">Completa el pago para confirmar tu reserva</p>
         </div>
@@ -152,7 +163,7 @@ export default function PasarelaPago() {
             <div className="d-flex gap-3 small mb-3" style={{ color: 'rgba(255,255,255,0.65)' }}>
               <span><i className="bi bi-calendar-event me-1" />{fechaEntrada ? new Date(fechaEntrada).toLocaleDateString('es-CL') : '—'}</span>
               <span><i className="bi bi-arrow-right mx-1" />{fechaSalida ? new Date(fechaSalida).toLocaleDateString('es-CL') : '—'}</span>
-              <span><i className="bi bi-moon me-1" />{noches} {noches === 1 ? 'noche' : 'noches'}</span>
+              <span><i className="bi bi-moon me-1" />{noches > 0 ? `${noches} ${noches === 1 ? 'noche' : 'noches'}` : '—'}</span>
             </div>
             <hr style={{ borderColor: 'rgba(255,255,255,0.12)', margin: '0 0 0.75rem' }} />
             <div className="d-flex justify-content-between align-items-center">
@@ -236,19 +247,16 @@ export default function PasarelaPago() {
           disabled={!metodo || procesando}
           onClick={handlePagar}
         >
-          {procesando ? (
+          {procesando && (
             <><span className="spinner-border spinner-border-sm me-2" />
-              {metodo === 'STRIPE' ? 'Redirigiendo a Stripe...' : 'Procesando pago...'}</>
-          ) : metodo === 'STRIPE' ? (
-            <><i className="bi bi-credit-card-fill me-2" />Pagar con Stripe</>
-          ) : (
-            <><i className="bi bi-lock-fill me-2" />Pagar {fmt(precioTotal)}</>
+            {metodo === 'STRIPE' ? 'Redirigiendo a Stripe...' : 'Procesando pago...'}</>
           )}
+          {!procesando && metodo === 'STRIPE' && <><i className="bi bi-credit-card-fill me-2" />Pagar con Stripe</>}
+          {!procesando && metodo !== 'STRIPE' && <><i className="bi bi-lock-fill me-2" />Pagar {fmt(precioTotal)}</>}
         </button>
 
         <p className="text-center text-muted mt-3" style={{ fontSize: '0.75rem' }}>
-          <i className="bi bi-shield-check me-1" style={{ color: 'var(--ss-gold)' }} />
-          Pago seguro — modo de prueba activo
+          <i className="bi bi-shield-check me-1" style={{ color: 'var(--ss-gold)' }} />Pago seguro — modo de prueba activo
         </p>
 
       </div>

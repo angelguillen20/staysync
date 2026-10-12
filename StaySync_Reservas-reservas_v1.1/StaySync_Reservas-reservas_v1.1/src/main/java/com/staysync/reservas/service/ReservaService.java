@@ -61,11 +61,10 @@ public class ReservaService {
 
         Map<String, Object> habitacion = obtenerDatosHabitacion(request.getHabitacionId());
 
-        if (habitacion != null && habitacion.get("capacidad") instanceof Number cap) {
-            if (request.getNumHuespedes() > cap.intValue()) {
-                throw new IllegalArgumentException(
-                    "La habitación tiene capacidad máxima de " + cap.intValue() + " huéspedes. Solicitados: " + request.getNumHuespedes());
-            }
+        if (habitacion != null && habitacion.get("capacidad") instanceof Number cap
+                && request.getNumHuespedes() > cap.intValue()) {
+            throw new IllegalArgumentException(
+                "La habitación tiene capacidad máxima de " + cap.intValue() + " huéspedes. Solicitados: " + request.getNumHuespedes());
         }
 
         java.math.BigDecimal precioPorNoche = (habitacion != null && habitacion.get("precioPorNoche") != null)
@@ -107,7 +106,7 @@ public class ReservaService {
     }
 
     public Map<String, Object> getReservasHoy() {
-        LocalDate hoy = LocalDate.now();
+        LocalDate hoy = LocalDate.now(ZoneId.systemDefault());
         List<ReservaResponse> pendientesCheckin = reservaRepository
                 .findByEstadoAndFechaEntrada(EstadoReserva.CONFIRMADA, hoy)
                 .stream().map(this::toResponse).collect(Collectors.toList());
@@ -124,7 +123,7 @@ public class ReservaService {
     @Transactional
     @Scheduled(cron = "0 0 0 * * *")
     public void autoTransicionarACheckin() {
-        LocalDate hoy = LocalDate.now();
+        LocalDate hoy = LocalDate.now(ZoneId.systemDefault());
         List<Reserva> confirmadas = reservaRepository.findConfirmadasParaAutoCheckin(hoy);
         confirmadas.forEach(r -> {
             r.setEstado(EstadoReserva.CHECKIN);

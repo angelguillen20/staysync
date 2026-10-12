@@ -41,7 +41,7 @@ apiClient.interceptors.response.use(
       original._retry ||
       original.url?.includes('/auth/refresh')
     ) {
-      return Promise.reject(error);
+      throw error;
     }
 
     original._retry = true;
@@ -50,7 +50,7 @@ apiClient.interceptors.response.use(
     if (!refreshToken) {
       clearSession();
       window.location.href = '/login';
-      return Promise.reject(error);
+      throw error;
     }
 
     // If a refresh is already in flight, piggyback on it instead of firing another
@@ -77,7 +77,7 @@ apiClient.interceptors.response.use(
         // Refresh failed (token not found, expired, etc.) → force logout once
         clearSession();
         window.location.href = '/login';
-        return Promise.reject(error);
+        throw error;
       });
   },
 );

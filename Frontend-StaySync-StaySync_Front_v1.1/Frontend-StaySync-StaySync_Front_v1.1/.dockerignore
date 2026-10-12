@@ -1,0 +1,6 @@
+# No enviar al build de Docker: se reinstalan/compilan dentro de la imagen
+node_modules
+dist
+coverage
+.vscode
+*.log
