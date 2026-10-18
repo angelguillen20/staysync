@@ -9,12 +9,16 @@ import java.util.function.Supplier;
  * Hotel de la petición en curso. Lo llena {@link TenantFilter} a partir del header
  * X-Tenant-Id (o un consumidor SQS a partir del mensaje) y lo limpia al terminar.
  *
+ * <p>Con Hibernate, {@link TenantIdentifierResolver} usa este valor para filtrar
+ * automáticamente toda consulta sobre entidades con {@code @TenantId}.
+ *
  * <p>Es un ThreadLocal: no se propaga solo a otros hilos. Para tareas asíncronas usa
  * {@link #wrap(Runnable)} / {@link #wrap(Supplier)}.
  */
 public final class TenantContext {
 
     private static final ThreadLocal<String> ACTUAL = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> SISTEMA = new ThreadLocal<>();
 
     private TenantContext() {
     }
@@ -43,6 +47,37 @@ public final class TenantContext {
     public static void clear() {
         ACTUAL.remove();
         MDC.remove(TenantHeaders.MDC_KEY);
+    }
+
+    /** true dentro de {@link #ejecutarComoSistema}: las consultas ven todos los hoteles. */
+    public static boolean esSistema() {
+        return Boolean.TRUE.equals(SISTEMA.get());
+    }
+
+    /**
+     * Ejecuta la tarea sin filtro de hotel. Solo para procesos internos que recorren todos
+     * los hoteles (tareas programadas, migraciones). Debe llamarse fuera de una transacción
+     * abierta: la sesión de Hibernate fija su hotel al abrirse.
+     */
+    public static <T> T ejecutarComoSistema(Supplier<T> tarea) {
+        Boolean anterior = SISTEMA.get();
+        SISTEMA.set(Boolean.TRUE);
+        try {
+            return tarea.get();
+        } finally {
+            if (anterior == null) {
+                SISTEMA.remove();
+            } else {
+                SISTEMA.set(anterior);
+            }
+        }
+    }
+
+    public static void ejecutarComoSistema(Runnable tarea) {
+        ejecutarComoSistema(() -> {
+            tarea.run();
+            return null;
+        });
     }
 
     /** Captura el hotel del hilo actual y lo restaura en el hilo que ejecute la tarea. */
@@ -76,5 +111,12 @@ public final class TenantContext {
                 set(anterior);
             }
         }
+    }
+
+    public static void ejecutarCon(String tenantId, Runnable tarea) {
+        ejecutarCon(tenantId, () -> {
+            tarea.run();
+            return null;
+        });
     }
 }

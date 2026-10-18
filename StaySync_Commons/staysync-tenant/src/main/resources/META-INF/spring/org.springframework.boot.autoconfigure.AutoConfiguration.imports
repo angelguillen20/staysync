@@ -1,1 +1,3 @@
 com.staysync.tenant.TenantAutoConfiguration
+com.staysync.tenant.TenantJpaAutoConfiguration
+com.staysync.tenant.TenantMigracionAutoConfiguration

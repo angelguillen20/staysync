@@ -1,5 +1,6 @@
 package com.staysync.tenant;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -10,7 +11,8 @@ import org.springframework.core.Ordered;
 
 /**
  * Basta con agregar la dependencia: el filtro se registra solo en cualquier servicio web.
- * Se puede apagar con staysync.tenant.filter.enabled=false.
+ * Se puede apagar con staysync.tenant.filter.enabled=false; con staysync.tenant.requerido=true
+ * las peticiones de negocio sin hotel se rechazan.
  */
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
@@ -19,8 +21,9 @@ public class TenantAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "tenantFilterRegistration")
-    public FilterRegistrationBean<TenantFilter> tenantFilterRegistration() {
-        FilterRegistrationBean<TenantFilter> registration = new FilterRegistrationBean<>(new TenantFilter());
+    public FilterRegistrationBean<TenantFilter> tenantFilterRegistration(
+            @Value("${staysync.tenant.requerido:false}") boolean requerido) {
+        FilterRegistrationBean<TenantFilter> registration = new FilterRegistrationBean<>(new TenantFilter(requerido));
         registration.addUrlPatterns("/*");
         // Antes de Spring Security (-100) para que los logs de autorización ya lleven el hotel
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
