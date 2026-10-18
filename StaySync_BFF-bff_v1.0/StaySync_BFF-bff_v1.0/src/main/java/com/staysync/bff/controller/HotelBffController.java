@@ -33,6 +33,16 @@ public class HotelBffController {
                 .body(response.getBody());
     }
 
+    @Operation(summary = "Editar nombre, logo y colores de un hotel",
+               description = "ADMIN: solo su propio hotel. SUPER_ADMIN: cualquiera. Lo valida usuarios-service.")
+    @PutMapping("/hoteles/{tenantId}/marca")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Object> actualizarMarca(@RequestHeader("Authorization") String authHeader,
+                                                  @PathVariable String tenantId,
+                                                  @RequestBody Object body) {
+        return usuariosClient.actualizarMarca(authHeader, tenantId, body);
+    }
+
     @Operation(summary = "Listar hoteles activos (solo SUPER_ADMIN)")
     @GetMapping("/hoteles")
     @PreAuthorize("hasRole('SUPER_ADMIN')")

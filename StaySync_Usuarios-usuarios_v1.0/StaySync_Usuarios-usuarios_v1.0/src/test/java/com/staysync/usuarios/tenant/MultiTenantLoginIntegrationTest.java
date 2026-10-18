@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -152,6 +153,45 @@ class MultiTenantLoginIntegrationTest {
         mockMvc.perform(patch("/api/v1/usuarios/" + recepId + "/hotel")
                         .header("Authorization", "Bearer " + superToken)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"tenantId\":\"staysync-demo\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Marca del hotel: el admin edita la suya, no la de otro hotel, y los colores se validan")
+    void editarMarca() throws Exception {
+        String andesToken = login("admin@hotelandes.com", "Admin@1234");
+        String body = """
+                {"nombre":"Hotel Andes Boutique","logoUrl":"https://cdn.example.com/andes.png",
+                 "theme":{"primary":"#123456","secondary":"#ABCDEF"}}""";
+
+        mockMvc.perform(put("/api/v1/hoteles/hotel-andes/marca").header("Authorization", "Bearer " + andesToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Hotel Andes Boutique"))
+                .andExpect(jsonPath("$.theme.primary").value("#123456"));
+
+        mockMvc.perform(put("/api/v1/hoteles/staysync-demo/marca").header("Authorization", "Bearer " + andesToken)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(put("/api/v1/hoteles/hotel-andes/marca").header("Authorization", "Bearer " + andesToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nombre":"Andes","theme":{"primary":"red; background:url(x)"}}"""))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(put("/api/v1/hoteles/hotel-andes/marca").header("Authorization", "Bearer " + andesToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nombre":"Andes","logoUrl":"javascript:alert(1)","theme":{"primary":"#123456"}}"""))
+                .andExpect(status().isBadRequest());
+
+        // Se deja como estaba para no afectar a otros tests
+        mockMvc.perform(put("/api/v1/hoteles/hotel-andes/marca").header("Authorization", "Bearer " + andesToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"nombre":"Hotel Andes","theme":{"primary":"#7A2E1F","secondary":"#2F6B4F",
+                                 "background":"#FBF8F4","text":"#2B211C"}}"""))
                 .andExpect(status().isOk());
     }
 

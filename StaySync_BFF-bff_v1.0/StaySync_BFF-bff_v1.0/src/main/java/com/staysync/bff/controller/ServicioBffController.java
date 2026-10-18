@@ -70,4 +70,19 @@ public class ServicioBffController {
             @RequestBody Object body) {
         return serviciosClient.actualizarEstadoSolicitud(authHeader, id, body);
     }
+
+    @Operation(summary = "Tareas de aseo del hotel (las generan los eventos de reserva)")
+    @GetMapping("/aseo")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','RECEPCIONISTA')")
+    public ResponseEntity<Object> listarAseo(@RequestHeader("Authorization") String authHeader) {
+        return serviciosClient.listarAseo(authHeader);
+    }
+
+    @Operation(summary = "Marcar una tarea de aseo como completada")
+    @PatchMapping("/aseo/{id}/completar")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','RECEPCIONISTA')")
+    public ResponseEntity<Object> completarAseo(@RequestHeader("Authorization") String authHeader,
+                                                @PathVariable Long id) {
+        return serviciosClient.completarAseo(authHeader, id);
+    }
 }

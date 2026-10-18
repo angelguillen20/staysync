@@ -3,6 +3,7 @@ package com.staysync.usuarios.tenant.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.staysync.usuarios.tenant.dto.ActualizarMarcaRequest;
 import com.staysync.usuarios.tenant.dto.HotelResponse;
 import com.staysync.usuarios.tenant.exception.HotelNotFoundException;
 import com.staysync.usuarios.tenant.model.Hotel;
@@ -83,6 +84,30 @@ public class HotelService {
         return hotelRepository.findByTenantIdAndActivoTrue(tenantId.trim())
                 .map(Hotel::getTenantId)
                 .orElseThrow(() -> new HotelNotFoundException(tenantId));
+    }
+
+    /**
+     * Edita la marca del hotel. Un ADMIN solo la de su propio hotel; un SUPER_ADMIN la de
+     * cualquiera. Para un hotel ajeno responde "no encontrado", sin revelar que existe.
+     */
+    @Transactional
+    public HotelResponse actualizarMarca(String tenantId, ActualizarMarcaRequest request,
+                                         String rolSolicitante, String tenantSolicitante) {
+        boolean esSuper = "SUPER_ADMIN".equals(rolSolicitante);
+        if (!esSuper && !tenantId.equals(tenantSolicitante)) {
+            throw new HotelNotFoundException(tenantId);
+        }
+        Hotel hotel = hotelRepository.findByTenantIdAndActivoTrue(tenantId)
+                .orElseThrow(() -> new HotelNotFoundException(tenantId));
+        hotel.setNombre(request.getNombre().trim());
+        hotel.setLogoUrl(request.getLogoUrl() == null || request.getLogoUrl().isBlank() ? null : request.getLogoUrl());
+        try {
+            hotel.setTheme(objectMapper.writeValueAsString(request.getTheme()));
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Colores inválidos", e);
+        }
+        log.info("Marca del hotel {} actualizada", tenantId);
+        return toResponse(hotelRepository.save(hotel));
     }
 
     private HotelResponse toResponse(Hotel hotel) {

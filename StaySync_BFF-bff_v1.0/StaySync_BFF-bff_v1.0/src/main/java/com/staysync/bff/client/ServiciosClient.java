@@ -78,6 +78,24 @@ public class ServiciosClient {
                 Object.class);
     }
 
+    @CircuitBreaker(name = "serviciosCB", fallbackMethod = "listarFallback")
+    public ResponseEntity<Object> listarAseo(String authHeader) {
+        return restTemplate.exchange(
+                baseUrl + "/api/v1/aseo",
+                HttpMethod.GET,
+                new HttpEntity<>(UsuariosClient.buildHeaders(authHeader)),
+                Object.class);
+    }
+
+    @CircuitBreaker(name = "serviciosCB", fallbackMethod = "mutarFallback")
+    public ResponseEntity<Object> completarAseo(String authHeader, Long id) {
+        return restTemplate.exchange(
+                baseUrl + "/api/v1/aseo/" + id + "/completar",
+                HttpMethod.PATCH,
+                new HttpEntity<>(UsuariosClient.buildHeaders(authHeader)),
+                Object.class);
+    }
+
     // Fallbacks de Resilience4j: deben repetir la firma del método protegido aunque no usen todos sus parámetros.
     @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarFallback(String authHeader, Exception ex) {
@@ -93,6 +111,12 @@ public class ServiciosClient {
 
     @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Object body, Exception ex) {
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
+        throw new DownstreamServiceException("El servicio de servicios adicionales no está disponible.");
+    }
+
+    @SuppressWarnings("java:S1172")
+    public ResponseEntity<Object> mutarFallback(String authHeader, Long id, Exception ex) {
         log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de servicios adicionales no está disponible.");
     }

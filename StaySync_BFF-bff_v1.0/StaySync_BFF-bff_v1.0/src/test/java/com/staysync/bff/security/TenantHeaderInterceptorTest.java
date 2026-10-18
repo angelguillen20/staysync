@@ -86,16 +86,49 @@ class TenantHeaderInterceptorTest {
     }
 
     @Test
-    @DisplayName("Sin usuario autenticado no se manda hotel")
+    @DisplayName("Sin usuario autenticado ni portal no se manda hotel")
     void sinAutenticacionNoMandaHeader() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set(TenantDetails.HEADER, "otro-hotel");
         server.expect(requestTo("http://usuarios:8081/api/v1/auth/login"))
                 .andExpect(headerDoesNotExist(TenantDetails.HEADER))
                 .andRespond(withSuccess());
 
-        restTemplate.exchange("http://usuarios:8081/api/v1/auth/login", HttpMethod.POST, new HttpEntity<>(headers), String.class);
+        restTemplate.postForEntity("http://usuarios:8081/api/v1/auth/login", null, String.class);
 
         server.verify();
+    }
+
+    @Test
+    @DisplayName("Sin sesión se respeta el hotel que puso el propio BFF (p. ej. tras registrar un usuario)")
+    void sinAutenticacionRespetaHeaderDelBff() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(TenantDetails.HEADER, "hotel-andes");
+        server.expect(requestTo("http://notificaciones:8086/api/v1/notificaciones/usuario-registrado"))
+                .andExpect(header(TenantDetails.HEADER, "hotel-andes"))
+                .andRespond(withSuccess());
+
+        restTemplate.exchange("http://notificaciones:8086/api/v1/notificaciones/usuario-registrado",
+                HttpMethod.POST, new HttpEntity<>(headers), String.class);
+
+        server.verify();
+    }
+
+    @Test
+    @DisplayName("Sin sesión usa el hotel del portal (X-Hotel resuelto por HotelPublicoFilter)")
+    void sinAutenticacionUsaHotelDelPortal() {
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setAttribute(HotelPublicoFilter.ATRIBUTO, "hotel-andes");
+        org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
+                new org.springframework.web.context.request.ServletRequestAttributes(request));
+        try {
+            server.expect(requestTo("http://habitaciones:8082/api/v1/habitaciones/disponibles"))
+                    .andExpect(header(TenantDetails.HEADER, "hotel-andes"))
+                    .andRespond(withSuccess());
+
+            restTemplate.getForEntity("http://habitaciones:8082/api/v1/habitaciones/disponibles", String.class);
+
+            server.verify();
+        } finally {
+            org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+        }
     }
 }

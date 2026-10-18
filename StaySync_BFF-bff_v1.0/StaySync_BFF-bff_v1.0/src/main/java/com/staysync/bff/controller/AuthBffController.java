@@ -44,8 +44,10 @@ public class AuthBffController {
                 Long   usuarioId = toLong(usuario.get("id"));
                 String nombre    = String.valueOf(usuario.getOrDefault("nombre", ""));
                 String email     = String.valueOf(usuario.getOrDefault(EMAIL, ""));
+                Object tenantId  = usuario.get("tenantId");
                 if (!email.isBlank()) {
-                    notificacionPublisher.publishUsuarioRegistrado(usuarioId, nombre, email);
+                    notificacionPublisher.publishUsuarioRegistrado(usuarioId, nombre, email,
+                            tenantId != null ? tenantId.toString() : null);
                 }
             } catch (Exception e) {
                 log.warn("No se pudo publicar notificación de registro: {}", e.getMessage());

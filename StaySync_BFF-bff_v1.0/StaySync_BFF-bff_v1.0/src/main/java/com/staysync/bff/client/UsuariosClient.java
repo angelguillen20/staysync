@@ -111,6 +111,16 @@ public class UsuariosClient {
                 Object.class);
     }
 
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "marcaFallback")
+    public ResponseEntity<Object> actualizarMarca(String authHeader, String tenantId, Object body) {
+        String url = UriComponentsBuilder
+                .fromUriString(baseUrl + "/api/v1/hoteles/{tenantId}/marca")
+                .buildAndExpand(tenantId)
+                .toUriString();
+        return restTemplate.exchange(url, HttpMethod.PUT,
+                new HttpEntity<>(body, buildHeaders(authHeader)), Object.class);
+    }
+
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
     public ResponseEntity<Object> listarHoteles(String authHeader) {
         return restTemplate.exchange(
@@ -195,6 +205,13 @@ public class UsuariosClient {
         // Un 404 (hotel inexistente) debe llegar tal cual al frontend, no como "servicio caído"
         relanzarErrorDelCliente(ex);
         log.warn("usuarios-service no disponible al obtener el theme de {}: {}", slug, ex.getMessage());
+        throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
+    }
+
+    @SuppressWarnings("java:S1172")
+    public ResponseEntity<Object> marcaFallback(String authHeader, String tenantId, Object body, Exception ex) {
+        relanzarErrorDelCliente(ex);
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
     }
 

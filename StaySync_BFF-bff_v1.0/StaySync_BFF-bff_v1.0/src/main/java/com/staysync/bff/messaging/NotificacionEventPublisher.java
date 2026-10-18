@@ -1,18 +1,21 @@
 package com.staysync.bff.messaging;
 
 import com.staysync.bff.config.ServicesProperties;
-import com.staysync.bff.messaging.event.ReservaCreadaEvent;
-import com.staysync.bff.messaging.event.ReservaEstadoCambiadoEvent;
 import com.staysync.bff.messaging.event.UsuarioRegistradoEvent;
+import com.staysync.bff.security.TenantDetails;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 /**
- * Llama directamente a notificaciones-service vía RestTemplate para disparar el envío de
- * emails. Las fallas se registran como warning y nunca se propagan: una notificación caída
- * no debe romper el flujo principal (login, registro, creación/cambio de estado de reserva).
+ * Aviso de bienvenida al registrarse. Las notificaciones de reservas y pagos ya no pasan
+ * por aquí: las genera notificaciones-service a partir de los eventos SNS/SQS.
+ * Las fallas se registran como warning y nunca se propagan: un correo caído no debe
+ * romper el registro.
  */
 @Component
 @Slf4j
@@ -29,39 +32,22 @@ public class NotificacionEventPublisher {
         this.baseUrl = services.notificaciones().url();
     }
 
-    public void publishUsuarioRegistrado(Long usuarioId, String nombre, String email) {
+    /**
+     * El registro no tiene sesión: el hotel se envía explícitamente (viene de la respuesta
+     * de usuarios-service, no del cliente).
+     */
+    public void publishUsuarioRegistrado(Long usuarioId, String nombre, String email, String tenantId) {
         if (!enabled) return;
         try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            if (tenantId != null) headers.set(TenantDetails.HEADER, tenantId);
             var evento = new UsuarioRegistradoEvent(usuarioId, nombre, email);
-            restTemplate.postForEntity(baseUrl + "/api/v1/notificaciones/usuario-registrado", evento, Void.class);
+            restTemplate.postForEntity(baseUrl + "/api/v1/notificaciones/usuario-registrado",
+                    new HttpEntity<>(evento, headers), Void.class);
             log.info("Notificación enviada [usuario.registro]: userId={}", usuarioId);
         } catch (Exception e) {
             log.warn("No se pudo notificar registro de usuario={}: {}", usuarioId, e.getMessage());
-        }
-    }
-
-    public void publishReservaCreada(ReservaCreadaEvent evento) {
-        if (!enabled) return;
-        Long reservaId = evento.reservaId();
-        try {
-            restTemplate.postForEntity(baseUrl + "/api/v1/notificaciones/reserva-creada", evento, Void.class);
-            log.info("Notificación enviada [reserva.creada]: reservaId={}", reservaId);
-        } catch (Exception e) {
-            log.warn("No se pudo notificar reserva creada={}: {}", reservaId, e.getMessage());
-        }
-    }
-
-    public void publishReservaEstadoCambiado(Long reservaId, Long usuarioId, String email,
-                                             String nombreUsuario, String codigo,
-                                             String habitacion, String estadoNuevo) {
-        if (!enabled) return;
-        try {
-            var evento = new ReservaEstadoCambiadoEvent(
-                    reservaId, usuarioId, email, nombreUsuario, codigo, habitacion, estadoNuevo);
-            restTemplate.postForEntity(baseUrl + "/api/v1/notificaciones/reserva-estado", evento, Void.class);
-            log.info("Notificación enviada [reserva.estado]: reservaId={} estado={}", reservaId, estadoNuevo);
-        } catch (Exception e) {
-            log.warn("No se pudo notificar estado de reserva={}: {}", reservaId, e.getMessage());
         }
     }
 }
