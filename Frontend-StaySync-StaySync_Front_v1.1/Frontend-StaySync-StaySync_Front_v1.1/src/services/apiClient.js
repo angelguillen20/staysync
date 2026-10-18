@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const KEYS = { access: 'ss_access_token', refresh: 'ss_refresh_token' };
+const KEY_HOTEL = 'ss_hotel_slug';
 const BFF_URL = import.meta.env.VITE_BFF_URL ?? '/bff';
 
 const apiClient = axios.create({
@@ -15,6 +16,12 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem(KEYS.access);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Portal del hotel: el BFF lo usa en rutas públicas (sin sesión) para saber de qué hotel
+    // mostrar datos. Con sesión manda siempre el hotel del JWT.
+    const hotel = localStorage.getItem(KEY_HOTEL);
+    if (hotel) {
+      config.headers['X-Hotel'] = hotel;
     }
     return config;
   },

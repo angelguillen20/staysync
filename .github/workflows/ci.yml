@@ -40,9 +40,9 @@ jobs:
             path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
           - service: ota
             path: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
-          # Librería compartida: solo se testea, no tiene imagen ni servicio en ECS
-          - service: commons-tenant
-            path: StaySync_Commons/staysync-tenant
+          # Librerías compartidas: solo se testean, no tienen imagen ni servicio en ECS
+          - service: commons
+            path: StaySync_Commons
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,6 +54,9 @@ jobs:
           java-version: '17'
           cache: maven
           cache-dependency-path: ${{ matrix.path }}/pom.xml
+
+      - name: Instalar librerías compartidas (StaySync_Commons)
+        run: mvn -B -q -f StaySync_Commons/pom.xml install -DskipTests
 
       - name: mvn test
         working-directory: ${{ matrix.path }}
@@ -140,7 +143,8 @@ jobs:
         env:
           IMAGE: ${{ steps.ecr.outputs.registry }}/staysync-${{ matrix.service }}:${{ github.sha }}
         run: |
-          docker build -t $IMAGE ${{ matrix.path }}
+          # Contexto = raíz del repo: los Dockerfiles copian StaySync_Commons
+          docker build -f ${{ matrix.path }}/Dockerfile -t $IMAGE .
           docker push $IMAGE
           echo "uri=$IMAGE" >> $GITHUB_OUTPUT
 

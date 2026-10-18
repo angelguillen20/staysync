@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login as loginService, register as registerSvc } from '../services/authService';
 import { generateCodeVerifier, generateCodeChallenge } from '../services/pkce';
 import AlertMessage from '../components/common/AlertMessage';
 import { COGNITO_DOMAIN, COGNITO_CLIENT_ID, COGNITO_REDIRECT_URI } from '../config/cognito';
+import { useMarca } from '../context/ThemeContext';
+import { getMarcaPublica } from '../services/hotelesService';
+import { esLogoValido, esSlugValido, guardarSlug, slugGuardado } from '../theme/hotelTheme';
 
 const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
@@ -27,6 +30,22 @@ function validEmail(e) {
   return punto !== -1 && punto < dominio.length - 1;
 }
 function validTel(t)   { return !t || /^[+]?\d{7,15}$/.test(t); }
+
+/** Sin respuesta o 5xx: el problema es del servidor, no de la contraseña. */
+function mensajeDeError(err, porDefecto) {
+  if (!err.response || err.response.status >= 500) {
+    return 'El servicio no está disponible en este momento. Intenta de nuevo en unos minutos.';
+  }
+  return err.response.data?.message ?? porDefecto;
+}
+
+/** Logo y nombre del hotel del portal, o los de StaySync si no hay marca. */
+function MarcaHotel({ marca, tamano }) {
+  if (marca?.logoUrl && esLogoValido(marca.logoUrl)) {
+    return <img src={marca.logoUrl} alt={marca.nombre} style={{ maxHeight: tamano, maxWidth: '70%' }} />;
+  }
+  return <span style={{ fontSize: tamano }}>🏨</span>;
+}
 function validPw(pw)   { return PW_RULES.every(r => r.test(pw)); }
 
 // Devuelve los campos del registro que no pasan la validación
@@ -82,9 +101,22 @@ export default function LoginPage() {
   const [showConfPass, setShowConfPass] = useState(false);
 
   const { login } = useAuth();
+  const { marca, setMarca } = useMarca();
   const navigate  = useNavigate();
   const location  = useLocation();
   const from      = location.state?.from?.pathname;
+
+  // Portal del hotel: /login?hotel=hotel-andes muestra su logo y colores antes de entrar
+  useEffect(() => {
+    const slug = new URLSearchParams(location.search).get('hotel');
+    if (!esSlugValido(slug)) return;
+    guardarSlug(slug);
+    getMarcaPublica(slug)
+      .then(setMarca)
+      .catch(() => setError('No encontramos ese hotel. Revisa el enlace que te compartieron.'));
+  }, [location.search, setMarca]);
+
+  const nombreMarca = marca?.nombre ?? 'StaySync';
 
   const touch    = field => setRegTouched(p => ({ ...p, [field]: true }));
   const onChange  = field => e => {
@@ -106,7 +138,7 @@ export default function LoginPage() {
       login(data);
       navigate(from ?? REDIRECT[data.rol] ?? '/huesped', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message ?? 'Credenciales incorrectas. Intente nuevamente.');
+      setError(mensajeDeError(err, 'Credenciales incorrectas. Intente nuevamente.'));
     } finally {
       setLoading(false);
     }
@@ -143,11 +175,11 @@ export default function LoginPage() {
 
     setRegErr(''); setLoading(true);
     try {
-      await registerSvc(reg);
+      await registerSvc({ ...reg, hotelSlug: slugGuardado() });
       setRegOk(true);
       setTimeout(() => { setTab('login'); setRegOk(false); }, 2500);
     } catch (err) {
-      setRegErr(err.response?.data?.message ?? 'No se pudo registrar. Intente más tarde.');
+      setRegErr(mensajeDeError(err, 'No se pudo registrar. Intente más tarde.'));
     } finally {
       setLoading(false);
     }
@@ -163,8 +195,8 @@ export default function LoginPage() {
     <div className="login-container row g-0 min-vh-100">
       {/* ── Panel de marca ── */}
       <div className="col-md-5 login-brand-panel d-none d-md-flex fade-in-up">
-        <div className="brand-logo mb-4">🏨</div>
-        <h1>StaySync</h1>
+        <div className="brand-logo mb-4"><MarcaHotel marca={marca} tamano={72} /></div>
+        <h1>{nombreMarca}</h1>
         <p className="text-center mt-2 px-4">
           Sistema integral de gestión hotelera.<br />
           Optimiza operaciones, maximiza la satisfacción de tus huéspedes.
@@ -188,8 +220,8 @@ export default function LoginPage() {
         <div className="login-form-card">
           {/* Logo mobile */}
           <div className="text-center mb-4 d-md-none">
-            <span style={{ fontSize: '3rem' }}>🏨</span>
-            <h2 className="fw-bold" style={{ color: 'var(--ss-dark)' }}>StaySync</h2>
+            <MarcaHotel marca={marca} tamano={56} />
+            <h2 className="fw-bold" style={{ color: 'var(--ss-dark)' }}>{nombreMarca}</h2>
           </div>
 
           {/* Tabs */}

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { loginWithGoogle } from '../services/authService';
+import { slugGuardado } from '../theme/hotelTheme';
 
 const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
@@ -30,7 +31,7 @@ export default function AuthCallbackPage() {
       return;
     }
 
-    loginWithGoogle(code, verifier, redirectUri)
+    loginWithGoogle(code, verifier, redirectUri, slugGuardado())
       .then((data) => {
         sessionStorage.removeItem('ss_pkce_verifier');
         sessionStorage.removeItem('ss_oauth_redirect_uri');

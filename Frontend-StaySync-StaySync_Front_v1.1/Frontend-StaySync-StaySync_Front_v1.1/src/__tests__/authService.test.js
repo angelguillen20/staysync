@@ -80,9 +80,10 @@ describe('authService', () => {
 
       const result = await register(payload);
 
+      // El registro público ya no envía rol (siempre crea huéspedes); sí el portal del hotel
       expect(apiClient.post).toHaveBeenCalledWith('/auth/registro', {
         ...payload,
-        rol: 'HUESPED',
+        hotelSlug: undefined,
       });
       expect(result.email).toBe('nuevo@test.com');
     });

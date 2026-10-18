@@ -16,6 +16,8 @@ import CheckinRecepcion     from './pages/recepcion/CheckinRecepcion';
 import PagosRecepcion       from './pages/recepcion/PagosRecepcion';
 import UsuariosAdmin        from './pages/recepcion/UsuariosAdmin';
 import DashboardOperaciones from './components/operaciones/DashboardOperaciones';
+import AseoRecepcion        from './pages/recepcion/AseoRecepcion';
+import MarcaHotelAdmin      from './pages/recepcion/MarcaHotelAdmin';
 
 /* Huésped */
 import DashboardHuesped   from './pages/huesped/DashboardHuesped';
@@ -45,6 +47,7 @@ export default function App() {
             <Route path="/recepcion/huespedes"   element={<HuespedesRecepcion />} />
             <Route path="/recepcion/pagos"       element={<PagosRecepcion />} />
             <Route path="/recepcion/operaciones" element={<DashboardOperaciones />} />
+            <Route path="/recepcion/aseo"        element={<AseoRecepcion />} />
           </Route>
         </Route>
 
@@ -52,6 +55,7 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
           <Route element={<Layout />}>
             <Route path="/recepcion/usuarios" element={<UsuariosAdmin />} />
+            <Route path="/recepcion/marca"    element={<MarcaHotelAdmin />} />
           </Route>
         </Route>
 

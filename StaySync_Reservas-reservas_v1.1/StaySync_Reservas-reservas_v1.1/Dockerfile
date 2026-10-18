@@ -5,12 +5,17 @@
 # ── Etapa 1: Compilación ──────────────────────────────────────────────────────
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 
+# Librerías compartidas (StaySync_Commons): hotel por petición y eventos SNS/SQS
+COPY StaySync_Commons /commons
+RUN mvn -q -f /commons/pom.xml install -DskipTests
+
 WORKDIR /app
 
-COPY pom.xml .
+# El contexto de build es la raíz del repo (docker build -f StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1/Dockerfile .)
+COPY StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1/pom.xml .
 RUN mvn dependency:go-offline -q
 
-COPY src ./src
+COPY StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1/src ./src
 RUN mvn package -DskipTests -q
 
 # ── Etapa 2: Imagen de ejecución ──────────────────────────────────────────────

@@ -55,7 +55,7 @@ export default function Navbar({ onToggleSidebar }) {
         </button>
 
         <Link to={HOME_ROUTE[user?.rol] ?? '/'} className="navbar-brand mb-0">
-          <i className="bi bi-building me-2" />StaySync
+          <i className="bi bi-building me-2" />{user?.hotelNombre ?? 'StaySync'}
         </Link>
 
         {user && (

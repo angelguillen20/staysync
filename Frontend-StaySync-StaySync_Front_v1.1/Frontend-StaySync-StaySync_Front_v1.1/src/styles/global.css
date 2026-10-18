@@ -21,7 +21,8 @@
 
 body {
   background-color: var(--ss-cream);
-  color: var(--ss-dark);
+  /* --ss-text solo existe si el hotel define un color de texto propio (marca blanca) */
+  color: var(--ss-text, var(--ss-dark));
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   margin: 0;

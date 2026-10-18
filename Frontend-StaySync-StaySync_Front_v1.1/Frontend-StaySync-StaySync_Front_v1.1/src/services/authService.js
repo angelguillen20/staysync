@@ -11,12 +11,13 @@ export async function login(email, password) {
 }
 
 /**
- * Register a new user.
+ * Register a new guest. El registro público siempre crea huéspedes: el rol lo asigna
+ * después un administrador. hotelSlug = portal del hotel desde el que se registra.
  * @returns {Promise<UsuarioResponse>} Created user from BFF.
  */
-export async function register({ nombre, apellido, email, password, telefono, rol = 'HUESPED' }) {
+export async function register({ nombre, apellido, email, password, telefono, hotelSlug }) {
   const { data } = await apiClient.post('/auth/registro', {
-    nombre, apellido, email, password, telefono, rol,
+    nombre, apellido, email, password, telefono, hotelSlug: hotelSlug || undefined,
   });
   return data;
 }
@@ -42,7 +43,9 @@ export async function logoutServer(token) {
  * El BFF hace el intercambio real contra Cognito y busca/crea el usuario.
  * @returns {Promise<AuthResponse>} Mismo formato que login().
  */
-export async function loginWithGoogle(code, codeVerifier, redirectUri) {
-  const { data } = await apiClient.post('/auth/google', { code, codeVerifier, redirectUri });
+export async function loginWithGoogle(code, codeVerifier, redirectUri, hotelSlug) {
+  const { data } = await apiClient.post('/auth/google', {
+    code, codeVerifier, redirectUri, hotelSlug: hotelSlug || undefined,
+  });
   return data;
 }

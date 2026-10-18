@@ -1,4 +1,5 @@
 import { createContext, useState, useCallback, useContext, useEffect, useMemo } from 'react';
+import { useMarca } from './ThemeContext';
 
 const AuthContext = createContext(null);
 
@@ -51,6 +52,7 @@ export function AuthProvider({ children }) {
   const [user,        setUser]        = useState(readLocalUser);
   const [accessToken, setAccessToken] = useState(() => localStorage.getItem(KEYS.access) || null);
   const [loading,     setLoading]     = useState(false);
+  const { setMarca } = useMarca();
 
   const isAuthenticated = !!(accessToken && user);
 
@@ -76,7 +78,9 @@ export function AuthProvider({ children }) {
 
     setAccessToken(at);
     setUser(userData);
-  }, []);
+    // El login trae la marca del hotel del usuario: se aplica de inmediato
+    if (hotel) setMarca(hotel);
+  }, [setMarca]);
 
   const logout = useCallback(() => {
     Object.values(KEYS).forEach(k => localStorage.removeItem(k));

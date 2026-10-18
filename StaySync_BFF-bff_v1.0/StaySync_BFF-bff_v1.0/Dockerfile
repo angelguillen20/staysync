@@ -7,10 +7,11 @@ FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 
 WORKDIR /app
 
-COPY pom.xml .
+# El contexto de build es la raíz del repo (docker build -f StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0/Dockerfile .)
+COPY StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0/pom.xml .
 RUN mvn dependency:go-offline -q
 
-COPY src ./src
+COPY StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0/src ./src
 RUN mvn package -DskipTests -q
 
 # ── Etapa 2: Imagen de ejecución (solo JRE, sin Maven ni código fuente) ───────
