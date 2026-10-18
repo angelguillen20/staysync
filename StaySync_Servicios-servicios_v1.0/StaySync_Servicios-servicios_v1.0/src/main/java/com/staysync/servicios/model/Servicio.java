@@ -1,6 +1,7 @@
 package com.staysync.servicios.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.TenantId;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -20,6 +21,11 @@ public class Servicio {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Hotel dueño del registro: Hibernate lo asigna al guardar y filtra por él en cada consulta. */
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "categoria_id", nullable = false)

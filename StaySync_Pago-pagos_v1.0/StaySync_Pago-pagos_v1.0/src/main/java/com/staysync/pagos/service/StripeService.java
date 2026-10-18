@@ -11,17 +11,14 @@ import com.staysync.pagos.dto.response.StripeCheckoutResponse;
 import com.staysync.pagos.exception.PagoFallidoException;
 import com.staysync.pagos.model.Pago;
 import com.staysync.pagos.repository.PagoRepository;
+import com.staysync.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -31,11 +28,8 @@ public class StripeService {
 
     private final StripeConfig stripeConfig;
     private final PagoRepository pagoRepository;
-    private final RestTemplate restTemplate;
     private final StripeGateway stripeGateway;
-
-    @Value("${services.reservas.url}")
-    private String reservasUrl;
+    private final PagoEventos pagoEventos;
 
     public StripeCheckoutResponse crearCheckout(StripeCheckoutRequest request) {
         long monto = request.getMonto().setScale(0, RoundingMode.HALF_UP).longValue();
@@ -64,6 +58,8 @@ public class StripeService {
                     )
                     .putMetadata("reserva_id",
                             request.getReservaId() != null ? request.getReservaId().toString() : "")
+                    // Para auditoría en el panel de Stripe: a qué hotel pertenece el cobro
+                    .putMetadata("tenant_id", TenantContext.get().orElse(""))
                     .build();
 
             Session session = stripeGateway.createSession(params);
@@ -126,7 +122,8 @@ public class StripeService {
             log.info("Pago Stripe registrado — referencia={} reservaId={}", referencia, reservaId);
 
             if (reservaId != null) {
-                confirmarReserva(reservaId);
+                // Reservas confirma la reserva al recibir PagoEfectuado
+                pagoEventos.pagoEfectuado(pago);
             }
 
             return toResponse(pago);
@@ -134,22 +131,6 @@ public class StripeService {
         } catch (StripeException e) {
             log.error("Error recuperando sesión Stripe — sessionId={} error={}", sessionId, e.getMessage());
             throw new PagoFallidoException("No se pudo verificar el pago con Stripe: " + e.getMessage());
-        }
-    }
-
-    private void confirmarReserva(Long reservaId) {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("estado", "CONFIRMADA"), headers);
-            restTemplate.exchange(
-                    reservasUrl + "/api/v1/reservas/" + reservaId + "/estado",
-                    HttpMethod.PATCH,
-                    entity,
-                    Object.class);
-            log.info("Reserva {} confirmada tras pago Stripe", reservaId);
-        } catch (Exception e) {
-            log.error("No se pudo confirmar la reserva {}: {}", reservaId, e.getMessage());
         }
     }
 

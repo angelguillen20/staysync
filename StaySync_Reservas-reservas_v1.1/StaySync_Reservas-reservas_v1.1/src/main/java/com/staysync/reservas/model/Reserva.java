@@ -1,6 +1,7 @@
 package com.staysync.reservas.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.TenantId;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -26,6 +27,11 @@ public class Reserva {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Hotel dueño de la reserva: Hibernate lo asigna al guardar y filtra por él en cada consulta. */
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @Column(nullable = false, unique = true, length = 20)
     private String codigo;
@@ -56,6 +62,13 @@ public class Reserva {
 
     @Column(columnDefinition = "TEXT")
     private String notas;
+
+    /** Contacto del huésped, para que Notificaciones no tenga que consultar a Usuarios. */
+    @Column(name = "huesped_email", length = 255)
+    private String huespedEmail;
+
+    @Column(name = "huesped_nombre", length = 200)
+    private String huespedNombre;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)

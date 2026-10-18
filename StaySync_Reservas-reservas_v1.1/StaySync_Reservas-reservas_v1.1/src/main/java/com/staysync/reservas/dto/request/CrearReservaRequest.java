@@ -36,6 +36,14 @@ public class CrearReservaRequest {
     @Size(max = 500, message = "Las notas no pueden superar 500 caracteres")
     private String notas;
 
+    /** Contacto del huésped para las notificaciones; lo completa el BFF. */
+    @Email
+    @Size(max = 255)
+    private String huespedEmail;
+
+    @Size(max = 200)
+    private String huespedNombre;
+
     private com.staysync.reservas.model.Reserva.FuenteReserva fuente =
             com.staysync.reservas.model.Reserva.FuenteReserva.DIRECTO;
 

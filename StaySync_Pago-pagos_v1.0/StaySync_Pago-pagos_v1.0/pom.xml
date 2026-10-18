@@ -21,6 +21,10 @@
         <springdoc.version>2.7.0</springdoc.version>
     </properties>
     <dependencies>
+        <!-- Librerías compartidas (StaySync_Commons): hotel por petición y eventos SNS/SQS -->
+        <dependency><groupId>com.staysync</groupId><artifactId>staysync-tenant</artifactId><version>1.0.0</version></dependency>
+        <dependency><groupId>com.staysync</groupId><artifactId>staysync-eventos</artifactId><version>1.0.0</version></dependency>
+        <dependency><groupId>io.awspring.cloud</groupId><artifactId>spring-cloud-aws-starter-sqs</artifactId><version>3.3.0</version></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>

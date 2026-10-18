@@ -3,6 +3,7 @@ package com.staysync.pagos.model;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.TenantId;
 import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
@@ -25,6 +26,11 @@ public class Pago {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Hotel que cobró el pago: Hibernate lo asigna al guardar y filtra por él en cada consulta. */
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @Column(nullable = false, unique = true, length = 50)
     private String referencia;

@@ -1,6 +1,7 @@
 package com.staysync.reservas.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.TenantId;
 import lombok.*;
 
 @Entity
@@ -13,6 +14,10 @@ public class HuespedAdicional {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reserva_id", nullable = false)

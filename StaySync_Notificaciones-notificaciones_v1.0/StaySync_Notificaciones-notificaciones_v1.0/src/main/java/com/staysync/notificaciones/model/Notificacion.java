@@ -1,6 +1,7 @@
 package com.staysync.notificaciones.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.TenantId;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -21,6 +22,11 @@ public class Notificacion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Hotel de la notificación: Hibernate lo asigna al guardar y filtra por él en cada consulta. */
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plantilla_id")

@@ -1,6 +1,7 @@
 package com.staysync.habitaciones.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.TenantId;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -16,6 +17,10 @@ public class ImagenHabitacion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "habitacion_id", nullable = false)

@@ -9,14 +9,10 @@ import com.staysync.pagos.model.Pago.EstadoPago;
 import com.staysync.pagos.repository.PagoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,10 +23,7 @@ import java.util.stream.Collectors;
 public class PagoService {
 
     private final PagoRepository pagoRepository;
-    private final RestTemplate restTemplate;
-
-    @Value("${services.reservas.url}")
-    private String reservasUrl;
+    private final PagoEventos pagoEventos;
 
     @Transactional
     public PagoResponse procesar(ProcesarPagoRequest request) {
@@ -56,7 +49,8 @@ public class PagoService {
             pago.setEstado(EstadoPago.COMPLETADO);
             pago.setGatewayId("GW-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase());
             pagoRepository.save(pago);
-            confirmarReserva(request.getReservaId());
+            // Reservas confirma la reserva al recibir PagoEfectuado
+            pagoEventos.pagoEfectuado(pago);
             log.info("Pago completado: {}", pago.getReferencia());
         } else {
             pago.setEstado(EstadoPago.FALLIDO);
@@ -93,8 +87,27 @@ public class PagoService {
         }
         pago.setEstado(Pago.EstadoPago.REEMBOLSADO);
         pagoRepository.save(pago);
+        pagoEventos.reembolsoEfectuado(pago);
         log.info("Reembolso procesado: {}", pago.getReferencia());
         return toResponse(pago);
+    }
+
+    /**
+     * Reacción a ReservaCancelada: devuelve los pagos completados de esa reserva. Si ya
+     * estaban reembolsados (evento duplicado) no hace nada.
+     */
+    @Transactional
+    public int reembolsarPorCancelacion(Long reservaId) {
+        List<Pago> completados = pagoRepository.findByReservaId(reservaId).stream()
+                .filter(p -> p.getEstado() == Pago.EstadoPago.COMPLETADO)
+                .toList();
+        completados.forEach(p -> {
+            p.setEstado(Pago.EstadoPago.REEMBOLSADO);
+            pagoRepository.save(p);
+            pagoEventos.reembolsoEfectuado(p);
+            log.info("Reembolso automático de {} por cancelación de la reserva {}", p.getReferencia(), reservaId);
+        });
+        return completados.size();
     }
 
     private boolean procesarConGateway(String token) {
@@ -108,22 +121,6 @@ public class PagoService {
             ref = "PAY-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();
         } while (pagoRepository.existsByReferencia(ref));
         return ref;
-    }
-
-    private void confirmarReserva(Long reservaId) {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<Map<String, String>> entity = new HttpEntity<>(Map.of("estado", "CONFIRMADA"), headers);
-            restTemplate.exchange(
-                    reservasUrl + "/api/v1/reservas/" + reservaId + "/estado",
-                    HttpMethod.PATCH,
-                    entity,
-                    Object.class);
-            log.info("Reserva {} confirmada tras pago exitoso", reservaId);
-        } catch (Exception e) {
-            log.error("No se pudo confirmar la reserva {}: {}", reservaId, e.getMessage());
-        }
     }
 
     private PagoResponse toResponse(Pago p) {
