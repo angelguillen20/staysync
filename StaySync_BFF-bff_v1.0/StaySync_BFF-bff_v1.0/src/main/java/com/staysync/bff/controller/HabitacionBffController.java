@@ -17,10 +17,11 @@ public class HabitacionBffController {
 
     private final HabitacionesClient habitacionesClient;
 
-    @Operation(summary = "Listar habitaciones disponibles con filtros opcionales")
+    @Operation(summary = "Listar habitaciones disponibles con filtros opcionales",
+               description = "Pública: sin sesión se usa el hotel del portal (header X-Hotel)")
     @GetMapping("/disponibles")
     public ResponseEntity<Object> listarDisponibles(
-            @RequestHeader("Authorization") String authHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestParam(required = false) Integer capacidad,
             @RequestParam(required = false) String amenidad,
             @RequestParam(defaultValue = "precio_asc") String sort) {
