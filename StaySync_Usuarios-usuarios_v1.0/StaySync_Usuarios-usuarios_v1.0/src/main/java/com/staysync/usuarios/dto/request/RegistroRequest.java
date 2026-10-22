@@ -1,6 +1,5 @@
 package com.staysync.usuarios.dto.request;
 
-import com.staysync.usuarios.model.Usuario.Rol;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 import lombok.Data;
@@ -35,6 +34,10 @@ public class RegistroRequest {
     @Schema(example = "+573001234567")
     private String telefono;
 
-    @Schema(example = "HUESPED", defaultValue = "HUESPED")
-    private Rol rol = Rol.HUESPED;
+    // Sin campo "rol": el registro público siempre crea huéspedes. El personal lo asciende
+    // un administrador desde la pantalla de usuarios (PATCH /usuarios/{id}/rol).
+
+    @Pattern(regexp = "^[a-z0-9][a-z0-9-]{1,63}$", message = "El slug del hotel no es válido")
+    @Schema(description = "Hotel desde cuyo portal se registra; vacío = hotel por defecto", example = "staysync-demo")
+    private String hotelSlug;
 }

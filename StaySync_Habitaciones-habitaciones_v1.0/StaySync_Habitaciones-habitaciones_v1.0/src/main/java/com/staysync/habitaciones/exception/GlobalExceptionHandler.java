@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 @RestControllerAdvice
@@ -40,7 +41,7 @@ public class GlobalExceptionHandler {
             errores.put(campo, e.getDefaultMessage());
         });
         ErrorResponse body = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error("Validación fallida")
                 .message("Errores de validación en la solicitud")
@@ -58,7 +59,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message, WebRequest req) {
         return ResponseEntity.status(status).body(ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(status.value())
                 .error(status.getReasonPhrase())
                 .message(message)

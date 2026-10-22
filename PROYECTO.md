@@ -1,7 +1,11 @@
 # StaySync — Documentación Completa del Proyecto
 
 **Sistema de Gestión Hotelera — Arquitectura de Microservicios**  
-**Versión:** 1.0.0 | **Fecha:** 2026-06-20  
+**Versión:** 2.0.0 | **Fecha:** 2026-10-18
+
+> **Novedades de la versión 2.0.** La plataforma ahora es **multi-hotel** y de **marca blanca**, y los
+> servicios se comunican por eventos **SNS + SQS**, que reemplazan a RabbitMQ y a varias llamadas HTTP.
+> Resumen en las secciones 2, 14 y 15. Contrato de eventos en [docs/eventos.md](docs/eventos.md).
 
 ---
 
@@ -20,7 +24,7 @@
 11. [Microservicio: Notificaciones](#11-microservicio-notificaciones--puerto-8086)
 12. [Microservicio: OTA](#12-microservicio-ota--puerto-8087)
 13. [Frontend React](#13-frontend-react--puerto-3000)
-14. [Sistema de Mensajería (RabbitMQ)](#14-sistema-de-mensajería-rabbitmq)
+14. [Sistema de Mensajería (SNS + SQS)](#14-sistema-de-mensajería-sns--sqs)
 15. [Seguridad y Autenticación JWT](#15-seguridad-y-autenticación-jwt)
 16. [Resiliencia y Manejo de Fallos](#16-resiliencia-y-manejo-de-fallos)
 17. [Flujos Completos del Sistema](#17-flujos-completos-del-sistema)
@@ -39,51 +43,47 @@ StaySync es un sistema de gestión hotelera completo que permite administrar:
 - **Servicios adicionales** — spa, lavandería, restaurante; solicitudes por reserva
 - **Pagos** — procesamiento directo y via Stripe Checkout
 - **Notificaciones** — emails automáticos por eventos (registro, reserva, cambios de estado)
-- **OTA** — integración con canales externos de distribución (Booking.com, Airbnb, etc.)
+- **OTA** — integración con canales externos de distribución (Booking.com, Airbnb, etc.). *Congelado: no se usa en esta etapa.*
+- **Multi-hotel (SaaS)** — una sola plataforma atiende a varios hoteles. Cada hotel ve solo sus datos.
+- **Marca blanca** — cada hotel tiene su nombre, logo y colores, y su portal `/login?hotel=<slug>`.
 
 ---
 
 ## 2. Arquitectura del Sistema
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        CLIENTE (Browser)                            │
-│                    React 18 + Vite + Bootstrap 5                    │
-│                        localhost:3000                               │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ HTTP (Axios)
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│               BFF — Backend For Frontend (Port 8080)                │
-│    JWT Validation · Circuit Breaker · Event Publisher · Proxy       │
-└───┬──────┬──────┬──────┬──────┬──────────────────────────┬─────────┘
-    │      │      │      │      │    RestTemplate calls     │
-    ▼      ▼      ▼      ▼      ▼                          │ RabbitMQ
- :8081  :8082  :8083  :8084  :8085                        ▼
-Usuarios Habit. Reserv. Serv.  Pagos   ┌──────────────────────────────┐
-                                       │  staysync.notificaciones     │
-                     │ RabbitMQ events │  exchange (Topic)             │
-                     └────────────────▶│                              │
-                                       └─────────────┬────────────────┘
-                                                     ▼
-                                           Notificaciones :8086
-                                           (Email via SMTP Brevo)
-
-                     Reservas ──RabbitMQ──▶ Habitaciones :8082
-                                            (actualiza estado cuarto)
-                                            ──RabbitMQ──▶ OTA :8087
-
-                     Pagos ──RabbitMQ──▶ Reservas :8083
-                                         (pago.completado → CONFIRMADA)
+ Navegador (React, marca del hotel)
+        │  HTTPS
+        ▼
+ API Gateway ──▶ BFF :8080 ── valida el JWT, saca el hotel (tenantId) y lo reenvía como X-Tenant-Id
+                   │  HTTP (órdenes: crear, cancelar, pagar...)
+        ┌──────────┼──────────┬───────────┬──────────┬───────────────┐
+        ▼          ▼          ▼           ▼          ▼               ▼
+   Usuarios   Habitaciones  Reservas   Servicios   Pagos      Notificaciones
+    :8081       :8082        :8083       :8084      :8085         :8086
+   (hoteles)      ▲         publica ▲   ▲          publica ▲         ▲
+                  │            │    │   │            │    │          │
+                  │            ▼    │   │            ▼    │          │
+                  │      ┌──────────────────────────────────┐        │
+                  └──────│  SNS staysync-eventos ──▶ 5 colas SQS (con DLQ) │───────┘
+                         └──────────────────────────────────┘
 ```
 
 ### Patrón de comunicación
 
-| Tipo | Usado para |
+| Tipo | Se usa para |
 |---|---|
-| HTTP sincrónico (RestTemplate) | Consultas en tiempo real (BFF → microservicios, Reservas → Habitaciones) |
-| RabbitMQ asincrónico (Topic exchange) | Eventos: registro usuario, reserva creada, cambio estado, pago completado |
-| BFF pattern | Frontend solo habla con el BFF; el BFF agrega y enruta a los servicios |
+| HTTP síncrono (BFF → servicio) | **Órdenes** del usuario que esperan respuesta: crear una reserva, pagar, cancelar. |
+| Eventos SNS + SQS | **Avisos** de algo que ya pasó, a los que reaccionan otros servicios: confirmar la reserva tras el pago, correos, aseo, estado de la habitación, reembolsos. |
+| Outbox transaccional | Cada servicio guarda el evento en su base de datos, en la misma transacción que el cambio. Un proceso lo publica después en SNS. Así no se pierden ni se inventan avisos. |
+
+### Multi-hotel (tenant)
+
+- Cada usuario pertenece a un hotel (`tenant_id`), que viaja **firmado dentro del JWT**.
+- El BFF lo reenvía a los servicios internos como `X-Tenant-Id`. Nunca lo toma de lo que manda el navegador.
+- En cada servicio, las entidades del hotel tienen `@TenantId`: **Hibernate filtra todas las consultas por hotel** y asigna el hotel al guardar. Sin hotel en la petición, el servicio responde 400.
+- Los catálogos (tipos de habitación, amenidades, categorías, plantillas) son comunes a todos los hoteles.
+- Librería compartida: `StaySync_Commons/staysync-tenant`.
 
 ---
 
@@ -97,7 +97,7 @@ Usuarios Habit. Reserv. Serv.  Pagos   ┌────────────�
 | Spring Boot | 3.4.1 | Framework principal |
 | Spring Data JPA | (Boot) | ORM y acceso a datos |
 | Spring Security | (Boot) | Autenticación JWT |
-| Spring AMQP | (Boot) | Mensajería con RabbitMQ |
+| Spring Cloud AWS | 3.3 | Publicación SNS y consumo SQS (@SqsListener) |
 | Lombok | (Boot) | Reducción de boilerplate |
 | Resilience4j | 2.2.0 | Circuit breaker en BFF |
 | MapStruct | 1.6.3 | Mapeo DTO ↔ Entity |
@@ -110,7 +110,7 @@ Usuarios Habit. Reserv. Serv.  Pagos   ┌────────────�
 | Tecnología | Versión | Uso |
 |---|---|---|
 | MySQL | 8.0 | Base de datos (1 por servicio) |
-| RabbitMQ | 3.13 | Message broker |
+| Amazon SNS + SQS | — | Mensajería entre servicios (LocalStack 3.8 en local) |
 | Docker | - | Contenedores |
 | Nginx | 1.27 | Reverse proxy del frontend |
 | Maven | 3.9.6 | Build tool |
@@ -143,8 +143,7 @@ Usuarios Habit. Reserv. Serv.  Pagos   ┌────────────�
 | Pagos | 8085 | `pagos_db` | interno |
 | Notificaciones | 8086 | `notificaciones_db` | interno |
 | OTA | 8087 | `ota_db` | interno |
-| RabbitMQ AMQP | 5672 | — | — |
-| RabbitMQ UI | 15672 | — | — |
+| LocalStack (SNS + SQS) | 4566, solo red interna | — | — |
 
 > Las bases de datos MySQL **no exponen puerto al host** en producción (solo acceso interno entre contenedores Docker).
 
@@ -160,16 +159,15 @@ GET /actuator/health → {"status": "UP"}
 ```bash
 # Levantar todo el stack local (compila desde fuente)
 docker compose up -d
-
-# Levantar producción (usa imágenes ECR preconstruidas)
-docker compose -f docker-compose.prod.yml up -d
 ```
+
+Producción se despliega en ECS Fargate desde GitHub Actions en cada push a `master` (ver `DOCKER.md`).
 
 ---
 
 ## 5. Microservicio: BFF (API Gateway) — Puerto 8080
 
-El BFF (Backend For Frontend) es el único punto de entrada para el frontend. Valida JWT, agrega datos de varios servicios y publica eventos a RabbitMQ.
+El BFF (Backend For Frontend) es el único punto de entrada para el frontend. Valida el JWT, reenvía el hotel (`X-Tenant-Id`) a los servicios internos y agrega datos de varios servicios. Ya no publica eventos de negocio: los publica cada servicio desde su outbox.
 
 ### Responsabilidades
 
@@ -177,7 +175,7 @@ El BFF (Backend For Frontend) es el único punto de entrada para el frontend. Va
 2. **Proxy** — reenvía peticiones a los microservicios con el header `Authorization`
 3. **Agregación** — combina datos de varios servicios en una sola respuesta (dashboard)
 4. **Circuit Breaker** — si un microservicio falla, retorna fallback en lugar de error
-5. **Event Publisher** — publica eventos a RabbitMQ tras acciones críticas
+5. **Hotel por petición** — saca el `tenantId` del JWT (o del portal `X-Hotel` en rutas públicas) y lo reenvía a los servicios
 
 ### Endpoints
 
@@ -255,13 +253,9 @@ ServiciosClient   → http://localhost:8084
 PagosClient       → http://localhost:8085
 ```
 
-### Eventos RabbitMQ publicados
+### Eventos
 
-| Routing Key | Evento | Cuándo |
-|---|---|---|
-| `usuario.registro` | `UsuarioRegistradoEvent` | POST /bff/auth/registro exitoso |
-| `reserva.creada` | `ReservaCreadaEvent` | POST /bff/reservas exitoso |
-| `reserva.estado` | `ReservaEstadoCambiadoEvent` | PATCH /bff/reservas/{id}/estado exitoso |
+Ver la [sección 14](#14-sistema-de-mensajería-sns--sqs) y [docs/eventos.md](docs/eventos.md).
 
 ---
 
@@ -409,21 +403,9 @@ Inventario completo de habitaciones del hotel con tipos, amenidades y estados.
 - `amenidad` — nombre de amenidad requerida (ej: "WiFi")
 - `sort` — `precio_asc`, `precio_desc`, `numero_asc` (default)
 
-### Eventos RabbitMQ
+### Eventos
 
-#### Escucha (Listener)
-
-| Queue | Routing Key | Acción |
-|---|---|---|
-| `q.habitacion.estado` | `reserva.checkin` | Cambia estado de habitación a `OCUPADA` |
-| `q.habitacion.estado` | `reserva.checkout` | Cambia estado de habitación a `DISPONIBLE` |
-
-#### Publica (Publisher)
-
-| Exchange | Routing Key | Payload |
-|---|---|---|
-| `staysync.habitaciones.exchange` | `habitacion.estado.cambiado` | `{habitacionId, estadoAnterior, estadoNuevo, timestamp}` |
-| `staysync.habitaciones.exchange` | `habitacion.disponibilidad.actualizada` | `{habitacionId, fecha, disponible, precio}` |
+Ver la [sección 14](#14-sistema-de-mensajería-sns--sqs) y [docs/eventos.md](docs/eventos.md).
 
 ---
 
@@ -536,25 +518,9 @@ GET http://habitaciones:8082/api/v1/habitaciones/{id}
   → obtener precioPorNoche y capacidad para validación y cálculo de precioTotal
 ```
 
-### Eventos RabbitMQ
+### Eventos
 
-#### Escucha (Listener)
-
-| Queue | Routing Key | Acción |
-|---|---|---|
-| `q.pago.completado` | `pago.completado` | Cambia reserva a `CONFIRMADA` |
-| `q.pago.fallido` | `pago.fallido` | Log warning (reserva permanece `PENDIENTE`) |
-
-#### Publica (Publisher)
-
-Exchange: `staysync.reservas.exchange`
-
-| Routing Key | Cuándo | Consumidor |
-|---|---|---|
-| `reserva.confirmada` | Estado → CONFIRMADA | Notificaciones |
-| `reserva.checkin` | Estado → CHECKIN | Habitaciones (→ OCUPADA) |
-| `reserva.checkout` | Estado → CHECKOUT | Habitaciones (→ DISPONIBLE) |
-| `reserva.cancelada` | Cancelada | Notificaciones |
+Ver la [sección 14](#14-sistema-de-mensajería-sns--sqs) y [docs/eventos.md](docs/eventos.md).
 
 ---
 
@@ -667,18 +633,15 @@ StripeService
 
 > `StripeGateway` es una interfaz que separa la lógica de negocio de las llamadas estáticas del SDK, permitiendo tests sin `MockedStatic`.
 
-### Eventos RabbitMQ publicados
+### Eventos
 
-| Exchange | Routing Key | Cuándo |
-|---|---|---|
-| `staysync.pagos.exchange` | `pago.completado` | Pago procesado exitosamente |
-| `staysync.pagos.exchange` | `pago.fallido` | Pago rechazado o sin token |
+Ver la [sección 14](#14-sistema-de-mensajería-sns--sqs) y [docs/eventos.md](docs/eventos.md).
 
 ---
 
 ## 11. Microservicio: Notificaciones — Puerto 8086
 
-Servicio 100% event-driven. Escucha eventos de RabbitMQ y envía emails automáticos.
+Servicio dirigido por eventos. Consume la cola `notificaciones-q` (SNS + SQS) y envía un correo por cada evento de reserva o pago. Guarda una copia del contacto de cada reserva (`contactos_reserva`) para saber a quién escribir en los eventos de pago.
 
 ### Modelos de datos
 
@@ -712,60 +675,9 @@ Servicio 100% event-driven. Escucha eventos de RabbitMQ y envía emails automát
 | cuerpo | LONGTEXT | HTML con variables: `{{nombre}}`, `{{codigo}}`, etc. |
 | activa | BOOLEAN | Si está activa |
 
-### Eventos RabbitMQ escuchados
+### Eventos
 
-| Queue | Routing Key | Evento | Email enviado |
-|---|---|---|---|
-| `q.notificacion.usuario.registro` | `usuario.registro` | `UsuarioRegistradoEvent` | Bienvenida al nuevo usuario |
-| `q.notificacion.reserva.creada` | `reserva.creada` | `ReservaCreadaEvent` | Confirmación de reserva |
-| `q.notificacion.reserva.estado` | `reserva.estado` | `ReservaEstadoCambiadoEvent` | Notificación de cambio de estado |
-
-### Eventos (Java Records)
-
-```java
-public record UsuarioRegistradoEvent(Long usuarioId, String nombre, String email) {}
-
-public record ReservaCreadaEvent(
-    Long reservaId, Long usuarioId, String email, String nombreUsuario,
-    String codigo, String habitacion, String fechaEntrada, String fechaSalida,
-    Double precioTotal) {}
-
-public record ReservaEstadoCambiadoEvent(
-    Long reservaId, Long usuarioId, String email, String nombreUsuario,
-    String codigo, String habitacion, String estadoNuevo) {}
-```
-
-### Flujo de envío de email
-
-```
-1. RabbitMQ listener recibe evento
-2. Busca PlantillaNotificacion por código (USUARIO_REGISTRO, etc.)
-3. Renderiza plantilla: reemplaza {{variable}} con valores del evento
-4. Crea registro Notificacion (estado: PENDIENTE)
-5. Llama enviarEmail()
-   ├── Éxito: estado = ENVIADO, enviadoEn = now
-   └── Fallo: intentos++
-        ├── intentos < maxIntentos: estado = PENDIENTE (reintento)
-        └── intentos >= maxIntentos: estado = FALLIDO, errorMsg guardado
-```
-
-### Configuración de email
-
-```yaml
-# Brevo (producción)
-spring.mail.host: smtp-relay.brevo.com
-spring.mail.port: 587
-
-# Flag para activar/desactivar envío real
-notificaciones.mail.enabled: true  # false = solo log, no envía
-```
-
-### Dead Letter Queue (DLQ)
-
-Si el procesamiento del mensaje falla 3 veces, RabbitMQ mueve el mensaje a la DLQ correspondiente para análisis manual:
-- `q.notificacion.usuario.registro.dlq`
-- `q.notificacion.reserva.creada.dlq`
-- `q.notificacion.reserva.estado.dlq`
+Ver la [sección 14](#14-sistema-de-mensajería-sns--sqs) y [docs/eventos.md](docs/eventos.md).
 
 ---
 
@@ -809,11 +721,9 @@ Integración con canales externos de distribución (Online Travel Agencies).
 | GET | `/sincronizacion/pendientes` | Reservas OTA pendientes de sincronizar |
 | POST | `/webhooks/{codigoCanal}` | Webhook receptor de reservas externas |
 
-### Eventos RabbitMQ escuchados
+### Eventos
 
-| Queue | Acción |
-|---|---|
-| `q.habitacion.estado` | Actualiza disponibilidad en canales OTA cuando cambia estado de habitación |
+Ver la [sección 14](#14-sistema-de-mensajería-sns--sqs) y [docs/eventos.md](docs/eventos.md).
 
 ---
 
@@ -854,77 +764,33 @@ El build de producción (`/dist`) se sirve via **Nginx 1.27** con:
 
 ---
 
-## 14. Sistema de Mensajería (RabbitMQ)
+## 14. Sistema de Mensajería (SNS + SQS)
 
-### Exchanges y bindings
+RabbitMQ fue reemplazado por **Amazon SNS + SQS**. En local se usa **LocalStack**, que levanta `docker compose` junto con el resto.
 
-```
-staysync.notificaciones (Topic Exchange)
-  ├── usuario.registro → q.notificacion.usuario.registro
-  ├── reserva.creada   → q.notificacion.reserva.creada
-  └── reserva.estado   → q.notificacion.reserva.estado
+| Pieza | Nombre |
+|---|---|
+| Topic SNS | `staysync-eventos` |
+| Colas SQS | `notificaciones-q`, `reservas-q`, `habitaciones-q`, `servicios-q`, `pagos-q` |
+| DLQ | `<servicio>-dlq`. Recibe un mensaje después de 3 intentos fallidos. |
+| Creación | `scripts/mensajeria/crear-mensajeria.sh`. Es el mismo script para LocalStack y para AWS. |
 
-  DLX: staysync.notificaciones.dlx (Direct)
-  ├── usuario.registro → q.notificacion.usuario.registro.dlq
-  ├── reserva.creada   → q.notificacion.reserva.creada.dlq
-  └── reserva.estado   → q.notificacion.reserva.estado.dlq
+| Evento | Publica | Lo consumen |
+|---|---|---|
+| `ReservaCreada` | Reservas | Notificaciones |
+| `ReservaConfirmada` | Reservas | Notificaciones, Servicios (programa el aseo) |
+| `ReservaCancelada` | Reservas | Notificaciones, Servicios (cancela el aseo), Pagos (reembolso) |
+| `ReservaCheckin` | Reservas | Notificaciones, Habitaciones (OCUPADA) |
+| `ReservaCheckout` | Reservas | Notificaciones, Habitaciones (DISPONIBLE), Servicios (aseo pendiente) |
+| `PagoEfectuado` | Pagos | Reservas (confirma), Notificaciones (recibo) |
+| `ReembolsoEfectuado` | Pagos | Notificaciones |
 
-staysync.reservas.exchange (Topic Exchange)
-  ├── reserva.checkin   → q.habitacion.estado (Habitaciones)
-  ├── reserva.checkout  → q.habitacion.estado (Habitaciones)
-  └── reserva.*         → q.ota.sincronizacion (OTA)
+Garantías:
+- **Nada se pierde.** Un evento se publica si y solo si su cambio se guardó (outbox).
+- **Duplicados sin efecto.** Cada consumidor ignora los `eventId` ya procesados.
+- **Siempre con el hotel correcto.** El consumidor procesa cada evento con el hotel que trae el propio evento.
 
-staysync.pagos.exchange (Topic Exchange)
-  ├── pago.completado → q.pago.completado (Reservas)
-  └── pago.fallido    → q.pago.fallido (Reservas)
-
-staysync.habitaciones.exchange (Topic Exchange)
-  └── habitacion.disponibilidad.actualizada → q.habitacion.estado (OTA)
-```
-
-### Política de reintentos
-
-```yaml
-spring.rabbitmq.listener.simple.retry:
-  enabled: true
-  max-attempts: 3
-  initial-interval: 1000ms   # 1 segundo
-  multiplier: 2              # Backoff exponencial
-  max-interval: 10000ms      # Máximo 10 segundos
-```
-
-Después de 3 intentos fallidos, el mensaje va al DLQ.
-
-### Diagrama completo de flujo de mensajes
-
-```
-BFF                    RabbitMQ                   Consumidores
- │
- ├─POST /registro──►[usuario.registro]──────────►Notificaciones
- │                                               (email bienvenida)
- │
- ├─POST /reservas──►[reserva.creada]────────────►Notificaciones
- │                                               (email confirmación)
- │
- ├─PATCH /estado───►[reserva.estado]────────────►Notificaciones
- │                                               (email cambio estado)
- │
-Reservas
- │
- ├─CHECKIN─────────►[reserva.checkin]───────────►Habitaciones
- │                                               (→ OCUPADA)
- │
- ├─CHECKOUT─────────►[reserva.checkout]──────────►Habitaciones
- │                                               (→ DISPONIBLE)
- │
-Pagos
- │
- ├─pago OK──────────►[pago.completado]───────────►Reservas
- │                                               (→ CONFIRMADA)
- │
- └─pago KO──────────►[pago.fallido]──────────────►Reservas
-                                                 (log, permanece PENDIENTE)
-```
+Sobre del evento, payloads y operación: **[docs/eventos.md](docs/eventos.md)**.
 
 ---
 
@@ -978,15 +844,24 @@ GET  /actuator/health
 
 ### Roles y permisos
 
-| Operación | HUESPED | RECEPCIONISTA | ADMIN |
-|---|---|---|---|
-| Ver perfil propio | ✅ | ✅ | ✅ |
-| Ver otras reservas | ❌ | ✅ | ✅ |
-| Crear reserva | ✅ | ✅ | ✅ |
-| Cambiar estado reserva | ❌ | ✅ | ✅ |
-| Gestionar habitaciones | ❌ | PATCH estado | ✅ CRUD |
-| Gestionar usuarios | ❌ | Ver | ✅ CRUD |
-| Dashboard | ❌ | ✅ | ✅ |
+| Operación | HUESPED | RECEPCIONISTA | ADMIN | SUPER_ADMIN |
+|---|---|---|---|---|
+| Ver perfil propio | ✅ | ✅ | ✅ | ✅ |
+| Ver otras reservas (de su hotel) | ❌ | ✅ | ✅ | ✅ |
+| Crear reserva | ✅ | ✅ | ✅ | ✅ |
+| Cambiar estado reserva | ❌ | ✅ | ✅ | ✅ |
+| Gestionar habitaciones | ❌ | PATCH estado | ✅ CRUD | ✅ CRUD |
+| Gestionar usuarios | ❌ | Ver | ✅ de su hotel | ✅ de todos los hoteles |
+| Editar la marca del hotel | ❌ | ❌ | ✅ la suya | ✅ cualquiera |
+| Mover personal entre hoteles | ❌ | ❌ | ❌ | ✅ |
+| Dashboard | ❌ | ✅ | ✅ | ✅ |
+
+- **SUPER_ADMIN** es el operador de la plataforma (StaySync) y hereda todos los permisos de ADMIN.
+- Un ADMIN **no puede** dar el rol SUPER_ADMIN ni modificar la cuenta de un SUPER_ADMIN.
+- Un usuario de otro hotel responde **404**, para no revelar que existe.
+- El **registro público** siempre crea un HUESPED, en el hotel del portal (`hotelSlug`).
+- Cambiar el rol o el hotel de alguien **cierra sus sesiones**. El access token dura 15 minutos y el frontend lo renueva solo.
+- El JWT incluye los claims `rol`, `userId` y **`tenantId`**.
 
 ---
 
@@ -1053,9 +928,8 @@ Frontend → POST /bff/auth/registro
 BFF:
   1. Llama POST /api/v1/auth/registro en usuarios-service
   2. Recibe UsuarioResponse {id: 5, email: "ana@mail.com", ...}
-  3. Publica a RabbitMQ:
-     Exchange: staysync.notificaciones
-     Key: usuario.registro
+  3. Avisa a notificaciones-service por HTTP (con el hotel del usuario en X-Tenant-Id):
+     POST /api/v1/notificaciones/usuario-registrado
      Payload: {usuarioId: 5, nombre: "Ana", email: "ana@mail.com"}
 
 Notificaciones (async):
@@ -1161,9 +1035,12 @@ JWT_SECRET=tu-clave-secreta-muy-larga-aqui-minimo-64-caracteres-para-produccion
 # Stripe (NUNCA hardcodear en código)
 STRIPE_SECRET_KEY=sk_test_...
 
-# RabbitMQ
-RABBITMQ_USER=staysync
-RABBITMQ_PASS=rabbit_pass
+# Mensajería SNS + SQS (docker-compose ya las define para LocalStack)
+EVENTOS_ENABLED=true                     # false = los eventos esperan en el outbox
+EVENTOS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:staysync-eventos
+AWS_REGION=us-east-1
+# Hotel al que se asignan los datos anteriores al multi-hotel
+DEFAULT_TENANT_ID=staysync-demo
 
 # Email (Brevo / Mailtrap)
 MAIL_HOST=smtp-relay.brevo.com
@@ -1171,9 +1048,8 @@ MAIL_PORT=587
 MAIL_USERNAME=tu-email@brevo.com
 MAIL_PASSWORD=tu-smtp-key
 
-# Para producción (ECR)
-ECR_REGISTRY=123456789.dkr.ecr.us-east-1.amazonaws.com
-IMAGE_TAG=1.0.0
+# Cifrado AES-256 de datos personales (usuarios-service): openssl rand -base64 32
+AES_ENCRYPTION_KEY=clave_de_32_bytes_en_base64
 ```
 
 ### Archivos de ejemplo
@@ -1224,8 +1100,8 @@ open http://localhost:3000
 ### Opción B: Servicios individuales (desarrollo)
 
 ```bash
-# Infraestructura mínima (MySQL + RabbitMQ)
-docker compose up -d mysql-usuarios rabbitmq
+# Infraestructura mínima (MySQL + SNS/SQS en LocalStack)
+docker compose up -d mysql-usuarios localstack
 
 # Usuarios-service
 cd StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
@@ -1264,18 +1140,28 @@ npm run test
 npm run coverage
 ```
 
-### RabbitMQ Management UI
+### Mensajería en local (LocalStack)
 
-```
-URL: http://localhost:15672
-Usuario: staysync (o valor de RABBITMQ_USER)
-Contraseña: (valor de RABBITMQ_PASS)
+```bash
+# Colas y mensajes pendientes
+docker exec staysync-localstack awslocal sqs list-queues
+docker exec staysync-localstack awslocal sqs get-queue-attributes \
+  --queue-url http://localhost:4566/000000000000/notificaciones-q --attribute-names All
 
-Desde aquí puedes:
-- Ver exchanges y bindings
-- Monitorear colas (mensajes pendientes, DLQs)
-- Publicar mensajes de prueba manualmente
+# Mensajes que fallaron 3 veces
+docker exec staysync-localstack awslocal sqs receive-message \
+  --queue-url http://localhost:4566/000000000000/notificaciones-dlq
 ```
+
+### Probar dos hoteles
+
+| Cuenta | Contraseña | Hotel |
+|---|---|---|
+| `superadmin@staysync.com` | `Super@1234` | Plataforma (ve todos) |
+| `admin@staysync.com` | `Admin@1234` | StaySync Demo |
+| `admin@hotelandes.com` | `Admin@1234` | Hotel Andes |
+
+Portal con la marca de un hotel: `http://localhost:3000/login?hotel=hotel-andes`
 
 ---
 
@@ -1294,11 +1180,10 @@ Desde aquí puedes:
 │ Pagos           │ 8085   │ pagos_db        │ Pagos + Stripe │
 │ Notificaciones  │ 8086   │ notificaciones_db│ Emails async  │
 │ OTA             │ 8087   │ ota_db          │ Canales extern.│
-│ RabbitMQ AMQP   │ 5672   │ —               │ Message broker │
-│ RabbitMQ UI     │ 15672  │ —               │ Monitoreo      │
+│ LocalStack      │ (int.) │ —               │ SNS + SQS local│
 └─────────────────┴────────┴─────────────────┴────────────────┘
 ```
 
 ---
 
-*Documentación generada el 2026-06-20 — StaySync Hotel Management System v1.0.0*
+*Documentación actualizada el 2026-10-18 — StaySync Hotel Management System v2.0.0*

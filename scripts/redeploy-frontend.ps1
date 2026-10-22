@@ -7,7 +7,6 @@
 #>
 $ErrorActionPreference = 'Stop'
 
-$S3Bucket = 'staysync-front-348143777102'   # <-- CAMBIA esto si tu bucket es otro
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $FrontendPath = Join-Path $RepoRoot 'Frontend-StaySync-StaySync_Front_v1.1\Frontend-StaySync-StaySync_Front_v1.1'
 
@@ -22,6 +21,9 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 Write-Ok "Sesión activa."
+
+# Mismo nombre que usa el workflow: staysync-front-<id de la cuenta>
+$S3Bucket = "staysync-front-$(aws sts get-caller-identity --query Account --output text)"
 
 Write-Step "Instalando dependencias y compilando el frontend..."
 Push-Location $FrontendPath

@@ -4,8 +4,9 @@
 function base64UrlEncode(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  for (const b of bytes) binary += String.fromCodePoint(b);
+  // '=' solo aparece como relleno al final en base64, así que basta con eliminarlo (sin regex)
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
 
 export function generateCodeVerifier() {

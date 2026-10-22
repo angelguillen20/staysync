@@ -1,0 +1,33 @@
+# SonarQube local para analizar StaySync.
+#   1) docker compose -f docker-compose.sonar.yml up -d sonarqube
+#   2) Entrar a http://localhost:9000 (admin/admin), crear un token
+#   3) docker compose -f docker-compose.sonar.yml run --rm -e SONAR_TOKEN=<token> scanner
+
+services:
+  sonarqube:
+    image: sonarqube:community
+    container_name: staysync-sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+  scanner:
+    image: sonarsource/sonar-scanner-cli:latest
+    profiles: ["scan"]
+    depends_on:
+      - sonarqube
+    environment:
+      SONAR_HOST_URL: http://sonarqube:9000
+      SONAR_TOKEN: ${SONAR_TOKEN:-}
+    volumes:
+      - ./:/usr/src
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

@@ -23,15 +23,17 @@ Internet
      │ HTTP interno (red Docker)
      ├──► usuarios      :8081  ←→  mysql-usuarios
      ├──► habitaciones  :8082  ←→  mysql-habitaciones
-     ├──► reservas      :8083  ←→  mysql-reservas  ←→  RabbitMQ
+     ├──► reservas      :8083  ←→  mysql-reservas
      ├──► servicios     :8084  ←→  mysql-servicios
      └──► pagos         :8085  ←→  mysql-pagos  ←→  Stripe
 
                    notificaciones :8086  ←→  mysql-notificaciones
-                                          ←→  RabbitMQ (consumer)
                                           ←→  SMTP (JavaMail)
 
                    ota            :8087  ←→  mysql-ota
+
+Eventos: habitaciones, reservas, servicios, pagos y notificaciones publican en un topic
+SNS y cada uno consume su cola SQS (con DLQ). En local los emula LocalStack. Ver docs/eventos.md.
 ```
 
 ---
@@ -52,15 +54,19 @@ Internet
 
 ### Patrón multi-stage (Java)
 
-Todos los microservicios Java usan el mismo patrón de dos etapas:
+Todos los microservicios Java usan el mismo patrón de dos etapas. El contexto de build es
+la raíz del repo, para que los servicios que lo necesitan instalen `StaySync_Commons`
+(librerías de hotel por petición y eventos):
 
 ```dockerfile
 # Etapa 1 — compilación (imagen pesada, descartada al final)
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
+COPY StaySync_Commons /commons             # solo en los servicios que usan Commons
+RUN mvn -q -f /commons/pom.xml install -DskipTests
 WORKDIR /app
-COPY pom.xml .
+COPY <ruta-del-servicio>/pom.xml .
 RUN mvn dependency:go-offline -q          # capa cacheada
-COPY src ./src
+COPY <ruta-del-servicio>/src ./src
 RUN mvn package -DskipTests -q
 
 # Etapa 2 — runtime (imagen final ~200 MB vs ~500 MB con Maven)
@@ -160,8 +166,11 @@ docker compose logs <nombre-servicio>
 | `http://localhost:8083/actuator/health` | Reservas health |
 | `http://localhost:8084/actuator/health` | Servicios health |
 | `http://localhost:8085/actuator/health` | Pagos health |
-| `http://localhost:8086/actuator/health` | Notificaciones health |
-| `http://localhost:15672` | RabbitMQ Management (user: staysync) |
+| `http://localhost:8086/actuator/health` | Notificaciones health (no incluye el SMTP) |
+| `http://localhost:8087/actuator/health` | OTA health |
+
+LocalStack no publica puertos (en Windows el 4566 suele estar reservado por Hyper-V). Para
+ver las colas: `docker exec staysync-localstack awslocal sqs list-queues`.
 
 ### 5. Detener y limpiar
 
@@ -195,64 +204,25 @@ docker compose exec mysql-reservas mysql -u staysync -p reservas_db
 
 ## Despliegue en AWS
 
-### Opción A — EC2 + Docker Compose (recomendado para empezar)
+### ECS Fargate con despliegue continuo
 
-1. **Lanzar instancia EC2**
-   - AMI: Amazon Linux 2023
-   - Tipo: `t3.medium` mínimo (8 servicios + MySQL + RabbitMQ)
-   - Abrir puertos: 22 (SSH), 80, 443, 3000, 8080-8087
+El despliegue lo hace GitHub Actions (`.github/workflows/ci.yml`) en cada push a `master`:
 
-2. **Instalar Docker**
-   ```bash
-   sudo dnf install -y docker
-   sudo systemctl enable --now docker
-   sudo usermod -aG docker ec2-user
-   # Instalar Compose plugin
-   sudo mkdir -p /usr/local/lib/docker/cli-plugins
-   sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
-     -o /usr/local/lib/docker/cli-plugins/docker-compose
-   sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-   ```
+1. Corre los tests de todos los servicios, de `StaySync_Commons` y del frontend.
+2. Por cada servicio construye la imagen `staysync-<servicio>:<sha>` (contexto = raíz del
+   repo), la sube a ECR, registra una nueva revisión de la task definition `staysync-<servicio>`
+   y actualiza el servicio en el cluster `staysync-cluster`.
+3. Construye el frontend con `VITE_BFF_URL` (variable del repo) y lo sube al bucket S3.
 
-3. **Subir código al servidor**
-   ```bash
-   # Desde tu máquina local
-   rsync -avz --exclude='node_modules' --exclude='target' \
-     ./ ec2-user@<IP_EC2>:/home/ec2-user/staysync/
-   ```
+El workflow asume que ya existen los repositorios ECR, las task definitions, los servicios
+ECS y el bucket. Las credenciales de AWS Academy caducan cada ~4 h: al iniciar el lab,
+actualiza `~/.aws/credentials` y ejecuta `scripts/actualizar-secrets-github.ps1`.
 
-4. **Configurar .env en el servidor**
-   ```bash
-   ssh ec2-user@<IP_EC2>
-   cd /home/ec2-user/staysync
-   nano .env   # pegar variables reales
-   ```
+Para que los eventos funcionen en AWS, crea el topic y las colas con
+`scripts/mensajeria/crear-mensajeria.sh` y agrega a las task definitions de los servicios
+con mensajería `EVENTOS_ENABLED=true`, `EVENTOS_TOPIC_ARN` y `AWS_REGION`.
 
-5. **Levantar el stack**
-   ```bash
-   docker compose up --build -d
-   ```
-
-### Opción B — ECS Fargate (producción real)
-
-Para ECS necesitás un registro de imágenes (Amazon ECR). Por cada servicio:
-
-```bash
-# Autenticarse en ECR
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
-
-# Build y push (ejemplo para reservas)
-docker build -t staysync-reservas \
-  ./StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
-
-docker tag staysync-reservas:latest \
-  <account>.dkr.ecr.us-east-1.amazonaws.com/staysync-reservas:latest
-
-docker push <account>.dkr.ecr.us-east-1.amazonaws.com/staysync-reservas:latest
-```
-
-Luego crear Task Definitions y Services en ECS apuntando a esas imágenes. Las variables de entorno se pasan vía **AWS Secrets Manager** o **Parameter Store**, nunca en el código.
+Las variables sensibles se pasan vía **AWS Secrets Manager** o **Parameter Store**, nunca en el código.
 
 ### Variables de entorno en AWS (Secrets Manager)
 
@@ -300,4 +270,5 @@ En ECS Task Definition, referenciar los secretos:
 | `Connection refused` entre servicios | Nombre de host incorrecto | Usar el nombre del `container_name` en la URL |
 | Frontend muestra 404 en refresh | SPA fallback no configurado | Verificar `nginx.conf` con `try_files` |
 | Stripe error `No API key provided` | `STRIPE_SECRET_KEY` no está en `.env` | Agregar la variable y reiniciar pagos |
-| OOM del contenedor Java | RAM insuficiente en EC2 | Subir a `t3.large` o ajustar `MaxRAMPercentage` |
+| OOM del contenedor Java | RAM insuficiente | El stack local usa ~6,5 GB: dar más memoria a Docker o ajustar `MaxRAMPercentage` |
+| Build falla con `Unknown host repo.maven.apache.org` | Red saturada al compilar todo en paralelo | Construir de a uno: `docker compose build <servicio>` |

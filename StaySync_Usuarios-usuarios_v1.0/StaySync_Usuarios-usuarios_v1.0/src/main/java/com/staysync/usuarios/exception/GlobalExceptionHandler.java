@@ -1,5 +1,6 @@
 package com.staysync.usuarios.exception;
 
+import com.staysync.usuarios.tenant.exception.HotelNotFoundException;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mapping.PropertyReferenceException;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 @Hidden
@@ -25,6 +27,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleNotFound(UsuarioNotFoundException ex, WebRequest request) {
         log.warn("Usuario no encontrado: {}", ex.getMessage());
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(HotelNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleHotelNotFound(HotelNotFoundException ex, WebRequest request) {
+        log.warn("Hotel no encontrado: {}", ex.getMessage());
+        return build(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(OperacionNoPermitidaException.class)
+    public ResponseEntity<ErrorResponse> handleOperacionNoPermitida(OperacionNoPermitidaException ex, WebRequest request) {
+        log.warn("Operación no permitida: {}", ex.getMessage());
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
     @ExceptionHandler(EmailDuplicadoException.class)
@@ -76,7 +90,7 @@ public class GlobalExceptionHandler {
             errores.put(campo, error.getDefaultMessage());
         });
         ErrorResponse body = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error("Validación fallida")
                 .message("Existen errores de validación en la solicitud")
@@ -94,7 +108,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message, WebRequest request) {
         ErrorResponse body = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .status(status.value())
                 .error(status.getReasonPhrase())
                 .message(message)

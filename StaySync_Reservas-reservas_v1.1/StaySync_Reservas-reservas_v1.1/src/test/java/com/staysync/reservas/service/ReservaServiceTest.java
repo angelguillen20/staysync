@@ -7,13 +7,15 @@ import com.staysync.reservas.model.HuespedAdicional;
 import com.staysync.reservas.model.Reserva;
 import com.staysync.reservas.model.Reserva.EstadoReserva;
 import com.staysync.reservas.model.Reserva.FuenteReserva;
+import com.staysync.eventos.Outbox;
+import com.staysync.eventos.TiposEvento;
+import com.staysync.reservas.repository.ReservaNocheRepository;
 import com.staysync.reservas.repository.ReservaRepository;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.*;
-import org.springframework.http.HttpMethod;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -30,7 +32,9 @@ import static org.mockito.Mockito.*;
 class ReservaServiceTest {
 
     @Mock private ReservaRepository reservaRepository;
+    @Mock private ReservaNocheRepository nocheRepository;
     @Mock private RestTemplate restTemplate;
+    @Mock private Outbox outbox;
 
     @InjectMocks private ReservaService reservaService;
 
@@ -158,6 +162,21 @@ class ReservaServiceTest {
     }
 
     @Test
+    @DisplayName("crear() - rechaza una habitación que no existe en el hotel (404 de habitaciones)")
+    void rechazaHabitacionDeOtroHotel() {
+        CrearReservaRequest request = buildRequest(1);
+        when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
+        when(restTemplate.getForObject(anyString(), eq(Map.class))).thenThrow(
+                org.springframework.web.client.HttpClientErrorException.create(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Not Found", null, null, null));
+
+        assertThatThrownBy(() -> reservaService.crear(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no existe en este hotel");
+        verify(reservaRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("crear() - debe lanzar excepción si fechaSalida no es posterior a fechaEntrada")
     void debeLanzarExcepcionFechasInvalidas() {
         CrearReservaRequest request = new CrearReservaRequest();
@@ -167,8 +186,6 @@ class ReservaServiceTest {
         request.setFechaSalida(LocalDate.now().plusDays(5)); // igual, no posterior
         request.setNumHuespedes(2);
         request.setFuente(FuenteReserva.DIRECTO);
-
-        when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
 
         assertThatThrownBy(() -> reservaService.crear(request))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -211,7 +228,7 @@ class ReservaServiceTest {
     // ── CAMBIAR ESTADO ────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("cambiarEstado() - debe cambiar PENDIENTE → CONFIRMADA sin llamar a habitaciones-service")
+    @DisplayName("cambiarEstado() - PENDIENTE → CONFIRMADA publica ReservaConfirmada")
     void debeCambiarEstadoPendienteAConfirmada() {
         when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
         when(reservaRepository.save(any())).thenReturn(reservaBase);
@@ -219,11 +236,11 @@ class ReservaServiceTest {
         reservaService.cambiarEstado(1L, EstadoReserva.CONFIRMADA);
 
         assertThat(reservaBase.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
-        verify(restTemplate, never()).exchange(anyString(), eq(HttpMethod.PATCH), any(), eq(Object.class));
+        verify(outbox).registrar(eq(TiposEvento.RESERVA_CONFIRMADA), any(), anyMap());
     }
 
     @Test
-    @DisplayName("cambiarEstado() - debe cambiar CONFIRMADA → CHECKIN y sincronizar la habitación a OCUPADA")
+    @DisplayName("cambiarEstado() - CONFIRMADA → CHECKIN publica ReservaCheckin (Habitaciones la marca OCUPADA)")
     void debeCambiarEstadoConfirmadaACheckin() {
         reservaBase.setEstado(EstadoReserva.CONFIRMADA);
         when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
@@ -232,7 +249,8 @@ class ReservaServiceTest {
         reservaService.cambiarEstado(1L, EstadoReserva.CHECKIN);
 
         assertThat(reservaBase.getEstado()).isEqualTo(EstadoReserva.CHECKIN);
-        verify(restTemplate).exchange(anyString(), eq(HttpMethod.PATCH), any(), eq(Object.class));
+        verify(outbox).registrar(eq(TiposEvento.RESERVA_CHECKIN), any(), anyMap());
+        verifyNoInteractions(restTemplate);
     }
 
     @Test
@@ -258,6 +276,8 @@ class ReservaServiceTest {
         reservaService.cancelar(1L);
 
         assertThat(reservaBase.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+        verify(nocheRepository).liberarNoches(1L);
+        verify(outbox).registrar(eq(TiposEvento.RESERVA_CANCELADA), any(), anyMap());
     }
 
     @Test
@@ -313,7 +333,7 @@ class ReservaServiceTest {
 
         assertThat(reservaConfirmada.getEstado()).isEqualTo(EstadoReserva.CHECKIN);
         verify(reservaRepository).save(reservaConfirmada);
-        verify(restTemplate).exchange(anyString(), eq(HttpMethod.PATCH), any(), eq(Object.class));
+        verify(outbox).registrar(eq(TiposEvento.RESERVA_CHECKIN), any(), anyMap());
     }
 
     @Test
@@ -325,7 +345,7 @@ class ReservaServiceTest {
         reservaService.autoTransicionarACheckin();
 
         verify(reservaRepository, never()).save(any());
-        verify(restTemplate, never()).exchange(anyString(), eq(HttpMethod.PATCH), any(), eq(Object.class));
+        verifyNoInteractions(outbox);
     }
 
     @Test
@@ -342,7 +362,69 @@ class ReservaServiceTest {
         reservaService.autoTransicionarACheckin();
 
         verify(reservaRepository, times(2)).save(any());
-        verify(restTemplate, times(2)).exchange(anyString(), eq(HttpMethod.PATCH), any(), eq(Object.class));
+        verify(outbox, times(2)).registrar(eq(TiposEvento.RESERVA_CHECKIN), any(), anyMap());
+    }
+
+    // ── ANTI-OVERBOOKING Y EVENTOS ────────────────────────────────────────────
+
+    @Test
+    @DisplayName("crear() - bloquea una noche por día de estadía y publica ReservaCreada")
+    void crearBloqueaNochesYPublica() {
+        when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
+        when(reservaRepository.existsByCodigo(anyString())).thenReturn(false);
+        when(reservaRepository.save(any())).thenReturn(reservaBase);
+
+        reservaService.crear(buildRequest(2));
+
+        ArgumentCaptor<List<com.staysync.reservas.model.ReservaNoche>> noches = ArgumentCaptor.forClass(List.class);
+        verify(nocheRepository).saveAllAndFlush(noches.capture());
+        assertThat(noches.getValue()).hasSize(2); // 2 noches: entrada+5 y entrada+6
+        verify(outbox).registrar(eq(TiposEvento.RESERVA_CREADA), any(), anyMap());
+    }
+
+    @Test
+    @DisplayName("crear() - si otra reserva tomó la noche a la vez, responde habitación no disponible")
+    void crearConcurrenteRechazado() {
+        when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
+        when(reservaRepository.existsByCodigo(anyString())).thenReturn(false);
+        when(reservaRepository.save(any())).thenReturn(reservaBase);
+        when(nocheRepository.saveAllAndFlush(anyList()))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("uk_noche"));
+
+        assertThatThrownBy(() -> reservaService.crear(buildRequest(2)))
+                .isInstanceOf(HabitacionNoDisponibleException.class);
+        verifyNoInteractions(outbox);
+    }
+
+    @Test
+    @DisplayName("confirmarPorPago() - confirma la reserva pendiente")
+    void confirmarPorPagoConfirma() {
+        when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
+        when(reservaRepository.save(any())).thenReturn(reservaBase);
+
+        reservaService.confirmarPorPago(1L);
+
+        assertThat(reservaBase.getEstado()).isEqualTo(EstadoReserva.CONFIRMADA);
+    }
+
+    @Test
+    @DisplayName("confirmarPorPago() - un pago repetido sobre una reserva confirmada no cambia nada")
+    void confirmarPorPagoIdempotente() {
+        reservaBase.setEstado(EstadoReserva.CONFIRMADA);
+        when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
+
+        reservaService.confirmarPorPago(1L);
+
+        verify(reservaRepository, never()).save(any());
+        verifyNoInteractions(outbox);
+    }
+
+    @Test
+    @DisplayName("confirmarPorPago() - reserva inexistente se ignora sin error")
+    void confirmarPorPagoInexistente() {
+        when(reservaRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatNoException().isThrownBy(() -> reservaService.confirmarPorPago(99L));
     }
 
     // ── GET RESERVAS HOY ──────────────────────────────────────────────────────

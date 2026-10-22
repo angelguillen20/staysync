@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @RestControllerAdvice
 @Slf4j
@@ -18,7 +19,7 @@ public class GlobalExceptionHandler {
         log.error("Error inesperado en notificaciones: ", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 ErrorResponse.builder()
-                        .timestamp(LocalDateTime.now())
+                        .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                         .status(500).error("Error Interno")
                         .message("Error interno del servidor")
                         .path(req.getDescription(false).replace("uri=",""))

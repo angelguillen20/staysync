@@ -36,6 +36,7 @@ class DashboardBffControllerTest {
     @MockitoBean HabitacionesClient habitacionesClient;
     @MockitoBean WeatherClient weatherClient;
     @MockitoBean JwtService jwtService;
+    @MockitoBean com.staysync.bff.client.UsuariosClient usuariosClient; // lo usa HotelPublicoFilter
 
     @Test
     @DisplayName("GET /bff/dashboard - debe retornar datos agregados correctamente")

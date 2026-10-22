@@ -2,6 +2,13 @@ server:
   port: ${SERVER_PORT:8086}
 
 spring:
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+      # Consumo de la cola SQS: apagado por defecto (tests, entornos sin mensajería)
+      sqs:
+        enabled: ${EVENTOS_ENABLED:false}
   application:
     name: notificaciones-service
   datasource:
@@ -16,7 +23,7 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.MySQLDialect
   # ─────────────────────────────────────────────────────────────
   # SMTP — usa Mailtrap para desarrollo local (gratuito)
   # 1. Crea cuenta en https://mailtrap.io
@@ -47,6 +54,11 @@ management:
     web:
       exposure:
         include: health,info,metrics
+  health:
+    # Un SMTP caído o con credenciales malas no debe marcar el servicio como caído
+    # (ECS y docker-compose reiniciarían la tarea por un problema externo)
+    mail:
+      enabled: false
 
 notificaciones:
   mail:
@@ -55,3 +67,14 @@ notificaciones:
 logging:
   level:
     com.staysync: DEBUG
+
+staysync:
+  tenant:
+    # Toda petición de negocio debe traer X-Tenant-Id (lo pone el BFF a partir del JWT)
+    requerido: true
+    default-id: ${DEFAULT_TENANT_ID:staysync-demo}
+  eventos:
+    # true = el outbox se publica en SNS (necesita LocalStack o AWS)
+    publicar: ${EVENTOS_ENABLED:false}
+    topic-arn: ${EVENTOS_TOPIC_ARN:arn:aws:sns:us-east-1:000000000000:staysync-eventos}
+    cola: ${EVENTOS_COLA:notificaciones-q}

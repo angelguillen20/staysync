@@ -60,7 +60,7 @@ public class HabitacionesClient {
     @CircuitBreaker(name = "habitacionesCB", fallbackMethod = "getOneFallback")
     public ResponseEntity<Object> getById(String authHeader, Long id) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/habitaciones/" + id,
+                recursoUrl(id),
                 HttpMethod.GET,
                 new HttpEntity<>(UsuariosClient.buildHeaders(authHeader)),
                 Object.class);
@@ -78,7 +78,7 @@ public class HabitacionesClient {
     @CircuitBreaker(name = "habitacionesCB", fallbackMethod = "passthruFallback")
     public ResponseEntity<Object> cambiarEstado(String authHeader, Long id, Object body) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/habitaciones/" + id + "/estado",
+                recursoUrl(id) + "/estado",
                 HttpMethod.PATCH,
                 new HttpEntity<>(body, UsuariosClient.buildHeaders(authHeader)),
                 Object.class);
@@ -105,37 +105,48 @@ public class HabitacionesClient {
     @CircuitBreaker(name = "habitacionesCB", fallbackMethod = "desactivarFallback")
     public void desactivar(String authHeader, Long id) {
         restTemplate.exchange(
-                baseUrl + "/api/v1/habitaciones/" + id,
+                recursoUrl(id),
                 HttpMethod.DELETE,
                 new HttpEntity<>(UsuariosClient.buildHeaders(authHeader)),
                 Void.class);
     }
 
+    private String recursoUrl(Long id) {
+        return baseUrl + "/api/v1/habitaciones/" + id;
+    }
+
+    // Fallbacks de Resilience4j: deben repetir la firma del método protegido aunque no usen todos sus parámetros.
+    @SuppressWarnings("java:S1172")
     public void desactivarFallback(String authHeader, Long id, Exception ex) {
         log.error("habitaciones-service no disponible al desactivar id={}: {}", id, ex.getMessage());
         throw new DownstreamServiceException("El servicio de habitaciones no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarFallback(String authHeader, Exception ex) {
         log.warn("habitaciones-service no disponible, retornando lista vacía: {}", ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> buscarFallback(String authHeader, Integer capacidad, String amenidad, String sort, Exception ex) {
         log.warn("habitaciones-service no disponible para búsqueda filtrada: {}", ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> getOneFallback(String authHeader, Long id, Exception ex) {
         log.warn("habitaciones-service no disponible para id={}: {}", id, ex.getMessage());
         return ResponseEntity.ok(null);
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> passthruFallback(String authHeader, Object body, Exception ex) {
         log.error("habitaciones-service no disponible: {}", ex.getMessage());
         throw new DownstreamServiceException("El servicio de habitaciones no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> passthruFallback(String authHeader, Long id, Object body, Exception ex) {
         log.error("habitaciones-service no disponible: {}", ex.getMessage());
         throw new DownstreamServiceException("El servicio de habitaciones no está disponible.");

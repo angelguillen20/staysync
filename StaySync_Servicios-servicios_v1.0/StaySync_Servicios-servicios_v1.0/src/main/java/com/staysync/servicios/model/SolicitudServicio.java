@@ -1,10 +1,12 @@
 package com.staysync.servicios.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.TenantId;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "solicitudes_servicio", indexes = {
@@ -21,6 +23,11 @@ public class SolicitudServicio {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Hotel dueño del registro: Hibernate lo asigna al guardar y filtra por él en cada consulta. */
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @Column(name = "reserva_id", nullable = false)
     private Long reservaId;
@@ -57,10 +64,10 @@ public class SolicitudServicio {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
+    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     @PreUpdate
-    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() { updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     public enum EstadoSolicitud {
         PENDIENTE, EN_PROCESO, COMPLETADO, CANCELADO

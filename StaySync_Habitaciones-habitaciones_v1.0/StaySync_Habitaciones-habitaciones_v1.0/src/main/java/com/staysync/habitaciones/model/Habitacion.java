@@ -1,10 +1,12 @@
 package com.staysync.habitaciones.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.TenantId;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 @Entity
@@ -12,6 +14,9 @@ import java.util.*;
         @Index(name = "idx_estado",   columnList = "estado"),
         @Index(name = "idx_tipo_id",  columnList = "tipo_id"),
         @Index(name = "idx_numero",   columnList = "numero")
+}, uniqueConstraints = {
+        // El número de habitación es único dentro de cada hotel, no en toda la plataforma
+        @UniqueConstraint(name = "uk_habitacion_hotel_numero", columnNames = {"tenant_id", "numero"})
 })
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor
@@ -22,7 +27,12 @@ public class Habitacion {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 10)
+    /** Hotel dueño de la habitación: Hibernate lo asigna al guardar y filtra por él en cada consulta. */
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
+
+    @Column(nullable = false, length = 10)
     private String numero;
 
     @Column(nullable = false)
@@ -65,10 +75,10 @@ public class Habitacion {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
+    protected void onCreate() { createdAt = updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     @PreUpdate
-    protected void onUpdate() { updatedAt = LocalDateTime.now(); }
+    protected void onUpdate() { updatedAt = LocalDateTime.now(ZoneId.systemDefault()); }
 
     public enum EstadoHabitacion {
         DISPONIBLE, OCUPADA, EN_LIMPIEZA, MANTENIMIENTO, FUERA_DE_SERVICIO

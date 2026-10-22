@@ -1,7 +1,8 @@
 // Config de Cognito Hosted UI — sobrescribible por variables de entorno de Vite en build/deploy.
-export const COGNITO_DOMAIN       = import.meta.env.VITE_COGNITO_DOMAIN       ?? 'https://staysync-348143777102.auth.us-east-1.amazoncognito.com';
-export const COGNITO_CLIENT_ID    = import.meta.env.VITE_COGNITO_CLIENT_ID    ?? '45vvlk0o108jov40ijgllr5okv';
-export const COGNITO_REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI ?? `${window.location.origin}/auth/callback`;
+// Con || (no ??): en GitHub Actions una variable sin definir llega como "" y debe caer al valor por defecto.
+export const COGNITO_DOMAIN       = import.meta.env.VITE_COGNITO_DOMAIN       || 'https://staysync-348143777102.auth.us-east-1.amazoncognito.com';
+export const COGNITO_CLIENT_ID    = import.meta.env.VITE_COGNITO_CLIENT_ID    || '45vvlk0o108jov40ijgllr5okv';
+export const COGNITO_REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI || `${window.location.origin}/auth/callback`;
 
 /**
  * URL que borra la sesión de Cognito (la cookie que hace que "Continuar con Google" entre

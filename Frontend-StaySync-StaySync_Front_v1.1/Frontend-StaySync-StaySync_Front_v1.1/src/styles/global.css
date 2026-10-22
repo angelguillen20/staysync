@@ -21,7 +21,8 @@
 
 body {
   background-color: var(--ss-cream);
-  color: var(--ss-dark);
+  /* --ss-text solo existe si el hotel define un color de texto propio (marca blanca) */
+  color: var(--ss-text, var(--ss-dark));
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   margin: 0;
@@ -236,7 +237,14 @@ h1, h2, h3, h4, h5, h6 { color: var(--ss-dark); font-weight: 600; }
 /* --- Responsive --- */
 @media (max-width: 768px) {
   .sidebar { width: 0; overflow: hidden; }
-  .sidebar.open { width: 240px; }
+  .sidebar.open { width: 240px; box-shadow: 4px 0 16px rgba(0,0,0,0.3); }
+  /* Oscurece el contenido detrás del menú abierto; tocarlo cierra el menú */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 66px 0 0 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 99;
+  }
   .main-content { margin-left: 0; padding: 1rem; }
   .login-brand-panel { min-height: 200px; padding: 2rem; }
 }

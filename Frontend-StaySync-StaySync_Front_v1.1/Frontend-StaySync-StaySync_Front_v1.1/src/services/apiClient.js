@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const KEYS = { access: 'ss_access_token', refresh: 'ss_refresh_token' };
-const BFF_URL = import.meta.env.VITE_BFF_URL ?? '/bff';
+const KEY_HOTEL = 'ss_hotel_slug';
+const BFF_URL = import.meta.env.VITE_BFF_URL || '/bff';
 
 const apiClient = axios.create({
   baseURL: BFF_URL,
@@ -15,6 +16,12 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem(KEYS.access);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Portal del hotel: el BFF lo usa en rutas públicas (sin sesión) para saber de qué hotel
+    // mostrar datos. Con sesión manda siempre el hotel del JWT.
+    const hotel = localStorage.getItem(KEY_HOTEL);
+    if (hotel) {
+      config.headers['X-Hotel'] = hotel;
     }
     return config;
   },
@@ -41,7 +48,7 @@ apiClient.interceptors.response.use(
       original._retry ||
       original.url?.includes('/auth/refresh')
     ) {
-      return Promise.reject(error);
+      throw error;
     }
 
     original._retry = true;
@@ -50,7 +57,7 @@ apiClient.interceptors.response.use(
     if (!refreshToken) {
       clearSession();
       window.location.href = '/login';
-      return Promise.reject(error);
+      throw error;
     }
 
     // If a refresh is already in flight, piggyback on it instead of firing another
@@ -77,7 +84,7 @@ apiClient.interceptors.response.use(
         // Refresh failed (token not found, expired, etc.) → force logout once
         clearSession();
         window.location.href = '/login';
-        return Promise.reject(error);
+        throw error;
       });
   },
 );

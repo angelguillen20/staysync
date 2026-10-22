@@ -59,7 +59,7 @@ class AuthBffControllerTest {
                         .content("{\"nombre\":\"Ana López\",\"email\":\"ana@hotel.com\",\"password\":\"pass123\"}"))
                 .andExpect(status().isOk());
 
-        verify(notificacionPublisher).publishUsuarioRegistrado(5L, "Ana López", "ana@hotel.com");
+        verify(notificacionPublisher).publishUsuarioRegistrado(eq(5L), eq("Ana López"), eq("ana@hotel.com"), any());
     }
 
     @Test
@@ -72,7 +72,7 @@ class AuthBffControllerTest {
                         .content("{\"email\":\"ana@hotel.com\",\"password\":\"123\"}"))
                 .andExpect(status().isBadRequest());
 
-        verify(notificacionPublisher, never()).publishUsuarioRegistrado(any(), any(), any());
+        verify(notificacionPublisher, never()).publishUsuarioRegistrado(any(), any(), any(), any());
     }
 
     @Test

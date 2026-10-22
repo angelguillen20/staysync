@@ -1,4 +1,5 @@
-import { createContext, useState, useCallback, useContext, useEffect } from 'react';
+import { createContext, useState, useCallback, useContext, useEffect, useMemo } from 'react';
+import { useMarca } from './ThemeContext';
 
 const AuthContext = createContext(null);
 
@@ -29,6 +30,15 @@ function clearIfExpired() {
 }
 clearIfExpired();
 
+/* SUPER_ADMIN (operador de la plataforma) puede todo lo que puede un ADMIN de hotel */
+const ROLES_INCLUIDOS = { SUPER_ADMIN: ['ADMIN'] };
+
+export function tieneRol(rolUsuario, roles) {
+  if (!rolUsuario) return false;
+  return roles.includes(rolUsuario)
+    || (ROLES_INCLUIDOS[rolUsuario] ?? []).some((r) => roles.includes(r));
+}
+
 function readLocalUser() {
   try {
     const raw = localStorage.getItem(KEYS.user);
@@ -42,6 +52,7 @@ export function AuthProvider({ children }) {
   const [user,        setUser]        = useState(readLocalUser);
   const [accessToken, setAccessToken] = useState(() => localStorage.getItem(KEYS.access) || null);
   const [loading,     setLoading]     = useState(false);
+  const { setMarca } = useMarca();
 
   const isAuthenticated = !!(accessToken && user);
 
@@ -54,9 +65,11 @@ export function AuthProvider({ children }) {
       rol,
       userId,
       nombreCompleto,
+      tenantId,
+      hotel,
     } = authData;
 
-    const userData = { email, rol, userId, nombreCompleto };
+    const userData = { email, rol, userId, nombreCompleto, tenantId, hotelNombre: hotel?.nombre ?? null };
 
     localStorage.setItem(KEYS.access,  at);
     localStorage.setItem(KEYS.refresh, rt);
@@ -65,7 +78,9 @@ export function AuthProvider({ children }) {
 
     setAccessToken(at);
     setUser(userData);
-  }, []);
+    // El login trae la marca del hotel del usuario: se aplica de inmediato
+    if (hotel) setMarca(hotel);
+  }, [setMarca]);
 
   const logout = useCallback(() => {
     Object.values(KEYS).forEach(k => localStorage.removeItem(k));
@@ -101,23 +116,25 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   const hasRole = useCallback(
-    (...roles) => !!user && roles.includes(user.rol),
+    (...roles) => !!user && tieneRol(user.rol, roles),
     [user],
   );
 
+  const value = useMemo(() => ({
+    user,
+    accessToken,
+    isAuthenticated,
+    loading,
+    setLoading,
+    login,
+    logout,
+    updateUser,
+    getToken,
+    hasRole,
+  }), [user, accessToken, isAuthenticated, loading, login, logout, updateUser, getToken, hasRole]);
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      accessToken,
-      isAuthenticated,
-      loading,
-      setLoading,
-      login,
-      logout,
-      updateUser,
-      getToken,
-      hasRole,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

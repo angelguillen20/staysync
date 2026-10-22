@@ -6,8 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.util.Base64;
-import java.util.Date;
+import java.time.Instant;
 import java.util.function.Function;
 
 @Service
@@ -24,9 +23,14 @@ public class JwtService {
         return extractClaim(token, c -> c.get("rol", String.class));
     }
 
+    /** Hotel del usuario; null en tokens emitidos antes del multi-tenant. */
+    public String extractTenantId(String token) {
+        return extractClaim(token, c -> c.get(TenantDetails.CLAIM, String.class));
+    }
+
     public boolean isTokenValid(String token) {
         try {
-            return !extractClaim(token, Claims::getExpiration).before(new Date());
+            return !extractClaim(token, Claims::getExpiration).toInstant().isBefore(Instant.now());
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }

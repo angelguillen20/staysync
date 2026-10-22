@@ -196,7 +196,7 @@ class ReservaControllerTest {
     @Test
     @DisplayName("PATCH /reservas/{id}/cancelar - debe retornar 204 al cancelar exitosamente")
     void debeRetornar204AlCancelar() throws Exception {
-        doNothing().when(reservaService).cancelar(1L);
+        when(reservaService.cancelar(1L)).thenReturn(null);
 
         mockMvc.perform(patch("/api/v1/reservas/1/cancelar"))
                 .andExpect(status().isNoContent());

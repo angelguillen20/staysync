@@ -2,8 +2,9 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { loginWithGoogle } from '../services/authService';
+import { slugGuardado } from '../theme/hotelTheme';
 
-const REDIRECT = { ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
+const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
 export default function AuthCallbackPage() {
   const [error, setError] = useState('');
@@ -30,7 +31,7 @@ export default function AuthCallbackPage() {
       return;
     }
 
-    loginWithGoogle(code, verifier, redirectUri)
+    loginWithGoogle(code, verifier, redirectUri, slugGuardado())
       .then((data) => {
         sessionStorage.removeItem('ss_pkce_verifier');
         sessionStorage.removeItem('ss_oauth_redirect_uri');
@@ -55,7 +56,7 @@ export default function AuthCallbackPage() {
           </>
         ) : (
           <>
-            <div className="spinner-border" style={{ color: 'var(--ss-gold)', width: '3rem', height: '3rem' }} role="status" />
+            <output className="spinner-border" style={{ color: 'var(--ss-gold)', width: '3rem', height: '3rem' }} />
             <p className="mt-3 text-muted">Completando inicio de sesión con Google…</p>
           </>
         )}

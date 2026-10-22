@@ -14,6 +14,8 @@ import java.util.Collections;
 @Component
 public class PagosClient {
 
+    private static final String LOG_NO_DISPONIBLE = "pagos-service no disponible: {}";
+
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
@@ -80,28 +82,34 @@ public class PagosClient {
                 Object.class);
     }
 
+    // Fallbacks de Resilience4j: deben repetir la firma del método protegido aunque no usen todos sus parámetros.
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> stripeFallback(Object body, Exception ex) {
         log.error("pagos-service Stripe no disponible: {}", ex.getMessage());
         throw new DownstreamServiceException("El servicio de pago Stripe no está disponible. Intente nuevamente.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Object body, Exception ex) {
-        log.error("pagos-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de pagos no está disponible. Intente nuevamente.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Long id, Object body, Exception ex) {
-        log.error("pagos-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de pagos no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> getOneFallback(String authHeader, Long id, Exception ex) {
         log.warn("pagos-service no disponible para id={}: {}", id, ex.getMessage());
         throw new DownstreamServiceException("El servicio de pagos no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarFallback(String authHeader, Long reservaId, Exception ex) {
-        log.warn("pagos-service no disponible: {}", ex.getMessage());
+        log.warn(LOG_NO_DISPONIBLE, ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }
 }

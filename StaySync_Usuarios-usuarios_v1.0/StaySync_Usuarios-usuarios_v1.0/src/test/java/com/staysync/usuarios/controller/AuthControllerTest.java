@@ -81,7 +81,6 @@ class AuthControllerTest {
         request.setApellido("García");
         request.setEmail("juan@test.com");
         request.setPassword("Pass@123Seg");
-        request.setRol(Usuario.Rol.HUESPED);
 
         UsuarioResponse response = UsuarioResponse.builder()
                 .id(1L)

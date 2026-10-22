@@ -2,6 +2,13 @@ server:
   port: ${SERVER_PORT:8082}
 
 spring:
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+      # Consumo de la cola SQS: apagado por defecto (tests, entornos sin mensajería)
+      sqs:
+        enabled: ${EVENTOS_ENABLED:false}
   application:
     name: habitaciones-service
   datasource:
@@ -18,7 +25,7 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.MySQLDialect
 services:
   reservas:
     url: ${RESERVAS_SERVICE_URL:http://localhost:8083}
@@ -50,3 +57,16 @@ management:
 logging:
   level:
     com.staysync: INFO
+
+staysync:
+  tenant:
+    # Toda petición de negocio debe traer X-Tenant-Id (lo pone el BFF a partir del JWT)
+    requerido: true
+    default-id: ${DEFAULT_TENANT_ID:staysync-demo}
+    # Índices únicos que pasan a ser únicos por hotel (migración al arrancar)
+    unicos-por-hotel: habitaciones.numero
+  eventos:
+    # true = el outbox se publica en SNS (necesita LocalStack o AWS)
+    publicar: ${EVENTOS_ENABLED:false}
+    topic-arn: ${EVENTOS_TOPIC_ARN:arn:aws:sns:us-east-1:000000000000:staysync-eventos}
+    cola: ${EVENTOS_COLA:habitaciones-q}

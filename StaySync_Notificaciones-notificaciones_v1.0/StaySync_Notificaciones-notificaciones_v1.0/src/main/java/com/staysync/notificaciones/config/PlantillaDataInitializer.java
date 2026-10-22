@@ -75,6 +75,42 @@ public class PlantillaDataInitializer implements ApplicationRunner {
                 — Equipo StaySync
                 """);
 
+        seedPlantilla(
+                "PAGO_EFECTUADO",
+                "Recibo de pago",
+                "Recibo de tu pago - reserva #{{codigo}} - StaySync",
+                """
+                Hola {{nombreUsuario}},
+
+                Recibimos tu pago. Este es tu comprobante:
+
+                  Reserva:     {{codigo}}
+                  Monto:       {{monto}} {{moneda}}
+                  Referencia:  {{referencia}}
+
+                Tu reserva quedará confirmada en unos instantes.
+
+                — Equipo StaySync
+                """);
+
+        seedPlantilla(
+                "REEMBOLSO_EFECTUADO",
+                "Reembolso procesado",
+                "Reembolso de tu reserva #{{codigo}} - StaySync",
+                """
+                Hola {{nombreUsuario}},
+
+                Procesamos el reembolso de tu pago:
+
+                  Reserva:     {{codigo}}
+                  Monto:       {{monto}} {{moneda}}
+                  Referencia:  {{referencia}}
+
+                El dinero puede tardar algunos días en verse reflejado según tu banco.
+
+                — Equipo StaySync
+                """);
+
         log.info("Plantillas de notificación verificadas.");
     }
 

@@ -14,7 +14,9 @@ on:
 env:
   AWS_REGION: us-east-1
   ECS_CLUSTER: staysync-cluster
-  S3_BUCKET: staysync-front-348143777102
+  # Vacío = staysync-front-<id de la cuenta>, así una cuenta nueva de AWS Academy no
+  # obliga a tocar el workflow. Se puede fijar con la variable del repo S3_BUCKET.
+  S3_BUCKET: ${{ vars.S3_BUCKET }}
 
 jobs:
   backend:
@@ -40,6 +42,9 @@ jobs:
             path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
           - service: ota
             path: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+          # Librerías compartidas: solo se testean, no tienen imagen ni servicio en ECS
+          - service: commons
+            path: StaySync_Commons
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,6 +56,9 @@ jobs:
           java-version: '17'
           cache: maven
           cache-dependency-path: ${{ matrix.path }}/pom.xml
+
+      - name: Instalar librerías compartidas (StaySync_Commons)
+        run: mvn -B -q -f StaySync_Commons/pom.xml install -DskipTests
 
       - name: mvn test
         working-directory: ${{ matrix.path }}
@@ -114,8 +122,7 @@ jobs:
             path: StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
           - service: notificaciones
             path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
-          - service: ota
-            path: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+          # OTA solo se testea: no tiene repositorio ECR ni servicio ECS en la cuenta actual
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -137,7 +144,8 @@ jobs:
         env:
           IMAGE: ${{ steps.ecr.outputs.registry }}/staysync-${{ matrix.service }}:${{ github.sha }}
         run: |
-          docker build -t $IMAGE ${{ matrix.path }}
+          # Contexto = raíz del repo: los Dockerfiles copian StaySync_Commons
+          docker build -f ${{ matrix.path }}/Dockerfile -t $IMAGE .
           docker push $IMAGE
           echo "uri=$IMAGE" >> $GITHUB_OUTPUT
 
@@ -188,9 +196,13 @@ jobs:
         env:
           VITE_BFF_URL: ${{ vars.VITE_BFF_URL }}
           VITE_SESSION_TIMEOUT_MIN: ${{ vars.VITE_SESSION_TIMEOUT_MIN }}
+          VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
         run: |
           npm ci
           npm run build
 
       - name: Publicar en S3
-        run: aws s3 sync dist s3://$S3_BUCKET --delete
+        run: |
+          BUCKET=${S3_BUCKET:-staysync-front-$(aws sts get-caller-identity --query Account --output text)}
+          aws s3 sync dist s3://$BUCKET --delete

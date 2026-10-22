@@ -22,7 +22,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     @Query("""
         SELECT COUNT(r) > 0 FROM Reserva r
         WHERE r.habitacionId = :habitacionId
-          AND r.estado IN ('CONFIRMADA', 'CHECKIN')
+          AND r.estado IN ('PENDIENTE', 'CONFIRMADA', 'CHECKIN')
           AND r.fechaEntrada < :fechaSalida
           AND r.fechaSalida > :fechaEntrada
     """)

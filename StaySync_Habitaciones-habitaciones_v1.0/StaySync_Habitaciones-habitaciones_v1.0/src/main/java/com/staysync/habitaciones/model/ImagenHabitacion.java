@@ -1,9 +1,11 @@
 package com.staysync.habitaciones.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.TenantId;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "imagenes_habitacion")
@@ -15,6 +17,10 @@ public class ImagenHabitacion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "habitacion_id", nullable = false)
@@ -31,5 +37,5 @@ public class ImagenHabitacion {
     private LocalDateTime createdAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = LocalDateTime.now(); }
+    protected void onCreate() { createdAt = LocalDateTime.now(ZoneId.systemDefault()); }
 }

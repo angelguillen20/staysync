@@ -8,3 +8,7 @@ export const getSolicitudes      = (userId)   => {
 };
 export const solicitarServicio   = (body)     => apiClient.post('/servicios/solicitudes', body).then(r => r.data);
 export const actualizarSolicitud = (id, body) => apiClient.patch(`/servicios/solicitudes/${id}/estado`, body).then(r => r.data);
+
+// Tareas de aseo: las genera el sistema con los eventos de reserva
+export const getAseo       = ()   => apiClient.get('/servicios/aseo').then(r => r.data);
+export const completarAseo = (id) => apiClient.patch(`/servicios/aseo/${id}/completar`).then(r => r.data);

@@ -5,12 +5,12 @@ import AlertMessage   from '../../components/common/AlertMessage';
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const noches = (e, s) => {
-  try { return Math.max(1, Math.round((new Date(s) - new Date(e)) / 86400000)); }
-  catch { return '—'; }
+  const n = Math.round((new Date(s) - new Date(e)) / 86400000);
+  return Number.isNaN(n) ? '—' : String(Math.max(1, n));
 };
 
 const URGENCY = (fechaEntrada) => {
-  const diff = Math.round((new Date(fechaEntrada) - new Date()) / 86400000);
+  const diff = Math.round((new Date(fechaEntrada) - Date.now()) / 86400000);
   if (diff < 0)  return { label: 'Atrasado', cls: 'bg-danger text-white' };
   if (diff === 0) return { label: 'Hoy',      cls: 'bg-warning text-dark' };
   return { label: `En ${diff}d`,              cls: 'bg-light text-muted' };
@@ -51,12 +51,9 @@ function ReservaRow({ r, onAction, updating, accion, nuevoEstado, btnVariant }) 
           disabled={isUpdating}
           onClick={() => onAction(r.id, nuevoEstado, accion)}
         >
-          {isUpdating
-            ? <><span className="spinner-border spinner-border-sm me-1" />Procesando…</>
-            : accion === 'Check-in'
-              ? <><i className="bi bi-box-arrow-in-right me-1" />Check-in</>
-              : <><i className="bi bi-box-arrow-right me-1" />Check-out</>
-          }
+          {isUpdating && <><span className="spinner-border spinner-border-sm me-1" />Procesando…</>}
+          {!isUpdating && accion === 'Check-in' && <><i className="bi bi-box-arrow-in-right me-1" />Check-in</>}
+          {!isUpdating && accion !== 'Check-in' && <><i className="bi bi-box-arrow-right me-1" />Check-out</>}
         </button>
       </td>
     </tr>
@@ -148,14 +145,11 @@ export default function CheckinRecepcion() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-door-open me-2" style={{ color: 'var(--ss-gold)' }} />
-            Check-in / Check-out
+            <i className="bi bi-door-open me-2" style={{ color: 'var(--ss-gold)' }} />Check-in / Check-out
           </h2>
           <small className="text-muted">
-            Gestión de llegadas y salidas de hoy
-            <span className="ms-3 text-body-secondary">
-              <i className="bi bi-clock me-1" />
-              Check-in: 15:00 · Check-out: 12:00
+            Gestión de llegadas y salidas de hoy<span className="ms-3 text-body-secondary">
+              <i className="bi bi-clock me-1" />Check-in: 15:00 · Check-out: 12:00
             </span>
           </small>
         </div>
@@ -230,11 +224,9 @@ export default function CheckinRecepcion() {
       </div>
 
       {/* Tabla */}
-      {loading ? (
-        <LoadingSpinner message="Cargando reservas..." />
-      ) : listaActual.length === 0 ? (
-        <TablaVacia accion={accionActual} />
-      ) : (
+      {loading && <LoadingSpinner message="Cargando reservas..." />}
+      {!loading && listaActual.length === 0 && <TablaVacia accion={accionActual} />}
+      {!loading && listaActual.length > 0 && (
         <div className="card border-0 shadow-sm" style={{ borderRadius: 12 }}>
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0">

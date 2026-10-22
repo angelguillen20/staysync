@@ -37,7 +37,7 @@ class StripeServiceTest {
 
     @Mock private StripeConfig    stripeConfig;
     @Mock private PagoRepository  pagoRepository;
-    @Mock private RestTemplate    restTemplate;
+    @Mock private PagoEventos     pagoEventos;
     @Mock private StripeGateway   stripeGateway;
 
     @InjectMocks private StripeService stripeService;
@@ -131,6 +131,7 @@ class StripeServiceTest {
         assertThat(response.getEstado()).isEqualTo(Pago.EstadoPago.COMPLETADO);
         assertThat(response.getMoneda()).isEqualTo("CLP");
         verify(pagoRepository).save(any(Pago.class));
+        verify(pagoEventos).pagoEfectuado(pagoGuardado);
     }
 
     @Test
@@ -186,28 +187,25 @@ class StripeServiceTest {
     }
 
     @Test
-    @DisplayName("confirmarPago() - debe continuar aunque confirmarReserva() falle (error no crítico)")
-    void debeContinuarSiConfirmarReservaFalla() throws Exception {
+    @DisplayName("confirmarPago() - sin reserva asociada guarda el pago pero no publica PagoEfectuado")
+    void sinReservaNoPublica() throws Exception {
         StripeConfirmarRequest request = buildConfirmarRequest(SESSION_ID, 1L);
 
         Session sessionMock = mock(Session.class);
         when(sessionMock.getPaymentStatus()).thenReturn("paid");
         when(sessionMock.getAmountTotal()).thenReturn(45000L);
-        when(sessionMock.getMetadata()).thenReturn(Map.of("reserva_id", "1"));
+        when(sessionMock.getMetadata()).thenReturn(Map.of("reserva_id", ""));
 
-        Pago pago = buildPago(SESSION_ID, 1L, 1L, BigDecimal.valueOf(45000));
+        Pago pago = buildPago(SESSION_ID, null, 1L, BigDecimal.valueOf(45000));
 
         when(pagoRepository.existsByGatewayId(SESSION_ID)).thenReturn(false);
         when(pagoRepository.existsByReferencia(anyString())).thenReturn(false);
         when(pagoRepository.save(any())).thenReturn(pago);
         when(stripeGateway.retrieveSession(SESSION_ID)).thenReturn(sessionMock);
-        when(restTemplate.exchange(anyString(), any(), any(), eq(Object.class)))
-                .thenThrow(new RuntimeException("reservas-service unreachable"));
 
-        // No debe lanzar excepción — el error de confirmar reserva es manejado internamente
         assertThatNoException().isThrownBy(() -> stripeService.confirmarPago(request));
-        // El pago sí se guardó
         verify(pagoRepository).save(any(Pago.class));
+        verifyNoInteractions(pagoEventos);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

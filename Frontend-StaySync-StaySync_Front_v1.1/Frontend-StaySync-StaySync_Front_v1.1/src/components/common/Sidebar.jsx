@@ -16,6 +16,7 @@ const NAV = {
     { to: '/recepcion/pagos',        icon: 'bi-credit-card',       label: 'Pagos' },
     { to: '/recepcion/huespedes',    icon: 'bi-people',            label: 'Huéspedes' },
     { to: '/recepcion/operaciones',  icon: 'bi-clipboard-check',   label: 'Operaciones' },
+    { to: '/recepcion/aseo',         icon: 'bi-stars',             label: 'Aseo' },
   ],
   ADMIN: [
     { to: '/recepcion',              icon: 'bi-speedometer2',      label: 'Dashboard' },
@@ -26,8 +27,12 @@ const NAV = {
     { to: '/recepcion/huespedes',    icon: 'bi-people',            label: 'Huéspedes' },
     { to: '/recepcion/usuarios',     icon: 'bi-person-badge',      label: 'Usuarios' },
     { to: '/recepcion/operaciones',  icon: 'bi-clipboard-check',   label: 'Operaciones' },
+    { to: '/recepcion/aseo',         icon: 'bi-stars',             label: 'Aseo' },
+    { to: '/recepcion/marca',        icon: 'bi-palette',           label: 'Marca del hotel' },
   ],
 };
+
+NAV.SUPER_ADMIN = NAV.ADMIN;
 
 export default function Sidebar({ open }) {
   const { user } = useAuth();

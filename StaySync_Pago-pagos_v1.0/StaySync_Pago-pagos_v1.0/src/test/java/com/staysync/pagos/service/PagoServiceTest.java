@@ -26,6 +26,7 @@ import static org.mockito.Mockito.*;
 class PagoServiceTest {
 
     @Mock private PagoRepository pagoRepository;
+    @Mock private PagoEventos pagoEventos;
 
     @InjectMocks private PagoService pagoService;
 
@@ -66,6 +67,33 @@ class PagoServiceTest {
         PagoResponse response = pagoService.procesar(request);
 
         assertThat(response).isNotNull();
+        verify(pagoEventos).pagoEfectuado(any(Pago.class));
+    }
+
+    @Test
+    @DisplayName("reembolsarPorCancelacion() - reembolsa solo los pagos completados y publica el evento")
+    void debeReembolsarPorCancelacion() {
+        Pago fallido = Pago.builder().id(2L).referencia("PAY-FALLIDO1").reservaId(1L).usuarioId(1L)
+                .monto(BigDecimal.valueOf(200)).metodoPago(MetodoPago.TARJETA_CREDITO)
+                .estado(EstadoPago.FALLIDO).build();
+        when(pagoRepository.findByReservaId(1L)).thenReturn(List.of(pagoBase, fallido));
+
+        int reembolsados = pagoService.reembolsarPorCancelacion(1L);
+
+        assertThat(reembolsados).isEqualTo(1);
+        assertThat(pagoBase.getEstado()).isEqualTo(EstadoPago.REEMBOLSADO);
+        assertThat(fallido.getEstado()).isEqualTo(EstadoPago.FALLIDO);
+        verify(pagoEventos).reembolsoEfectuado(pagoBase);
+    }
+
+    @Test
+    @DisplayName("reembolsarPorCancelacion() - evento repetido: nada que reembolsar")
+    void reembolsoIdempotente() {
+        pagoBase.setEstado(EstadoPago.REEMBOLSADO);
+        when(pagoRepository.findByReservaId(1L)).thenReturn(List.of(pagoBase));
+
+        assertThat(pagoService.reembolsarPorCancelacion(1L)).isZero();
+        verifyNoInteractions(pagoEventos);
     }
 
     @Test

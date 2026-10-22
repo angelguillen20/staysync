@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "refresh_tokens", indexes = {
@@ -34,10 +35,10 @@ public class RefreshToken {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        createdAt = LocalDateTime.now(ZoneId.systemDefault());
     }
 
     public boolean isExpirado() {
-        return LocalDateTime.now().isAfter(expiraEn);
+        return LocalDateTime.now(ZoneId.systemDefault()).isAfter(expiraEn);
     }
 }

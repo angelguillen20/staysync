@@ -18,6 +18,8 @@ import java.util.Map;
 @Component
 public class UsuariosClient {
 
+    private static final String LOG_NO_DISPONIBLE = "usuarios-service no disponible: {}";
+
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
@@ -76,7 +78,7 @@ public class UsuariosClient {
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
     public ResponseEntity<Object> getPerfil(String authHeader, Long id) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/usuarios/" + id,
+                recursoUrl(id),
                 HttpMethod.GET,
                 new HttpEntity<>(buildHeaders(authHeader)),
                 Object.class);
@@ -85,7 +87,7 @@ public class UsuariosClient {
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
     public ResponseEntity<Object> updatePerfil(String authHeader, Long id, Object body) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/usuarios/" + id,
+                recursoUrl(id),
                 HttpMethod.PUT,
                 new HttpEntity<>(body, buildHeaders(authHeader)),
                 Object.class);
@@ -94,28 +96,68 @@ public class UsuariosClient {
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
     public ResponseEntity<Object> cambiarRol(String authHeader, Long id, Object body) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/usuarios/" + id + "/rol",
+                recursoUrl(id) + "/rol",
                 HttpMethod.PATCH,
                 new HttpEntity<>(body, buildHeaders(authHeader)),
                 Object.class);
     }
 
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
-    public ResponseEntity<Object> listarUsuarios(String authHeader) {
+    public ResponseEntity<Object> cambiarHotel(String authHeader, Long id, Object body) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/usuarios",
+                recursoUrl(id) + "/hotel",
+                HttpMethod.PATCH,
+                new HttpEntity<>(body, buildHeaders(authHeader)),
+                Object.class);
+    }
+
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "marcaFallback")
+    public ResponseEntity<Object> actualizarMarca(String authHeader, String tenantId, Object body) {
+        String url = UriComponentsBuilder
+                .fromUriString(baseUrl + "/api/v1/hoteles/{tenantId}/marca")
+                .buildAndExpand(tenantId)
+                .toUriString();
+        return restTemplate.exchange(url, HttpMethod.PUT,
+                new HttpEntity<>(body, buildHeaders(authHeader)), Object.class);
+    }
+
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
+    public ResponseEntity<Object> listarHoteles(String authHeader) {
+        return restTemplate.exchange(
+                baseUrl + "/api/v1/hoteles",
+                HttpMethod.GET,
+                new HttpEntity<>(buildHeaders(authHeader)),
+                Object.class);
+    }
+
+    /** page, size y sort se reenvían tal cual; tenantId solo lo aplica usuarios-service a un SUPER_ADMIN. */
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "listarFallback")
+    public ResponseEntity<Object> listarUsuarios(String authHeader, int page, int size, String sort, String tenantId) {
+        UriComponentsBuilder url = UriComponentsBuilder
+                .fromUriString(baseUrl + "/api/v1/usuarios")
+                .queryParam("page", page)
+                .queryParam("size", size)
+                .queryParam("sort", sort);
+        if (tenantId != null && !tenantId.isBlank()) {
+            url.queryParam("tenantId", tenantId);
+        }
+        return restTemplate.exchange(
+                url.toUriString(),
                 HttpMethod.GET,
                 new HttpEntity<>(buildHeaders(authHeader)),
                 Object.class);
     }
 
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "buscarFallback")
-    public ResponseEntity<Object> buscarUsuarios(String authHeader, String q, String rol) {
-        String url = UriComponentsBuilder
+    public ResponseEntity<Object> buscarUsuarios(String authHeader, String q, String rol, String tenantId) {
+        UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(baseUrl + "/api/v1/usuarios/buscar")
                 .queryParam("q",   q   != null ? q   : "")
-                .queryParam("rol", rol != null ? rol : "")
-                .toUriString();
+                .queryParam("rol", rol != null ? rol : "");
+        if (tenantId != null && !tenantId.isBlank()) {
+            builder.queryParam("tenantId", tenantId);
+        }
+        String url = builder.toUriString();
         return restTemplate.exchange(url, HttpMethod.GET,
                 new HttpEntity<>(buildHeaders(authHeader)), Object.class);
     }
@@ -132,55 +174,113 @@ public class UsuariosClient {
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "desactivarFallback")
     public void desactivar(String authHeader, Long id) {
         restTemplate.exchange(
-                baseUrl + "/api/v1/usuarios/" + id,
+                recursoUrl(id),
                 HttpMethod.DELETE,
                 new HttpEntity<>(buildHeaders(authHeader)),
                 Void.class);
     }
 
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "themeFallback")
+    public ResponseEntity<Object> obtenerThemeHotel(String slug) {
+        String url = UriComponentsBuilder
+                .fromUriString(baseUrl + "/api/v1/public/hoteles/{slug}/theme")
+                .buildAndExpand(slug)
+                .toUriString();
+        return restTemplate.getForEntity(url, Object.class);
+    }
+
+    private String recursoUrl(Long id) {
+        return baseUrl + "/api/v1/usuarios/" + id;
+    }
+
+    // Fallbacks de Resilience4j: deben repetir la firma del método protegido aunque no usen todos sus parámetros.
+    @SuppressWarnings("java:S1172")
     public void desactivarFallback(String authHeader, Long id, Exception ex) {
         log.error("usuarios-service no disponible al desactivar id={}: {}", id, ex.getMessage());
         throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
     }
 
-    public ResponseEntity<Object> buscarFallback(String authHeader, String q, String rol, Exception ex) {
+    @SuppressWarnings("java:S1172")
+    public ResponseEntity<Object> listarFallback(String authHeader, int page, int size, String sort,
+                                                 String tenantId, Exception ex) {
+        return authFallback(authHeader, ex);
+    }
+
+    @SuppressWarnings("java:S1172")
+    public ResponseEntity<Object> buscarFallback(String authHeader, String q, String rol, String tenantId, Exception ex) {
         log.warn("usuarios-service buscar no disponible: {}", ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarHuespedesFallback(String authHeader, Exception ex) {
         log.warn("usuarios-service huespedes no disponible: {}", ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }
 
+    @SuppressWarnings("java:S1172")
+    public ResponseEntity<Object> themeFallback(String slug, Exception ex) {
+        // Un 404 (hotel inexistente) debe llegar tal cual al frontend, no como "servicio caído"
+        relanzarErrorDelCliente(ex);
+        log.warn("usuarios-service no disponible al obtener el theme de {}: {}", slug, ex.getMessage());
+        throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
+    }
+
+    @SuppressWarnings("java:S1172")
+    public ResponseEntity<Object> marcaFallback(String authHeader, String tenantId, Object body, Exception ex) {
+        relanzarErrorDelCliente(ex);
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
+        throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
+    }
+
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> loginFallback(Object body, Exception ex) {
         log.error("usuarios-service no disponible en login: {}", ex.getMessage());
         throw new DownstreamServiceException("El servicio de autenticación no está disponible. Intente nuevamente.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> passthruFallback(Object body, Exception ex) {
-        log.error("usuarios-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> authFallback(String authHeader, Exception ex) {
-        log.error("usuarios-service no disponible: {}", ex.getMessage());
+        relanzarErrorDelCliente(ex);
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> authFallback(String authHeader, Object body, Exception ex) {
-        log.error("usuarios-service no disponible: {}", ex.getMessage());
+        relanzarErrorDelCliente(ex);
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> authFallback(String authHeader, Long id, Exception ex) {
-        log.error("usuarios-service no disponible: {}", ex.getMessage());
+        relanzarErrorDelCliente(ex);
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> authFallback(String authHeader, Long id, Object body, Exception ex) {
-        log.error("usuarios-service no disponible: {}", ex.getMessage());
+        relanzarErrorDelCliente(ex);
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de usuarios no está disponible.");
+    }
+
+    /**
+     * Un 4xx de usuarios-service (403 sin permiso, 404 de otro hotel, 400 validación) no es
+     * una caída: se reenvía tal cual para que el frontend muestre el mensaje real.
+     */
+    private static void relanzarErrorDelCliente(Exception ex) {
+        if (ex instanceof HttpClientErrorException clientError) {
+            throw clientError;
+        }
     }
 
     static HttpHeaders buildHeaders(String authHeader) {

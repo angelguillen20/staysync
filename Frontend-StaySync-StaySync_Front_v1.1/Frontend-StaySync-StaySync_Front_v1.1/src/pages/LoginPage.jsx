@@ -1,25 +1,121 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login as loginService, register as registerSvc } from '../services/authService';
 import { generateCodeVerifier, generateCodeChallenge } from '../services/pkce';
 import AlertMessage from '../components/common/AlertMessage';
 import { COGNITO_DOMAIN, COGNITO_CLIENT_ID, COGNITO_REDIRECT_URI } from '../config/cognito';
+import { useMarca } from '../context/ThemeContext';
+import { getMarcaPublica } from '../services/hotelesService';
+import { esLogoValido, esSlugValido, guardarSlug, slugGuardado } from '../theme/hotelTheme';
 
-const REDIRECT = { ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
+const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
+
+// Cuentas que crea DataInitializer (usuarios-service). En un despliegue real se ocultan con
+// VITE_DEMO_CREDENCIALES=false: incluyen la del super admin, que administra todos los hoteles.
+const MOSTRAR_DEMO = import.meta.env.VITE_DEMO_CREDENCIALES !== 'false';
+const CUENTAS_DEMO = [
+  { hotel: 'Plataforma', slug: null, cuentas: [
+    { rol: 'Super admin', email: 'superadmin@staysync.com', password: 'Super@1234' },
+  ] },
+  { hotel: 'StaySync Demo', slug: 'staysync-demo', cuentas: [
+    { rol: 'Admin',     email: 'admin@staysync.com',   password: 'Admin@1234' },
+    { rol: 'Recepción', email: 'recep@staysync.com',   password: 'Recep@1234' },
+    { rol: 'Huésped',   email: 'huesped@staysync.com', password: 'Huesped@1234' },
+  ] },
+  { hotel: 'Hotel Andes', slug: 'hotel-andes', cuentas: [
+    { rol: 'Admin',     email: 'admin@hotelandes.com',   password: 'Admin@1234' },
+    { rol: 'Recepción', email: 'recep@hotelandes.com',   password: 'Recep@1234' },
+    { rol: 'Huésped',   email: 'huesped@hotelandes.com', password: 'Huesped@1234' },
+  ] },
+];
+
+/** Un clic en una cuenta rellena el formulario; "Ver portal" abre el login con la marca del hotel. */
+function CredencialesDemo({ onUsar, onPortal }) {
+  return (
+    <div className="mt-4 p-3 rounded" style={{ background: 'rgba(239,193,67,0.1)', border: '1px solid rgba(239,193,67,0.3)' }}>
+      <p className="mb-2 fw-semibold small" style={{ color: 'var(--ss-dark)' }}>
+        <i className="bi bi-info-circle me-1" />Credenciales de demo <span className="fw-normal text-muted">· clic para usar</span>
+      </p>
+      {CUENTAS_DEMO.map(({ hotel, slug, cuentas }) => (
+        <div key={hotel} className="mb-2">
+          <div className="d-flex justify-content-between align-items-center">
+            <small className="fw-semibold" style={{ color: 'var(--ss-dark)' }}>{hotel}</small>
+            {slug && (
+              <button type="button" className="btn btn-link btn-sm p-0 small" onClick={() => onPortal(slug)}>
+                Ver portal <i className="bi bi-box-arrow-up-right" />
+              </button>
+            )}
+          </div>
+          <div className="d-flex flex-wrap gap-1 mt-1">
+            {cuentas.map((c) => (
+              <button
+                key={c.email}
+                type="button"
+                className="btn btn-sm btn-outline-secondary py-0"
+                style={{ fontSize: '0.75rem' }}
+                title={`${c.email} / ${c.password}`}
+                onClick={() => onUsar(c)}
+              >
+                {c.rol}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 
 const PW_RULES = [
   { id: 'len', label: 'Al menos 8 caracteres',  test: pw => pw.length >= 8 },
   { id: 'up',  label: 'Una letra mayúscula',     test: pw => /[A-Z]/.test(pw) },
   { id: 'low', label: 'Una letra minúscula',     test: pw => /[a-z]/.test(pw) },
-  { id: 'num', label: 'Un número (0–9)',         test: pw => /[0-9]/.test(pw) },
+  { id: 'num', label: 'Un número (0–9)',         test: pw => /\d/.test(pw) },
   { id: 'sym', label: 'Un símbolo (@$!%*?&)',   test: pw => /[@$!%*?&]/.test(pw) },
 ];
 
-function validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
-function validTel(t)   { return !t || /^[+]?[0-9]{7,15}$/.test(t); }
+// Equivale a /^[^\s@]+@[^\s@]+\.[^\s@]+$/ pero sin regex, para evitar el backtracking superlineal.
+function validEmail(e) {
+  if (/\s/.test(e)) return false;
+  const at = e.indexOf('@');
+  if (at < 1 || at !== e.lastIndexOf('@')) return false;
+  const dominio = e.slice(at + 1);
+  const punto = dominio.indexOf('.', 1);
+  return punto !== -1 && punto < dominio.length - 1;
+}
+function validTel(t)   { return !t || /^[+]?\d{7,15}$/.test(t); }
+
+/** Sin respuesta o 5xx: el problema es del servidor, no de la contraseña. */
+function mensajeDeError(err, porDefecto) {
+  if (!err.response || err.response.status >= 500) {
+    return 'El servicio no está disponible en este momento. Intenta de nuevo en unos minutos.';
+  }
+  return err.response.data?.message ?? porDefecto;
+}
+
+/** Logo y nombre del hotel del portal, o los de StaySync si no hay marca. */
+function MarcaHotel({ marca, tamano }) {
+  if (marca?.logoUrl && esLogoValido(marca.logoUrl)) {
+    return <img src={marca.logoUrl} alt={marca.nombre} style={{ maxHeight: tamano, maxWidth: '70%' }} />;
+  }
+  return <span style={{ fontSize: tamano }}>🏨</span>;
+}
 function validPw(pw)   { return PW_RULES.every(r => r.test(pw)); }
+
+// Devuelve los campos del registro que no pasan la validación
+function camposInvalidos(reg, confirmar) {
+  const checks = {
+    nombre:    reg.nombre.trim() !== '',
+    apellido:  reg.apellido.trim() !== '',
+    email:     validEmail(reg.email),
+    telefono:  validTel(reg.telefono),
+    password:  validPw(reg.password),
+    confirmar: confirmar === reg.password,
+  };
+  return Object.keys(checks).filter(k => !checks[k]);
+}
 
 function PasswordChecklist({ password }) {
   if (!password) return null;
@@ -61,9 +157,22 @@ export default function LoginPage() {
   const [showConfPass, setShowConfPass] = useState(false);
 
   const { login } = useAuth();
+  const { marca, setMarca } = useMarca();
   const navigate  = useNavigate();
   const location  = useLocation();
   const from      = location.state?.from?.pathname;
+
+  // Portal del hotel: /login?hotel=hotel-andes muestra su logo y colores antes de entrar
+  useEffect(() => {
+    const slug = new URLSearchParams(location.search).get('hotel');
+    if (!esSlugValido(slug)) return;
+    guardarSlug(slug);
+    getMarcaPublica(slug)
+      .then(setMarca)
+      .catch(() => setError('No encontramos ese hotel. Revisa el enlace que te compartieron.'));
+  }, [location.search, setMarca]);
+
+  const nombreMarca = marca?.nombre ?? 'StaySync';
 
   const touch    = field => setRegTouched(p => ({ ...p, [field]: true }));
   const onChange  = field => e => {
@@ -71,8 +180,10 @@ export default function LoginPage() {
     if (regTouched[field]) touch(field);
   };
 
-  const fieldClass = (field, ok) =>
-    `form-control${regTouched[field] ? (ok ? ' is-valid' : ' is-invalid') : ''}`;
+  const fieldClass = (field, ok) => {
+    if (!regTouched[field]) return 'form-control';
+    return ok ? 'form-control is-valid' : 'form-control is-invalid';
+  };
 
   /* ── Login ───────────────────────────────────────────── */
   const handleLogin = async e => {
@@ -83,7 +194,7 @@ export default function LoginPage() {
       login(data);
       navigate(from ?? REDIRECT[data.rol] ?? '/huesped', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message ?? 'Credenciales incorrectas. Intente nuevamente.');
+      setError(mensajeDeError(err, 'Credenciales incorrectas. Intente nuevamente.'));
     } finally {
       setLoading(false);
     }
@@ -113,26 +224,18 @@ export default function LoginPage() {
     e.preventDefault();
     setRegTouched({ nombre: true, apellido: true, email: true, telefono: true, password: true, confirmar: true });
 
-    const errors = [];
-    if (!reg.nombre.trim())        errors.push('nombre');
-    if (!reg.apellido.trim())      errors.push('apellido');
-    if (!validEmail(reg.email))    errors.push('email');
-    if (!validTel(reg.telefono))   errors.push('telefono');
-    if (!validPw(reg.password))    errors.push('password');
-    if (confirmar !== reg.password) errors.push('confirmar');
-
-    if (errors.length > 0) {
+    if (camposInvalidos(reg, confirmar).length > 0) {
       setRegErr('Corrige los campos marcados en rojo antes de continuar.');
       return;
     }
 
     setRegErr(''); setLoading(true);
     try {
-      await registerSvc(reg);
+      await registerSvc({ ...reg, hotelSlug: slugGuardado() });
       setRegOk(true);
       setTimeout(() => { setTab('login'); setRegOk(false); }, 2500);
     } catch (err) {
-      setRegErr(err.response?.data?.message ?? 'No se pudo registrar. Intente más tarde.');
+      setRegErr(mensajeDeError(err, 'No se pudo registrar. Intente más tarde.'));
     } finally {
       setLoading(false);
     }
@@ -148,8 +251,8 @@ export default function LoginPage() {
     <div className="login-container row g-0 min-vh-100">
       {/* ── Panel de marca ── */}
       <div className="col-md-5 login-brand-panel d-none d-md-flex fade-in-up">
-        <div className="brand-logo mb-4">🏨</div>
-        <h1>StaySync</h1>
+        <div className="brand-logo mb-4"><MarcaHotel marca={marca} tamano={72} /></div>
+        <h1>{nombreMarca}</h1>
         <p className="text-center mt-2 px-4">
           Sistema integral de gestión hotelera.<br />
           Optimiza operaciones, maximiza la satisfacción de tus huéspedes.
@@ -173,8 +276,8 @@ export default function LoginPage() {
         <div className="login-form-card">
           {/* Logo mobile */}
           <div className="text-center mb-4 d-md-none">
-            <span style={{ fontSize: '3rem' }}>🏨</span>
-            <h2 className="fw-bold" style={{ color: 'var(--ss-dark)' }}>StaySync</h2>
+            <MarcaHotel marca={marca} tamano={56} />
+            <h2 className="fw-bold" style={{ color: 'var(--ss-dark)' }}>{nombreMarca}</h2>
           </div>
 
           {/* Tabs */}
@@ -207,10 +310,11 @@ export default function LoginPage() {
 
               <form onSubmit={handleLogin} noValidate>
                 <div className="mb-3">
-                  <label className="form-label fw-medium small">Correo electrónico</label>
+                  <label htmlFor="login-email" className="form-label fw-medium small">Correo electrónico</label>
                   <div className="input-group">
                     <span className="input-group-text"><i className="bi bi-envelope" /></span>
                     <input
+                      id="login-email"
                       type="email"
                       className="form-control"
                       placeholder="usuario@staysync.com"
@@ -223,10 +327,11 @@ export default function LoginPage() {
                 </div>
 
                 <div className="mb-4">
-                  <label className="form-label fw-medium small">Contraseña</label>
+                  <label htmlFor="login-password" className="form-label fw-medium small">Contraseña</label>
                   <div className="input-group">
                     <span className="input-group-text"><i className="bi bi-lock" /></span>
                     <input
+                      id="login-password"
                       type={showPass ? 'text' : 'password'}
                       className="form-control"
                       placeholder="••••••••"
@@ -265,20 +370,15 @@ export default function LoginPage() {
                 className="btn btn-outline-secondary w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2"
                 onClick={handleGoogleLogin}
               >
-                <i className="bi bi-google" />
-                Continuar con Google
+                <i className="bi bi-google" />Continuar con Google
               </button>
 
-              <div className="mt-4 p-3 rounded" style={{ background: 'rgba(239,193,67,0.1)', border: '1px solid rgba(239,193,67,0.3)' }}>
-                <p className="mb-1 fw-semibold small" style={{ color: 'var(--ss-dark)' }}>
-                  <i className="bi bi-info-circle me-1" />Credenciales de demo
-                </p>
-                <small className="text-muted">
-                  Admin: admin@staysync.com / Admin@1234<br />
-                  Recepción: recep@staysync.com / Recep@1234<br />
-                  Huésped: huesped@staysync.com / Huesped@1234
-                </small>
-              </div>
+              {MOSTRAR_DEMO && (
+                <CredencialesDemo
+                  onUsar={({ email, password }) => { setForm({ email, password }); setError(''); }}
+                  onPortal={(slug) => navigate(`/login?hotel=${slug}`)}
+                />
+              )}
             </>
           )}
 
@@ -286,12 +386,17 @@ export default function LoginPage() {
           {tab === 'register' && (
             <>
               <h3 className="fw-bold mb-1">Crear cuenta</h3>
-              <p className="text-muted small mb-4">Registro de huéspedes · Todos los campos marcados con <span className="text-danger">*</span> son obligatorios</p>
+              <p className="text-muted small mb-2">Registro de huéspedes · Todos los campos marcados con <span className="text-danger">*</span> son obligatorios</p>
+              {/* El hotel sale del portal (?hotel=slug); sin portal, el backend usa el hotel por defecto */}
+              <div className="small mb-4 p-2 rounded" style={{ background: 'rgba(0,0,0,0.03)' }}>
+                <i className="bi bi-building me-1" />
+                Te registrarás como huésped de <strong>{marca?.nombre ?? 'StaySync Demo'}</strong>.
+                {' '}Para otro hotel, entra con el enlace de su portal.
+              </div>
 
               {regOk ? (
                 <div className="alert alert-success text-center">
-                  <i className="bi bi-check-circle-fill me-2" />
-                  ¡Registro exitoso! Redirigiendo al login...
+                  <i className="bi bi-check-circle-fill me-2" />¡Registro exitoso! Redirigiendo al login...
                 </div>
               ) : (
                 <>
@@ -302,10 +407,11 @@ export default function LoginPage() {
                     {/* Nombre / Apellido */}
                     <div className="row g-3 mb-3">
                       <div className="col-6">
-                        <label className="form-label fw-medium small">
+                        <label htmlFor="registro-nombre" className="form-label fw-medium small">
                           Nombre <span className="text-danger">*</span>
                         </label>
                         <input
+                          id="registro-nombre"
                           className={fieldClass('nombre', reg.nombre.trim().length > 0)}
                           placeholder="Juan"
                           value={reg.nombre}
@@ -315,10 +421,11 @@ export default function LoginPage() {
                         <div className="invalid-feedback">El nombre es requerido.</div>
                       </div>
                       <div className="col-6">
-                        <label className="form-label fw-medium small">
+                        <label htmlFor="registro-apellido" className="form-label fw-medium small">
                           Apellido <span className="text-danger">*</span>
                         </label>
                         <input
+                          id="registro-apellido"
                           className={fieldClass('apellido', reg.apellido.trim().length > 0)}
                           placeholder="García"
                           value={reg.apellido}
@@ -331,12 +438,13 @@ export default function LoginPage() {
 
                     {/* Email */}
                     <div className="mb-3">
-                      <label className="form-label fw-medium small">
+                      <label htmlFor="registro-email" className="form-label fw-medium small">
                         Correo electrónico <span className="text-danger">*</span>
                       </label>
                       <div className="input-group">
                         <span className="input-group-text"><i className="bi bi-envelope" /></span>
                         <input
+                          id="registro-email"
                           type="email"
                           className={fieldClass('email', validEmail(reg.email))}
                           placeholder="tu@email.com"
@@ -353,12 +461,13 @@ export default function LoginPage() {
 
                     {/* Teléfono */}
                     <div className="mb-3">
-                      <label className="form-label fw-medium small">
+                      <label htmlFor="registro-telefono" className="form-label fw-medium small">
                         Teléfono <span className="text-muted fw-normal">(opcional)</span>
                       </label>
                       <div className="input-group">
                         <span className="input-group-text"><i className="bi bi-telephone" /></span>
                         <input
+                          id="registro-telefono"
                           type="tel"
                           className={fieldClass('telefono', validTel(reg.telefono))}
                           placeholder="+573001234567"
@@ -372,12 +481,13 @@ export default function LoginPage() {
 
                     {/* Contraseña */}
                     <div className="mb-3">
-                      <label className="form-label fw-medium small">
+                      <label htmlFor="registro-password" className="form-label fw-medium small">
                         Contraseña <span className="text-danger">*</span>
                       </label>
                       <div className="input-group">
                         <span className="input-group-text"><i className="bi bi-lock" /></span>
                         <input
+                          id="registro-password"
                           type={showRegPass ? 'text' : 'password'}
                           className={fieldClass('password', validPw(reg.password))}
                           placeholder="Crea una contraseña segura"
@@ -400,12 +510,13 @@ export default function LoginPage() {
 
                     {/* Confirmar contraseña */}
                     <div className="mb-4">
-                      <label className="form-label fw-medium small">
+                      <label htmlFor="registro-confirmar" className="form-label fw-medium small">
                         Confirmar contraseña <span className="text-danger">*</span>
                       </label>
                       <div className="input-group">
                         <span className="input-group-text"><i className="bi bi-lock-fill" /></span>
                         <input
+                          id="registro-confirmar"
                           type={showConfPass ? 'text' : 'password'}
                           className={fieldClass('confirmar', confirmar.length > 0 && confirmar === reg.password)}
                           placeholder="Repite tu contraseña"

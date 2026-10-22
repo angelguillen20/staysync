@@ -3,6 +3,7 @@ package com.staysync.bff.exception;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
@@ -10,6 +11,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 @Slf4j
@@ -41,7 +43,9 @@ public class GlobalExceptionHandler {
             Map<String, Object> parsed = new ObjectMapper().readValue(body, Map.class);
             Object msg = parsed.get("message");
             if (msg != null) return msg.toString();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            // El cuerpo no es JSON: se devuelve tal cual
+        }
         return body;
     }
 
@@ -57,6 +61,17 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.GATEWAY_TIMEOUT, "El servicio no respondió en el tiempo esperado.");
     }
 
+    // @PreAuthorize denegado: sin esto caía en el handler genérico y respondía 500
+    @ExceptionHandler(AccesoDenegadoException.class)
+    public ResponseEntity<Map<String, Object>> handleAccesoDenegado(AccesoDenegadoException ex) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(AuthorizationDeniedException ex) {
+        return build(HttpStatus.FORBIDDEN, "No tienes permisos para esta operación.");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
         log.error("Error inesperado en BFF: {}", ex.getMessage(), ex);
@@ -65,7 +80,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of(
-                "timestamp", LocalDateTime.now().toString(),
+                "timestamp", LocalDateTime.now(ZoneId.systemDefault()).toString(),
                 "status", status.value(),
                 "error", status.getReasonPhrase(),
                 "message", message

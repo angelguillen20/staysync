@@ -3,6 +3,7 @@ package com.staysync.bff.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -18,8 +19,12 @@ public class AsyncConfig {
     @Value("${bff.executor.pool-size:20}")
     private int poolSize;
 
+    /**
+     * Envuelto para copiar el SecurityContext al hilo del pool: así TenantHeaderInterceptor
+     * también manda X-Tenant-Id en las llamadas paralelas del dashboard.
+     */
     @Bean(destroyMethod = "shutdown")
     public ExecutorService bffTaskExecutor() {
-        return Executors.newFixedThreadPool(poolSize);
+        return new DelegatingSecurityContextExecutorService(Executors.newFixedThreadPool(poolSize));
     }
 }

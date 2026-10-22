@@ -13,6 +13,8 @@ import org.springframework.web.client.RestTemplate;
 @Component
 public class ReservasClient {
 
+    private static final String LOG_NO_DISPONIBLE = "reservas-service no disponible: {}";
+
     private final RestTemplate restTemplate;
     private final String baseUrl;
 
@@ -42,7 +44,7 @@ public class ReservasClient {
     @CircuitBreaker(name = "reservasCB", fallbackMethod = "getOneFallback")
     public ResponseEntity<Object> getById(String authHeader, Long id) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/reservas/" + id,
+                recursoUrl(id),
                 HttpMethod.GET,
                 new HttpEntity<>(UsuariosClient.buildHeaders(authHeader)),
                 Object.class);
@@ -70,7 +72,7 @@ public class ReservasClient {
     @CircuitBreaker(name = "reservasCB", fallbackMethod = "mutarFallback")
     public ResponseEntity<Object> cambiarEstado(String authHeader, Long id, Object body) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/reservas/" + id + "/estado",
+                recursoUrl(id) + "/estado",
                 HttpMethod.PATCH,
                 new HttpEntity<>(body, UsuariosClient.buildHeaders(authHeader)),
                 Object.class);
@@ -79,39 +81,50 @@ public class ReservasClient {
     @CircuitBreaker(name = "reservasCB", fallbackMethod = "mutarFallback")
     public ResponseEntity<Object> cancelar(String authHeader, Long id) {
         return restTemplate.exchange(
-                baseUrl + "/api/v1/reservas/" + id + "/cancelar",
+                recursoUrl(id) + "/cancelar",
                 HttpMethod.PATCH,
                 new HttpEntity<>(UsuariosClient.buildHeaders(authHeader)),
                 Object.class);
     }
 
+    private String recursoUrl(Long id) {
+        return baseUrl + "/api/v1/reservas/" + id;
+    }
+
+    // Fallbacks de Resilience4j: deben repetir la firma del método protegido aunque no usen todos sus parámetros.
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarFallback(String authHeader, Exception ex) {
-        log.error("reservas-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de reservas no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarFallback(String authHeader, Long usuarioId, int page, int size, Exception ex) {
-        log.error("reservas-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de reservas no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> getOneFallback(String authHeader, Long id, Exception ex) {
         log.warn("reservas-service no disponible para id={}: {}", id, ex.getMessage());
         throw new DownstreamServiceException("El servicio de reservas no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Object body, Exception ex) {
-        log.error("reservas-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de reservas no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Long id, Object body, Exception ex) {
-        log.error("reservas-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de reservas no está disponible.");
     }
 
+    @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Long id, Exception ex) {
-        log.error("reservas-service no disponible: {}", ex.getMessage());
+        log.error(LOG_NO_DISPONIBLE, ex.getMessage());
         throw new DownstreamServiceException("El servicio de reservas no está disponible.");
     }
 }

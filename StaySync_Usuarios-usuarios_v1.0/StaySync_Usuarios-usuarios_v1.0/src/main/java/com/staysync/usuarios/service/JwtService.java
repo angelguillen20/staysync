@@ -9,7 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -25,11 +25,13 @@ public class JwtService {
     private long jwtExpirationMs;
 
     public String generateToken(UserDetails userDetails, Map<String, Object> extraClaims) {
+        Instant ahora = Instant.now();
         return Jwts.builder()
                 .claims(extraClaims)
                 .subject(userDetails.getUsername())
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
+                // jjwt interpreta los valores numéricos de iat/exp como segundos epoch (RFC 7519)
+                .claim(Claims.ISSUED_AT, ahora.getEpochSecond())
+                .claim(Claims.EXPIRATION, ahora.plusMillis(jwtExpirationMs).getEpochSecond())
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -48,7 +50,7 @@ public class JwtService {
     }
 
     public boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        return extractExpiration(token).isBefore(Instant.now());
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -69,8 +71,8 @@ public class JwtService {
         }
     }
 
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
+    private Instant extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration).toInstant();
     }
 
     private SecretKey getSigningKey() {

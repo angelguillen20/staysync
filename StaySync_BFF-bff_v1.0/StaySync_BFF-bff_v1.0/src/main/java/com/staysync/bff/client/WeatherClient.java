@@ -4,6 +4,7 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -41,9 +42,17 @@ public class WeatherClient {
                 .queryParam("key", apiKey)
                 .queryParam("q", city)
                 .queryParam("aqi", "no")
+                .queryParam("lang", "es")
                 .toUriString();
 
-        Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+        Map<String, Object> response;
+        try {
+            response = restTemplate.getForObject(url, Map.class);
+        } catch (HttpClientErrorException ex) {
+            // Los 4xx están en ignore-exceptions del circuit breaker y no pasan por el fallback:
+            // sin este catch una API key inválida devolvía 401 y el dashboard entero fallaba
+            return obtenerClimaFallback(ex);
+        }
         if (response == null) return null;
 
         Map<String, Object> location  = (Map<String, Object>) response.get("location");

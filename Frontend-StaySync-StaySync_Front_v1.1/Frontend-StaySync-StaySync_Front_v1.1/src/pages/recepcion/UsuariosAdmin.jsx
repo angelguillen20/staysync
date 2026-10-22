@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getUsuarios, buscarUsuarios, updateUsuarioAdmin, cambiarRolUsuario, desactivarUsuarioAdmin } from '../../services/usuariosService';
+import {
+  getUsuarios, buscarUsuarios, updateUsuarioAdmin, cambiarRolUsuario, cambiarHotelUsuario,
+  desactivarUsuarioAdmin, getHoteles,
+} from '../../services/usuariosService';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
+import ModalBackdrop  from '../../components/common/ModalBackdrop';
 
 const ROL_META = {
+  SUPER_ADMIN:   { label: 'Super admin',   badge: 'bg-danger' },
   ADMIN:         { label: 'Administrador', badge: 'bg-dark' },
   RECEPCIONISTA: { label: 'Recepcionista', style: { background: 'var(--ss-gold)', color: 'var(--ss-dark)' } },
   HUESPED:       { label: 'Huésped',       badge: 'bg-light text-dark border' },
@@ -19,32 +24,41 @@ function RolBadge({ rol }) {
     : <span className={`badge ${meta.badge}`}>{meta.label}</span>;
 }
 
-function ModalEditarUsuario({ usuario, esUnoMismo, onClose, onSave, saving, error }) {
+function ModalEditarUsuario({ usuario, esUnoMismo, esSuper, hoteles, onClose, onSave, saving, error }) {
   const [form, setForm] = useState({ nombre: usuario.nombre ?? '', apellido: usuario.apellido ?? '', telefono: usuario.telefono ?? '' });
   const [rol, setRol] = useState(usuario.rol);
+  const [tenantId, setTenantId] = useState(usuario.tenantId ?? '');
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
+
+  // Un admin de hotel no puede tocar la cuenta de un super admin (el backend también lo impide)
+  const bloqueado = usuario.rol === 'SUPER_ADMIN' && !esSuper;
+  // Solo un super admin puede otorgar el rol SUPER_ADMIN
+  const rolesDisponibles = Object.entries(ROL_META)
+    .filter(([valor]) => esSuper || valor !== 'SUPER_ADMIN' || usuario.rol === 'SUPER_ADMIN');
+  // Los huéspedes no se mueven de hotel: sus reservas y pagos quedan en el hotel original
+  const hotelBloqueado = rol === 'HUESPED';
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const campos = { ...form };
     if (nuevaPassword.trim()) campos.nuevaPassword = nuevaPassword.trim();
-    onSave(campos, rol !== usuario.rol ? rol : null);
+    const nuevoHotel = esSuper && !hotelBloqueado && tenantId && tenantId !== usuario.tenantId ? tenantId : null;
+    onSave(campos, rol !== usuario.rol ? rol : null, nuevoHotel);
   };
 
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 1055, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(34,32,22,0.45)' }}
-      onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}
     >
-      <div style={{ width: '100%', maxWidth: 460 }}>
+      <ModalBackdrop onClose={onClose} disabled={saving} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: 460 }}>
         <div className="modal-content border-0" style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 40px rgba(34,32,22,0.35)' }}>
 
           <div className="modal-header" style={{ background: 'var(--ss-dark)', borderBottom: '3px solid var(--ss-gold)', padding: '1.1rem 1.5rem' }}>
             <div>
               <h5 className="modal-title mb-0 fw-bold" style={{ color: '#fff' }}>
-                <i className="bi bi-pencil-square me-2" style={{ color: 'var(--ss-gold)' }} />
-                Editar usuario
+                <i className="bi bi-pencil-square me-2" style={{ color: 'var(--ss-gold)' }} />Editar usuario
               </h5>
               <small style={{ color: 'rgba(255,255,255,0.65)' }}>{usuario.email}</small>
             </div>
@@ -55,8 +69,9 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onClose, onSave, saving, erro
             <div className="modal-body px-4 py-4" style={{ background: '#fff' }}>
               <div className="row g-3">
                 <div className="col-sm-6">
-                  <label className="form-label fw-medium small">Nombre</label>
+                  <label htmlFor="usuario-nombre" className="form-label fw-medium small">Nombre</label>
                   <input
+                    id="usuario-nombre"
                     className="form-control"
                     value={form.nombre}
                     onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
@@ -65,8 +80,9 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onClose, onSave, saving, erro
                   />
                 </div>
                 <div className="col-sm-6">
-                  <label className="form-label fw-medium small">Apellido</label>
+                  <label htmlFor="usuario-apellido" className="form-label fw-medium small">Apellido</label>
                   <input
+                    id="usuario-apellido"
                     className="form-control"
                     value={form.apellido}
                     onChange={(e) => setForm((p) => ({ ...p, apellido: e.target.value }))}
@@ -74,8 +90,9 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onClose, onSave, saving, erro
                   />
                 </div>
                 <div className="col-12">
-                  <label className="form-label fw-medium small">Teléfono</label>
+                  <label htmlFor="usuario-telefono" className="form-label fw-medium small">Teléfono</label>
                   <input
+                    id="usuario-telefono"
                     type="tel"
                     className="form-control"
                     placeholder="+573001234567"
@@ -86,40 +103,68 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onClose, onSave, saving, erro
                 </div>
 
                 <div className="col-12">
-                  <label className="form-label fw-medium small">Rol</label>
+                  <label htmlFor="usuario-rol" className="form-label fw-medium small">Rol</label>
                   <select
+                    id="usuario-rol"
                     className="form-select"
                     value={rol}
                     onChange={(e) => setRol(e.target.value)}
-                    disabled={saving || esUnoMismo}
+                    disabled={saving || esUnoMismo || bloqueado}
                   >
-                    {Object.entries(ROL_META).map(([valor, meta]) => (
+                    {rolesDisponibles.map(([valor, meta]) => (
                       <option key={valor} value={valor}>{meta.label}</option>
                     ))}
                   </select>
                   <small className="text-muted">
-                    {esUnoMismo
-                      ? 'No puedes cambiar tu propio rol.'
-                      : rol !== usuario.rol
-                        ? 'El nuevo rol se aplicará la próxima vez que el usuario inicie sesión.'
-                        : 'Quien entra con Google por primera vez queda como Huésped.'}
+                    {bloqueado && 'Solo un super administrador puede modificar esta cuenta.'}
+                    {!bloqueado && esUnoMismo && 'No puedes cambiar tu propio rol.'}
+                    {!bloqueado && !esUnoMismo && rol !== usuario.rol && 'El nuevo rol se aplicará la próxima vez que el usuario inicie sesión.'}
+                    {!bloqueado && !esUnoMismo && rol === usuario.rol && 'Quien entra con Google por primera vez queda como Huésped.'}
                   </small>
                 </div>
 
+                {esSuper && (
+                  <div className="col-12">
+                    <label htmlFor="usuario-hotel" className="form-label fw-medium small">Hotel</label>
+                    <select
+                      id="usuario-hotel"
+                      className="form-select"
+                      value={tenantId}
+                      onChange={(e) => setTenantId(e.target.value)}
+                      disabled={saving || hotelBloqueado}
+                    >
+                      {!hoteles.some((h) => h.tenantId === tenantId) && (
+                        <option value={tenantId}>{tenantId || 'Sin hotel'}</option>
+                      )}
+                      {hoteles.map((h) => (
+                        <option key={h.tenantId} value={h.tenantId}>{h.nombre}</option>
+                      ))}
+                    </select>
+                    <small className="text-muted">
+                      {hotelBloqueado
+                        ? 'Los huéspedes no se cambian de hotel: sus reservas y pagos quedan en el hotel original.'
+                        : tenantId !== usuario.tenantId
+                          ? 'Se cerrarán sus sesiones; el nuevo hotel se aplicará cuando vuelva a iniciar sesión.'
+                          : 'Un administrador solo gestiona el hotel que tiene asignado.'}
+                    </small>
+                  </div>
+                )}
+
                 <div className="col-12">
                   <hr className="my-1" />
-                  <label className="form-label fw-medium small">
+                  <label htmlFor="usuario-password" className="form-label fw-medium small">
                     Nueva contraseña <span className="text-muted fw-normal">(opcional)</span>
                   </label>
                   <div className="input-group">
                     <span className="input-group-text"><i className="bi bi-lock" /></span>
                     <input
+                      id="usuario-password"
                       type={showPass ? 'text' : 'password'}
                       className="form-control"
                       placeholder="Dejar en blanco para no cambiarla"
                       value={nuevaPassword}
                       onChange={(e) => setNuevaPassword(e.target.value)}
-                      disabled={saving}
+                      disabled={saving || bloqueado}
                       autoComplete="new-password"
                     />
                     <button
@@ -162,6 +207,8 @@ function ModalEditarUsuario({ usuario, esUnoMismo, onClose, onSave, saving, erro
 
 export default function UsuariosAdmin() {
   const { user: currentUser } = useAuth();
+  const esSuper = currentUser?.rol === 'SUPER_ADMIN';
+  const [hoteles, setHoteles] = useState([]);
   const [usuarios,   setUsuarios]   = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState('');
@@ -169,6 +216,7 @@ export default function UsuariosAdmin() {
 
   const [q,          setQ]          = useState('');
   const [rolFiltro,  setRolFiltro]  = useState('TODOS');
+  const [hotelFiltro, setHotelFiltro] = useState(''); // solo SUPER_ADMIN; '' = todos los hoteles
   const [buscando,   setBuscando]   = useState(false); // true = resultados de /buscar (sin paginación)
 
   const [page,        setPage]        = useState(0);
@@ -184,7 +232,7 @@ export default function UsuariosAdmin() {
     setLoading(true);
     setError('');
     try {
-      const data = await getUsuarios({ page: p, size: 10, sort: 'id' });
+      const data = await getUsuarios({ page: p, size: 10, sort: 'id', ...(hotelFiltro ? { tenantId: hotelFiltro } : {}) });
       setUsuarios(data.content ?? []);
       setTotalPages(data.totalPages ?? 1);
       setTotalUsuarios(data.totalElements ?? data.content?.length ?? 0);
@@ -194,9 +242,17 @@ export default function UsuariosAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hotelFiltro]);
 
   useEffect(() => { cargarPagina(page); }, [page, cargarPagina]);
+
+  // Solo el super admin ve y asigna hoteles
+  useEffect(() => {
+    if (!esSuper) return;
+    getHoteles().then((data) => setHoteles(Array.isArray(data) ? data : [])).catch(() => setHoteles([]));
+  }, [esSuper]);
+
+  const nombreHotel = (tenantId) => hoteles.find((h) => h.tenantId === tenantId)?.nombre ?? tenantId ?? '—';
 
   const handleBuscar = async () => {
     const rol = rolFiltro === 'TODOS' ? '' : rolFiltro;
@@ -208,7 +264,7 @@ export default function UsuariosAdmin() {
     setLoading(true);
     setError('');
     try {
-      const data = await buscarUsuarios(q.trim(), rol);
+      const data = await buscarUsuarios(q.trim(), rol, hotelFiltro);
       setUsuarios(Array.isArray(data) ? data : []);
       setBuscando(true);
     } catch {
@@ -221,16 +277,26 @@ export default function UsuariosAdmin() {
   const handleLimpiar = () => {
     setQ('');
     setRolFiltro('TODOS');
+    setHotelFiltro('');
     setPage(0);
     cargarPagina(0);
   };
 
-  const handleGuardar = async (campos, nuevoRol) => {
+  const cambiarHotelFiltro = (tenantId) => {
+    setHotelFiltro(tenantId);
+    setPage(0); // cargarPagina cambia con el filtro y el efecto recarga la lista
+  };
+
+  const handleGuardar = async (campos, nuevoRol, nuevoHotel) => {
     setSaving(true);
     setErrorModal('');
     try {
       let actualizado = await updateUsuarioAdmin(editando.id, campos);
+      // Solo el personal se cambia de hotel: si hoy es huésped, primero se le asigna el rol nuevo
+      const moverAntesDelRol = editando.rol !== 'HUESPED';
+      if (nuevoHotel && moverAntesDelRol) actualizado = await cambiarHotelUsuario(editando.id, nuevoHotel);
       if (nuevoRol) actualizado = await cambiarRolUsuario(editando.id, nuevoRol);
+      if (nuevoHotel && !moverAntesDelRol) actualizado = await cambiarHotelUsuario(editando.id, nuevoHotel);
       setUsuarios((prev) => prev.map((u) => (u.id === editando.id ? { ...u, ...actualizado } : u)));
       setEditando(null);
       setSuccess(`Usuario "${actualizado.nombre ?? campos.nombre}" actualizado correctamente.`);
@@ -264,11 +330,12 @@ export default function UsuariosAdmin() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-person-badge me-2" style={{ color: 'var(--ss-gold)' }} />
-            Usuarios
+            <i className="bi bi-person-badge me-2" style={{ color: 'var(--ss-gold)' }} />Usuarios
           </h2>
           <small className="text-muted">
-            Gestión de cuentas del sistema (administradores, recepcionistas y huéspedes)
+            {esSuper
+              ? 'Cuentas de todos los hoteles de la plataforma'
+              : `Cuentas de ${currentUser?.hotelNombre ?? 'tu hotel'} (administradores, recepcionistas y huéspedes)`}
           </small>
         </div>
       </div>
@@ -280,6 +347,8 @@ export default function UsuariosAdmin() {
         <ModalEditarUsuario
           usuario={editando}
           esUnoMismo={editando.email === currentUser?.email}
+          esSuper={esSuper}
+          hoteles={hoteles}
           saving={saving}
           error={errorModal}
           onClose={() => { setEditando(null); setErrorModal(''); }}
@@ -291,7 +360,20 @@ export default function UsuariosAdmin() {
       <div className="card border-0 shadow-sm mb-3">
         <div className="card-body py-3">
           <div className="row g-2 align-items-center">
-            <div className="col-md-6">
+            {esSuper && (
+              <div className="col-md-3">
+                <select
+                  className="form-select"
+                  value={hotelFiltro}
+                  onChange={(e) => cambiarHotelFiltro(e.target.value)}
+                  aria-label="Filtrar por hotel"
+                >
+                  <option value="">Todos los hoteles</option>
+                  {hoteles.map((h) => <option key={h.tenantId} value={h.tenantId}>{h.nombre}</option>)}
+                </select>
+              </div>
+            )}
+            <div className={esSuper ? 'col-md-3' : 'col-md-6'}>
               <div className="input-group">
                 <span className="input-group-text bg-white border-end-0">
                   <i className="bi bi-search text-muted" style={{ fontSize: '0.85rem' }} />
@@ -312,6 +394,7 @@ export default function UsuariosAdmin() {
                 onChange={(e) => { setRolFiltro(e.target.value); }}
               >
                 <option value="TODOS">Todos los roles</option>
+                {esSuper && <option value="SUPER_ADMIN">Super admin</option>}
                 <option value="ADMIN">Administrador</option>
                 <option value="RECEPCIONISTA">Recepcionista</option>
                 <option value="HUESPED">Huésped</option>
@@ -321,7 +404,7 @@ export default function UsuariosAdmin() {
               <button className="btn btn-ss-dark flex-grow-1" onClick={handleBuscar} disabled={loading}>
                 <i className="bi bi-search me-1" />Buscar
               </button>
-              {(q || rolFiltro !== 'TODOS' || buscando) && (
+              {(q || rolFiltro !== 'TODOS' || hotelFiltro || buscando) && (
                 <button className="btn btn-outline-secondary" onClick={handleLimpiar} disabled={loading} title="Limpiar filtros">
                   <i className="bi bi-x-lg" />
                 </button>
@@ -331,14 +414,13 @@ export default function UsuariosAdmin() {
         </div>
       </div>
 
-      {loading ? (
-        <LoadingSpinner message="Cargando usuarios..." />
-      ) : usuarios.length === 0 ? (
+      {loading && <LoadingSpinner message="Cargando usuarios..." />}
+      {!loading && usuarios.length === 0 && (
         <div className="text-center py-5 text-muted">
-          <i className="bi bi-person-x fs-1 d-block mb-2" />
-          No se encontraron usuarios{(q || rolFiltro !== 'TODOS') ? ' con esos criterios.' : '.'}
+          <i className="bi bi-person-x fs-1 d-block mb-2" />No se encontraron usuarios{(q || rolFiltro !== 'TODOS') ? ' con esos criterios.' : '.'}
         </div>
-      ) : (
+      )}
+      {!loading && usuarios.length > 0 && (
         <div className="card border-0 shadow-sm" style={{ borderRadius: 12 }}>
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0">
@@ -348,6 +430,7 @@ export default function UsuariosAdmin() {
                   <th className="small text-muted fw-semibold">Email</th>
                   <th className="small text-muted fw-semibold">Teléfono</th>
                   <th className="small text-muted fw-semibold">Rol</th>
+                  {esSuper && <th className="small text-muted fw-semibold">Hotel</th>}
                   <th className="small text-muted fw-semibold">Estado</th>
                   <th className="small text-muted fw-semibold"></th>
                 </tr>
@@ -374,6 +457,7 @@ export default function UsuariosAdmin() {
                     <td className="small text-muted">{u.email}</td>
                     <td className="small text-muted">{u.telefono ?? '—'}</td>
                     <td><RolBadge rol={u.rol} /></td>
+                    {esSuper && <td className="small text-muted">{nombreHotel(u.tenantId)}</td>}
                     <td>
                       <span className={`badge ${u.activo !== false ? 'bg-success' : 'bg-secondary'}`}>
                         {u.activo !== false ? 'Activo' : 'Inactivo'}
@@ -381,10 +465,17 @@ export default function UsuariosAdmin() {
                     </td>
                     <td>
                       <div className="d-flex gap-2">
-                        <button className="btn btn-outline-secondary btn-sm" onClick={() => setEditando(u)}>
-                          <i className="bi bi-pencil me-1" />Editar
-                        </button>
-                        {u.activo !== false && u.id !== currentUser?.userId && (
+                        {/* La cuenta de un super admin solo la gestiona otro super admin (el backend también lo impide) */}
+                        {(esSuper || u.rol !== 'SUPER_ADMIN') ? (
+                          <button className="btn btn-outline-secondary btn-sm" onClick={() => setEditando(u)}>
+                            <i className="bi bi-pencil me-1" />Editar
+                          </button>
+                        ) : (
+                          <span className="text-muted small" title="Cuenta de la plataforma">
+                            <i className="bi bi-lock" /> Protegida
+                          </span>
+                        )}
+                        {u.activo !== false && u.id !== currentUser?.userId && (esSuper || u.rol !== 'SUPER_ADMIN') && (
                           <button
                             className="btn btn-outline-danger btn-sm"
                             disabled={deactivating === u.id}
