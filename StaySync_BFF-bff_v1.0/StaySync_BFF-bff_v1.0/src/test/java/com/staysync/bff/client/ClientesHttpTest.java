@@ -292,6 +292,18 @@ class ClientesHttpTest {
     }
 
     @Test
+    @DisplayName("WeatherClient devuelve null (sin widget) si WeatherAPI rechaza la API key")
+    void climaConApiKeyInvalida() {
+        var clima = new WeatherClient(restTemplate);
+        org.springframework.test.util.ReflectionTestUtils.setField(clima, "apiKey", "invalida");
+        org.springframework.test.util.ReflectionTestUtils.setField(clima, "city", "Santiago");
+        server.expect(requestTo(startsWith("https://api.weatherapi.com/v1/current.json")))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+
+        assertThat(clima.obtenerClima()).isNull();
+    }
+
+    @Test
     @DisplayName("Los clientes devuelven el cuerpo del microservicio")
     void devuelveCuerpo() {
         server.expect(requestTo("http://reservas/api/v1/reservas/hoy"))
