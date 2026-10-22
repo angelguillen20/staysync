@@ -122,8 +122,7 @@ jobs:
             path: StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
           - service: notificaciones
             path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
-          - service: ota
-            path: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+          # OTA solo se testea: no tiene repositorio ECR ni servicio ECS en la cuenta actual
     steps:
       - name: Checkout
         uses: actions/checkout@v4

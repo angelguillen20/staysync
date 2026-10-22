@@ -1,17 +1,42 @@
-source ~/staysync-academy/helpers.sh
-JS=$(curl -s $API_URL/ | grep -o 'assets/[^"]*\.js' | head -1)
-echo "1. Front (HTTPS):        $(curl -s -o /dev/null -w '%{http_code}' $API_URL/)"
-echo "2. JS principal:         $(curl -s -o /dev/null -w '%{http_code} %{content_type}' $API_URL/$JS)"
-[ "$(curl -s $API_URL/ | md5sum)" = "$(curl -s $API_URL/auth/callback | md5sum)" ] && echo "3. Ruta SPA:             OK" || echo "3. Ruta SPA:             FALLA"
-echo "4. Marca del hotel demo: $(curl -s -o /dev/null -w '%{http_code}' $API_URL/bff/public/hoteles/staysync-demo/theme)"
-curl -s -o /tmp/login.json -w "5. Login SUPER_ADMIN:    %{http_code}\n" -X POST $API_URL/bff/auth/login \
-  -H 'Content-Type: application/json' -d '{"email":"superadmin@staysync.com","password":"Super@1234"}'
-echo "6. Interna sin token:    $(curl -s -o /dev/null -w '%{http_code}' -H 'X-Tenant-Id: staysync-demo' $API_URL/api/v1/habitaciones)"
-SECRET=$(aws cognito-idp describe-user-pool-client --user-pool-id $USER_POOL_ID --client-id $M2M_CLIENT_ID --query UserPoolClient.ClientSecret --output text)
-TOKEN=$(curl -s -u "$M2M_CLIENT_ID:$SECRET" -d 'grant_type=client_credentials&scope=staysync-api/interno' $COGNITO_DOMAIN/oauth2/token | jq -r .access_token)
-echo "7. Interna con token:    $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" -H 'X-Tenant-Id: staysync-demo' $API_URL/api/v1/habitaciones)"
-for Q in notificaciones reservas habitaciones servicios pagos; do
-  U=$(aws sqs get-queue-url --queue-name $Q-dlq --query QueueUrl --output text)
-  echo "8. DLQ $Q: $(aws sqs get-queue-attributes --queue-url $U --attribute-names ApproximateNumberOfMessages --query Attributes.ApproximateNumberOfMessages --output text)"
-done
-unset SECRET TOKEN
+package com.staysync.bff.config;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Set;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpResponse;
+
+/**
+ * Quita de las respuestas de los microservicios las cabeceras de transporte. Los controladores
+ * devuelven el ResponseEntity del RestTemplate tal cual; sin este filtro esas cabeceras pasan a la
+ * respuesta del BFF y el ALB la rechaza como malformada (502).
+ */
+public class HopByHopHeadersInterceptor implements ClientHttpRequestInterceptor {
+
+    private static final Set<String> QUITAR =
+            Set.of("transfer-encoding", "content-length", "connection", "keep-alive");
+
+    @Override
+    public ClientHttpResponse intercept(HttpRequest request, byte[] body,
+                                        ClientHttpRequestExecution execution) throws IOException {
+        ClientHttpResponse response = execution.execute(request, body);
+        HttpHeaders limpias = new HttpHeaders();
+        response.getHeaders().forEach((nombre, valores) -> {
+            if (!QUITAR.contains(nombre.toLowerCase())) {
+                limpias.addAll(nombre, valores);
+            }
+        });
+        return new ClientHttpResponse() {
+            @Override public HttpStatusCode getStatusCode() throws IOException { return response.getStatusCode(); }
+            @Override public String getStatusText() throws IOException { return response.getStatusText(); }
+            @Override public HttpHeaders getHeaders() { return limpias; }
+            @Override public InputStream getBody() throws IOException { return response.getBody(); }
+            @Override public void close() { response.close(); }
+        };
+    }
+}
