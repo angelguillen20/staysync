@@ -68,6 +68,7 @@ public class RestTemplateConfig {
     public RestTemplate restTemplate(CloseableHttpClient httpClient, ServicesProperties services) {
         RestTemplate restTemplate = new RestTemplate(new HttpComponentsClientHttpRequestFactory(httpClient));
         restTemplate.getInterceptors().add(new TenantHeaderInterceptor(services));
+        restTemplate.getInterceptors().add(new HopByHopHeadersInterceptor());
         return restTemplate;
     }
 }
