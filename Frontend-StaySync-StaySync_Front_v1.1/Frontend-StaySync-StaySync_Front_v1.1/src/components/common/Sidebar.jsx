@@ -33,7 +33,7 @@ const NAV = {
   ],
 };
 
-NAV.SUPER_ADMIN = NAV.ADMIN;
+NAV.SUPER_ADMIN = [...NAV.ADMIN, { to: '/recepcion/hoteles', icon: 'bi-buildings', label: 'Hoteles' }];
 
 export default function Sidebar({ open }) {
   const { user } = useAuth();

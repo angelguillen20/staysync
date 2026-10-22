@@ -180,6 +180,15 @@ public class UsuariosClient {
                 Void.class);
     }
 
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
+    public ResponseEntity<Object> crearHotel(String authHeader, Object body) {
+        return restTemplate.exchange(
+                baseUrl + "/api/v1/hoteles",
+                HttpMethod.POST,
+                new HttpEntity<>(body, buildHeaders(authHeader)),
+                Object.class);
+    }
+
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "hotelesPublicosFallback")
     public ResponseEntity<Object> listarHotelesPublicos() {
         return restTemplate.getForEntity(baseUrl + "/api/v1/public/hoteles", Object.class);

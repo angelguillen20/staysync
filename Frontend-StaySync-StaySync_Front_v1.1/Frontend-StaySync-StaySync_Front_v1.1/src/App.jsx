@@ -18,6 +18,7 @@ import UsuariosAdmin        from './pages/recepcion/UsuariosAdmin';
 import DashboardOperaciones from './components/operaciones/DashboardOperaciones';
 import AseoRecepcion        from './pages/recepcion/AseoRecepcion';
 import MarcaHotelAdmin      from './pages/recepcion/MarcaHotelAdmin';
+import HotelesAdmin         from './pages/recepcion/HotelesAdmin';
 
 /* Huésped */
 import DashboardHuesped   from './pages/huesped/DashboardHuesped';
@@ -57,6 +58,13 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/recepcion/usuarios" element={<UsuariosAdmin />} />
             <Route path="/recepcion/marca"    element={<MarcaHotelAdmin />} />
+          </Route>
+        </Route>
+
+        {/* ── Plataforma — solo SUPER_ADMIN ── */}
+        <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+          <Route element={<Layout />}>
+            <Route path="/recepcion/hoteles" element={<HotelesAdmin />} />
           </Route>
         </Route>
 
