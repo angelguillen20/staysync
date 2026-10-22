@@ -36,7 +36,9 @@ export default function AuthCallbackPage() {
         sessionStorage.removeItem('ss_pkce_verifier');
         sessionStorage.removeItem('ss_oauth_redirect_uri');
         login(data);
-        navigate(REDIRECT[data.rol] ?? '/huesped', { replace: true });
+        // Entró desde el login principal (sin portal): el huésped elige el hotel
+        const destino = data.rol === 'HUESPED' && !slugGuardado() ? '/huesped/hoteles' : REDIRECT[data.rol];
+        navigate(destino ?? '/huesped', { replace: true });
       })
       .catch((err) => {
         setError(err.response?.data?.message ?? 'No se pudo iniciar sesión con Google.');

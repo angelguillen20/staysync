@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 const NAV = {
   HUESPED: [
     { to: '/huesped',           icon: 'bi-house',          label: 'Inicio' },
+    { to: '/huesped/hoteles',   icon: 'bi-buildings',      label: 'Hoteles' },
     { to: '/huesped/buscar',    icon: 'bi-search',         label: 'Buscar Habitaciones' },
     { to: '/huesped/reservas',  icon: 'bi-calendar-check', label: 'Mis Reservas' },
     { to: '/huesped/servicios', icon: 'bi-bell',           label: 'Servicios' },

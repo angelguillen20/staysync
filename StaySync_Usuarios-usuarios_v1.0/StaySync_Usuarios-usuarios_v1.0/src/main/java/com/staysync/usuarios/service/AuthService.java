@@ -84,6 +84,15 @@ public class AuthService {
 
     @Transactional
     public AuthResponse refresh(String refreshTokenStr) {
+        return refresh(refreshTokenStr, null);
+    }
+
+    /**
+     * Renueva la sesión. Con hotelSlug, un huésped pasa al hotel de ese portal sin volver a
+     * escribir su contraseña (selector de portales); el personal sigue en su hotel.
+     */
+    @Transactional
+    public AuthResponse refresh(String refreshTokenStr, String hotelSlug) {
         RefreshToken stored = refreshTokenRepository.findByToken(refreshTokenStr)
                 .orElseThrow(() -> new TokenInvalidoException("Refresh token no encontrado"));
 
@@ -94,9 +103,14 @@ public class AuthService {
 
         Usuario usuario = stored.getUsuario();
         // Un huésped sigue en el hotel del portal donde inició sesión; el personal, en el suyo
-        String tenantId = usuario.getRol() == Usuario.Rol.HUESPED && stored.getTenantId() != null
-                ? stored.getTenantId()
-                : usuario.getTenantId();
+        String tenantId;
+        if (hotelSlug != null && !hotelSlug.isBlank()) {
+            tenantId = hotelDeSesion(usuario, hotelSlug);
+        } else {
+            tenantId = usuario.getRol() == Usuario.Rol.HUESPED && stored.getTenantId() != null
+                    ? stored.getTenantId()
+                    : usuario.getTenantId();
+        }
         UserDetails userDetails = userDetailsService.loadUserByUsername(usuario.getEmail());
         String nuevoAccess = jwtService.generateToken(userDetails, claimsDe(usuario, tenantId));
 

@@ -34,6 +34,19 @@ export async function refreshToken(token) {
 }
 
 /**
+ * Un huésped pasa a otro hotel de la cadena sin volver a escribir su contraseña: renueva
+ * la sesión indicando el portal. Al personal el backend lo deja en su hotel.
+ * @returns {Promise<AuthResponse>}
+ */
+export async function cambiarHotel(hotelSlug) {
+  const { data } = await apiClient.post('/auth/refresh', {
+    refreshToken: localStorage.getItem('ss_refresh_token'),
+    hotelSlug,
+  });
+  return data;
+}
+
+/**
  * Invalidate the refresh token on the server (logout).
  */
 export async function logoutServer(token) {

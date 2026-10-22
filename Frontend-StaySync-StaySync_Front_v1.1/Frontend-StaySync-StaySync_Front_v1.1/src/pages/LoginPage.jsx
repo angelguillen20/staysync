@@ -162,9 +162,17 @@ export default function LoginPage() {
   const location  = useLocation();
   const from      = location.state?.from?.pathname;
 
-  // Portal del hotel: /login?hotel=hotel-andes muestra su logo y colores antes de entrar
+  // Portal del hotel: /login?hotel=hotel-andes muestra su logo y colores antes de entrar.
+  // Sin ?hotel es el login principal de StaySync: se quita la marca del último portal y,
+  // al entrar, el huésped elige el hotel en el selector de portales.
+  const slugPortal = new URLSearchParams(location.search).get('hotel');
   useEffect(() => {
     const slug = new URLSearchParams(location.search).get('hotel');
+    if (!slug) {
+      guardarSlug(null);
+      setMarca(null);
+      return;
+    }
     if (!esSlugValido(slug)) return;
     guardarSlug(slug);
     getMarcaPublica(slug)
@@ -192,7 +200,8 @@ export default function LoginPage() {
     try {
       const data = await loginService(form.email, form.password, slugGuardado());
       login(data);
-      navigate(from ?? REDIRECT[data.rol] ?? '/huesped', { replace: true });
+      const destinoHuesped = slugPortal ? '/huesped' : '/huesped/hoteles';
+      navigate(from ?? (data.rol === 'HUESPED' ? destinoHuesped : REDIRECT[data.rol]) ?? '/huesped', { replace: true });
     } catch (err) {
       setError(mensajeDeError(err, 'Credenciales incorrectas. Intente nuevamente.'));
     } finally {

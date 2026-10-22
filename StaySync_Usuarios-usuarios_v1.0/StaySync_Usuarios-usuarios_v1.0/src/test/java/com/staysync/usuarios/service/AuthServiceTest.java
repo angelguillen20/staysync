@@ -253,6 +253,37 @@ class AuthServiceTest {
         }
 
         @Test
+        @DisplayName("refresh() con hotelSlug cambia al huésped de hotel (selector de portales)")
+        void refreshCambiaDeHotel() {
+            RefreshToken stored = RefreshToken.builder().token("rt").usuario(huesped).tenantId("staysync-demo")
+                    .expiraEn(LocalDateTime.now().plusDays(1)).build();
+            when(refreshTokenRepository.findByToken("rt")).thenReturn(Optional.of(stored));
+            when(userDetailsService.loadUserByUsername("ana@correo.cl")).thenReturn(userDetails);
+            when(hotelService.resolverTenantId("hotel-andes")).thenReturn("hotel-andes");
+            when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            AuthResponse response = authService.refresh("rt", "hotel-andes");
+
+            assertThat(claimsDelToken()).containsEntry("tenantId", "hotel-andes");
+            assertThat(response.getTenantId()).isEqualTo("hotel-andes");
+            verify(refreshTokenRepository).delete(stored);
+        }
+
+        @Test
+        @DisplayName("refresh() con hotelSlug no mueve al personal de su hotel")
+        void refreshNoMueveAlPersonal() {
+            RefreshToken stored = RefreshToken.builder().token("rt").usuario(usuario).tenantId("staysync-demo")
+                    .expiraEn(LocalDateTime.now().plusDays(1)).build();
+            when(refreshTokenRepository.findByToken("rt")).thenReturn(Optional.of(stored));
+            when(userDetailsService.loadUserByUsername("admin@test.com")).thenReturn(userDetails);
+            when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            authService.refresh("rt", "hotel-andes");
+
+            assertThat(claimsDelToken()).containsEntry("tenantId", "staysync-demo");
+        }
+
+        @Test
         @DisplayName("refresh() mantiene al huésped en el hotel de su sesión")
         void refreshMantieneElHotel() {
             RefreshToken stored = RefreshToken.builder().token("rt").usuario(huesped).tenantId("hotel-andes")

@@ -26,6 +26,7 @@ import BuscarHabitaciones from './pages/huesped/BuscarHabitaciones';
 import ServiciosHuesped   from './pages/huesped/ServiciosHuesped';
 import PasarelaPago       from './pages/huesped/PasarelaPago';
 import PagoExitoso        from './pages/huesped/PagoExitoso';
+import PortalesHuesped    from './pages/huesped/PortalesHuesped';
 
 export default function App() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={['HUESPED']} />}>
           <Route element={<Layout />}>
             <Route path="/huesped"           element={<DashboardHuesped />} />
+            <Route path="/huesped/hoteles"   element={<PortalesHuesped />} />
             <Route path="/huesped/reservas"  element={<ReservasHuesped />} />
             <Route path="/huesped/buscar"       element={<BuscarHabitaciones />} />
             <Route path="/huesped/servicios"    element={<ServiciosHuesped />} />
