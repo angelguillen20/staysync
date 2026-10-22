@@ -84,6 +84,7 @@ class ClientesHttpTest {
         esperarConToken(HttpMethod.GET, "http://usuarios/api/v1/usuarios/huespedes");
         esperarConToken(HttpMethod.DELETE, "http://usuarios/api/v1/usuarios/5");
         esperar(HttpMethod.GET, "http://usuarios/api/v1/public/hoteles/hotel-andes/theme");
+        esperar(HttpMethod.GET, "http://usuarios/api/v1/public/hoteles");
 
         c.login(BODY);
         c.registro(BODY);
@@ -98,6 +99,7 @@ class ClientesHttpTest {
         c.cambiarHotel(TOKEN, 5L, BODY);
         c.actualizarMarca(TOKEN, "hotel-andes", BODY);
         c.listarHoteles(TOKEN);
+        c.listarHotelesPublicos();
         c.listarUsuarios(TOKEN, 0, 10, "id", "hotel-andes");
         c.buscarUsuarios(TOKEN, "ana", "HUESPED", null);
         c.listarHuespedes(TOKEN);

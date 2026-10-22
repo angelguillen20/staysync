@@ -37,7 +37,7 @@ public class DataInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         String tenantDemo = hotelService.getDefaultTenantId();
         seedHotel(tenantDemo, "StaySync Demo",
-                "{\"primary\":\"#1F4E79\",\"secondary\":\"#F2A900\",\"background\":\"#F7F9FC\",\"text\":\"#1A2433\"}");
+                "{\"primary\":\"#222016\",\"secondary\":\"#EFC143\",\"background\":\"#FEF8E1\",\"text\":\"#212529\"}");
         seedHotel(TENANT_ANDES, "Hotel Andes",
                 "{\"primary\":\"#7A2E1F\",\"secondary\":\"#E9B872\",\"background\":\"#FBF8F4\",\"text\":\"#2B211C\"}");
 

@@ -180,6 +180,11 @@ public class UsuariosClient {
                 Void.class);
     }
 
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "hotelesPublicosFallback")
+    public ResponseEntity<Object> listarHotelesPublicos() {
+        return restTemplate.getForEntity(baseUrl + "/api/v1/public/hoteles", Object.class);
+    }
+
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "themeFallback")
     public ResponseEntity<Object> obtenerThemeHotel(String slug) {
         String url = UriComponentsBuilder
@@ -215,6 +220,12 @@ public class UsuariosClient {
     @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> listarHuespedesFallback(String authHeader, Exception ex) {
         log.warn("usuarios-service huespedes no disponible: {}", ex.getMessage());
+        return ResponseEntity.ok(Collections.emptyList());
+    }
+
+    @SuppressWarnings("java:S1172")
+    public ResponseEntity<Object> hotelesPublicosFallback(Exception ex) {
+        log.warn("usuarios-service hoteles no disponible: {}", ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }
 

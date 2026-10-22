@@ -69,7 +69,7 @@ public class HotelService {
         return hotelRepository.findByTenantIdAndActivoTrue(tenantId).map(this::toResponse);
     }
 
-    /** Para el selector de hotel de la pantalla de usuarios (solo SUPER_ADMIN). */
+    /** Hoteles activos: selector de portales del huésped y selector de hotel del SUPER_ADMIN. */
     public List<HotelResponse> listarActivos() {
         return hotelRepository.findAllByActivoTrueOrderByNombreAsc().stream()
                 .map(this::toResponse)

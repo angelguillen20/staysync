@@ -9,6 +9,7 @@ import com.staysync.usuarios.model.RefreshToken;
 import com.staysync.usuarios.model.Usuario;
 import com.staysync.usuarios.repository.RefreshTokenRepository;
 import com.staysync.usuarios.repository.UsuarioRepository;
+import com.staysync.usuarios.tenant.exception.HotelNotFoundException;
 import com.staysync.usuarios.tenant.service.HotelService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,11 +56,12 @@ public class AuthService {
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
 
-        String accessToken  = jwtService.generateToken(userDetails, claimsDe(usuario));
-        String refreshToken = crearRefreshToken(usuario);
+        String tenantId     = hotelDeSesion(usuario, request.getHotelSlug());
+        String accessToken  = jwtService.generateToken(userDetails, claimsDe(usuario, tenantId));
+        String refreshToken = crearRefreshToken(usuario, tenantId);
 
-        log.info("Login exitoso: {}", usuario.getEmail());
-        return buildAuthResponse(accessToken, refreshToken, usuario);
+        log.info("Login exitoso: {} (hotel {})", usuario.getEmail(), tenantId);
+        return buildAuthResponse(accessToken, refreshToken, usuario, tenantId);
     }
 
     @Transactional
@@ -72,15 +74,25 @@ public class AuthService {
         Usuario usuario = usuarioService.buscarOCrearPorGoogle(email, nombre, apellido, hotelSlug);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(usuario.getEmail());
-        String accessToken  = jwtService.generateToken(userDetails, claimsDe(usuario));
-        String refreshToken = crearRefreshToken(usuario);
+        String tenantId     = hotelDeSesion(usuario, hotelSlug);
+        String accessToken  = jwtService.generateToken(userDetails, claimsDe(usuario, tenantId));
+        String refreshToken = crearRefreshToken(usuario, tenantId);
 
-        log.info("Login con Google exitoso: {}", usuario.getEmail());
-        return buildAuthResponse(accessToken, refreshToken, usuario);
+        log.info("Login con Google exitoso: {} (hotel {})", usuario.getEmail(), tenantId);
+        return buildAuthResponse(accessToken, refreshToken, usuario, tenantId);
     }
 
     @Transactional
     public AuthResponse refresh(String refreshTokenStr) {
+        return refresh(refreshTokenStr, null);
+    }
+
+    /**
+     * Renueva la sesión. Con hotelSlug, un huésped pasa al hotel de ese portal sin volver a
+     * escribir su contraseña (selector de portales); el personal sigue en su hotel.
+     */
+    @Transactional
+    public AuthResponse refresh(String refreshTokenStr, String hotelSlug) {
         RefreshToken stored = refreshTokenRepository.findByToken(refreshTokenStr)
                 .orElseThrow(() -> new TokenInvalidoException("Refresh token no encontrado"));
 
@@ -90,14 +102,23 @@ public class AuthService {
         }
 
         Usuario usuario = stored.getUsuario();
+        // Un huésped sigue en el hotel del portal donde inició sesión; el personal, en el suyo
+        String tenantId;
+        if (hotelSlug != null && !hotelSlug.isBlank()) {
+            tenantId = hotelDeSesion(usuario, hotelSlug);
+        } else {
+            tenantId = usuario.getRol() == Usuario.Rol.HUESPED && stored.getTenantId() != null
+                    ? stored.getTenantId()
+                    : usuario.getTenantId();
+        }
         UserDetails userDetails = userDetailsService.loadUserByUsername(usuario.getEmail());
-        String nuevoAccess = jwtService.generateToken(userDetails, claimsDe(usuario));
+        String nuevoAccess = jwtService.generateToken(userDetails, claimsDe(usuario, tenantId));
 
         // Rotar refresh token
         refreshTokenRepository.delete(stored);
-        String nuevoRefresh = crearRefreshToken(usuario);
+        String nuevoRefresh = crearRefreshToken(usuario, tenantId);
 
-        return buildAuthResponse(nuevoAccess, nuevoRefresh, usuario);
+        return buildAuthResponse(nuevoAccess, nuevoRefresh, usuario, tenantId);
     }
 
     @Transactional
@@ -107,9 +128,27 @@ public class AuthService {
         log.info("Logout: refresh token invalidado");
     }
 
-    private String crearRefreshToken(Usuario usuario) {
+    /**
+     * Hotel de la sesión. Un huésped tiene una sola cuenta para toda la cadena: entra al hotel
+     * del portal que usa (sus reservas de cada hotel quedan guardadas en ese hotel). El personal
+     * siempre trabaja en el hotel asignado. Un slug inválido no impide entrar: se usa el suyo.
+     */
+    private String hotelDeSesion(Usuario usuario, String hotelSlug) {
+        if (usuario.getRol() != Usuario.Rol.HUESPED || hotelSlug == null || hotelSlug.isBlank()) {
+            return usuario.getTenantId();
+        }
+        try {
+            return hotelService.resolverTenantId(hotelSlug);
+        } catch (HotelNotFoundException e) {
+            log.warn("Portal '{}' no encontrado al iniciar sesión {}: se usa su hotel", hotelSlug, usuario.getEmail());
+            return usuario.getTenantId();
+        }
+    }
+
+    private String crearRefreshToken(Usuario usuario, String tenantId) {
         RefreshToken rt = RefreshToken.builder()
                 .usuario(usuario)
+                .tenantId(tenantId)
                 .token(UUID.randomUUID().toString())
                 .expiraEn(LocalDateTime.now(ZoneId.systemDefault()).plusSeconds(refreshExpirationMs / 1000))
                 .build();
@@ -120,17 +159,17 @@ public class AuthService {
      * Claims propios de StaySync. tenantId es la fuente de verdad del hotel: el BFF lo
      * lee del token firmado y lo reenvía a los microservicios como X-Tenant-Id.
      */
-    private Map<String, Object> claimsDe(Usuario usuario) {
+    private Map<String, Object> claimsDe(Usuario usuario, String tenantId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("rol", usuario.getRol().name());
         claims.put(CLAIM_USER_ID, usuario.getId());
-        if (usuario.getTenantId() != null) {
-            claims.put(CLAIM_TENANT_ID, usuario.getTenantId());
+        if (tenantId != null) {
+            claims.put(CLAIM_TENANT_ID, tenantId);
         }
         return claims;
     }
 
-    private AuthResponse buildAuthResponse(String access, String refresh, Usuario usuario) {
+    private AuthResponse buildAuthResponse(String access, String refresh, Usuario usuario, String tenantId) {
         return AuthResponse.builder()
                 .accessToken(access)
                 .refreshToken(refresh)
@@ -140,8 +179,8 @@ public class AuthService {
                 .nombreCompleto(usuario.getNombre() + " " + usuario.getApellido())
                 .email(usuario.getEmail())
                 .rol(usuario.getRol())
-                .tenantId(usuario.getTenantId())
-                .hotel(hotelService.buscarPorTenantId(usuario.getTenantId()).orElse(null))
+                .tenantId(tenantId)
+                .hotel(hotelService.buscarPorTenantId(tenantId).orElse(null))
                 .build();
     }
 }

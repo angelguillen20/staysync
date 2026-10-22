@@ -27,6 +27,10 @@ public class RefreshToken {
     @Column(nullable = false, unique = true, length = 512)
     private String token;
 
+    /** Hotel de la sesión: al renovar el access token, un huésped sigue en el hotel del portal. */
+    @Column(name = "tenant_id", length = 64)
+    private String tenantId;
+
     @Column(name = "expira_en", nullable = false)
     private LocalDateTime expiraEn;
 

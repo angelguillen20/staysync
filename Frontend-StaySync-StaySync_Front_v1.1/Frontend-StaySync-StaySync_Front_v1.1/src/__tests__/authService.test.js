@@ -43,6 +43,16 @@ describe('authService', () => {
       expect(result.email).toBe('juan@staysync.com');
     });
 
+    it('envía el portal del hotel para que un huésped entre a ese hotel', async () => {
+      apiClient.post.mockResolvedValue({ data: MOCK_AUTH_RESPONSE });
+
+      await login('ana@correo.cl', 'Pass@123', 'hotel-andes');
+
+      expect(apiClient.post).toHaveBeenCalledWith('/auth/login', {
+        email: 'ana@correo.cl', password: 'Pass@123', hotelSlug: 'hotel-andes',
+      });
+    });
+
     it('lanza el error recibido del servidor cuando las credenciales son inválidas', async () => {
       const serverError = {
         response: {

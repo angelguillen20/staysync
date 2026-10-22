@@ -24,6 +24,14 @@ public class HotelBffController {
 
     private final UsuariosClient usuariosClient;
 
+    @Operation(summary = "Hoteles de la cadena para el selector de portales del huésped")
+    @GetMapping("/public/hoteles")
+    public ResponseEntity<Object> listarPublicos() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePublic())
+                .body(usuariosClient.listarHotelesPublicos().getBody());
+    }
+
     @Operation(summary = "Obtener la marca de un hotel por su slug", description = "404 si el hotel no existe")
     @GetMapping("/public/hoteles/{slug}/theme")
     public ResponseEntity<Object> theme(@PathVariable String slug) {

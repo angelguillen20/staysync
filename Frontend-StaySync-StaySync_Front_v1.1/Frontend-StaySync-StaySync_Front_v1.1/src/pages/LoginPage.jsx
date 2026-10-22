@@ -162,9 +162,17 @@ export default function LoginPage() {
   const location  = useLocation();
   const from      = location.state?.from?.pathname;
 
-  // Portal del hotel: /login?hotel=hotel-andes muestra su logo y colores antes de entrar
+  // Portal del hotel: /login?hotel=hotel-andes muestra su logo y colores antes de entrar.
+  // Sin ?hotel es el login principal de StaySync: se quita la marca del último portal y,
+  // al entrar, el huésped elige el hotel en el selector de portales.
+  const slugPortal = new URLSearchParams(location.search).get('hotel');
   useEffect(() => {
     const slug = new URLSearchParams(location.search).get('hotel');
+    if (!slug) {
+      guardarSlug(null);
+      setMarca(null);
+      return;
+    }
     if (!esSlugValido(slug)) return;
     guardarSlug(slug);
     getMarcaPublica(slug)
@@ -190,9 +198,10 @@ export default function LoginPage() {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
-      const data = await loginService(form.email, form.password);
+      const data = await loginService(form.email, form.password, slugGuardado());
       login(data);
-      navigate(from ?? REDIRECT[data.rol] ?? '/huesped', { replace: true });
+      const destinoHuesped = slugPortal ? '/huesped' : '/huesped/hoteles';
+      navigate(from ?? (data.rol === 'HUESPED' ? destinoHuesped : REDIRECT[data.rol]) ?? '/huesped', { replace: true });
     } catch (err) {
       setError(mensajeDeError(err, 'Credenciales incorrectas. Intente nuevamente.'));
     } finally {
@@ -235,7 +244,10 @@ export default function LoginPage() {
       setRegOk(true);
       setTimeout(() => { setTab('login'); setRegOk(false); }, 2500);
     } catch (err) {
-      setRegErr(mensajeDeError(err, 'No se pudo registrar. Intente más tarde.'));
+      // Un huésped tiene una sola cuenta para todos los hoteles: si ya existe, que inicie sesión aquí
+      setRegErr(err.response?.status === 409
+        ? `Ya tienes una cuenta con ese email. Inicia sesión con ella: sirve también en ${marca?.nombre ?? 'este hotel'}.`
+        : mensajeDeError(err, 'No se pudo registrar. Intente más tarde.'));
     } finally {
       setLoading(false);
     }

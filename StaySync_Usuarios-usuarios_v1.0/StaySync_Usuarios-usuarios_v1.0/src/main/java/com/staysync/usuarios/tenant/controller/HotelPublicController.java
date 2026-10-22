@@ -12,6 +12,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @RestController
@@ -21,6 +22,14 @@ import java.util.concurrent.TimeUnit;
 public class HotelPublicController {
 
     private final HotelService hotelService;
+
+    @GetMapping
+    @Operation(summary = "Hoteles activos de la cadena (nombre, slug, logo y colores) para el selector de portales")
+    public ResponseEntity<List<HotelResponse>> listar() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePublic())
+                .body(hotelService.listarActivos());
+    }
 
     @GetMapping("/{slug}/theme")
     @Operation(summary = "Obtener nombre, logo y colores de un hotel por su slug",

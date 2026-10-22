@@ -65,7 +65,8 @@ public class AuthController {
                })
     public ResponseEntity<AuthResponse> refresh(@RequestBody Map<String, String> body) {
         String refreshToken = body.get("refreshToken");
-        return ResponseEntity.ok(authService.refresh(refreshToken));
+        // hotelSlug opcional: un huésped cambia de hotel desde el selector de portales
+        return ResponseEntity.ok(authService.refresh(refreshToken, body.get("hotelSlug")));
     }
 
     @PostMapping("/logout")
