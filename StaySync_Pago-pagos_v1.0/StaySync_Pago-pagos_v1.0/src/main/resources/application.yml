@@ -23,7 +23,7 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.MySQLDialect
 stripe:
   # Configurar en entorno: export STRIPE_SECRET_KEY=sk_test_...
   # Obtener en: dashboard.stripe.com → Developers → API keys → Secret key

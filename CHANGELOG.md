@@ -35,18 +35,31 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
 ---
 
-## [Próximo] — Sin fecha
+## [Sin publicar]
 
-### Planificado
-- GitHub Actions CI/CD para build y push automático a Amazon ECR
-- `docker-compose.prod.yml` con imágenes desde ECR (sin compilar en el servidor)
-- Playwright E2E tests para flujos críticos (login → reserva → pago)
-- Soporte multi-tenant para cadenas hoteleras
+### Agregado
+- Multi-hotel (tenant): hotel en el JWT, `X-Tenant-Id` desde el BFF, filtrado automático por hotel y SUPER_ADMIN
+- Marca blanca por hotel en el frontend
+- `StaySync_Commons`: librerías compartidas de tenant y eventos
+- GitHub Actions CI/CD: tests, imágenes en ECR, despliegue en ECS Fargate y frontend en S3
+
+### Cambiado
+- Mensajería asíncrona: RabbitMQ reemplazado por SNS + SQS con DLQ (LocalStack en local)
+- El health de notificaciones ya no depende del servidor SMTP
+
+### Eliminado
+- `docker-compose.prod.yml` (despliegue en EC2) y `scripts/redeploy.ps1`: el despliegue lo hace el CI
 
 ---
 
-> Para desplegar una versión específica, ver el tag de git correspondiente:
+## [Próximo] — Sin fecha
+
+### Planificado
+- Playwright E2E tests para flujos críticos (login → reserva → pago)
+
+---
+
+> Para ver el código de una versión específica, usa el tag de git correspondiente:
 > ```bash
 > git checkout v1.0.0
-> docker compose -f docker-compose.prod.yml up -d
 > ```

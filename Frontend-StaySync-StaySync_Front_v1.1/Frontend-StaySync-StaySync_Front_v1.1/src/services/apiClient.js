@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const KEYS = { access: 'ss_access_token', refresh: 'ss_refresh_token' };
 const KEY_HOTEL = 'ss_hotel_slug';
-const BFF_URL = import.meta.env.VITE_BFF_URL ?? '/bff';
+const BFF_URL = import.meta.env.VITE_BFF_URL || '/bff';
 
 const apiClient = axios.create({
   baseURL: BFF_URL,

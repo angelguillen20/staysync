@@ -23,7 +23,7 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.MySQLDialect
   # ─────────────────────────────────────────────────────────────
   # SMTP — usa Mailtrap para desarrollo local (gratuito)
   # 1. Crea cuenta en https://mailtrap.io
@@ -54,6 +54,11 @@ management:
     web:
       exposure:
         include: health,info,metrics
+  health:
+    # Un SMTP caído o con credenciales malas no debe marcar el servicio como caído
+    # (ECS y docker-compose reiniciarían la tarea por un problema externo)
+    mail:
+      enabled: false
 
 notificaciones:
   mail:

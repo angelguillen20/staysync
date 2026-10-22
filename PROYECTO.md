@@ -159,10 +159,9 @@ GET /actuator/health → {"status": "UP"}
 ```bash
 # Levantar todo el stack local (compila desde fuente)
 docker compose up -d
-
-# Levantar producción (usa imágenes ECR preconstruidas)
-docker compose -f docker-compose.prod.yml up -d
 ```
+
+Producción se despliega en ECS Fargate desde GitHub Actions en cada push a `master` (ver `DOCKER.md`).
 
 ---
 
@@ -1049,9 +1048,8 @@ MAIL_PORT=587
 MAIL_USERNAME=tu-email@brevo.com
 MAIL_PASSWORD=tu-smtp-key
 
-# Para producción (ECR)
-ECR_REGISTRY=123456789.dkr.ecr.us-east-1.amazonaws.com
-IMAGE_TAG=1.0.0
+# Cifrado AES-256 de datos personales (usuarios-service): openssl rand -base64 32
+AES_ENCRYPTION_KEY=clave_de_32_bytes_en_base64
 ```
 
 ### Archivos de ejemplo
