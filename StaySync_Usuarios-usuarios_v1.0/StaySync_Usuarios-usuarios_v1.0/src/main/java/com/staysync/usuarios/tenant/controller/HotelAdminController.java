@@ -1,5 +1,8 @@
 package com.staysync.usuarios.tenant.controller;
 
+import com.staysync.usuarios.tenant.dto.CrearHotelRequest;
+import com.staysync.usuarios.tenant.service.AltaHotelService;
+import org.springframework.http.HttpStatus;
 import com.staysync.usuarios.exception.UsuarioNotFoundException;
 import com.staysync.usuarios.model.Usuario;
 import com.staysync.usuarios.repository.UsuarioRepository;
@@ -26,7 +29,15 @@ import java.util.List;
 public class HotelAdminController {
 
     private final HotelService hotelService;
+    private final AltaHotelService altaHotelService;
     private final UsuarioRepository usuarioRepository;
+
+    @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Operation(summary = "Crear un hotel con su administrador inicial (solo SUPER_ADMIN)")
+    public ResponseEntity<HotelResponse> crear(@Valid @RequestBody CrearHotelRequest request, Authentication auth) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(altaHotelService.crear(request, auth.getName()));
+    }
 
     @PutMapping("/{tenantId}/marca")
     @PreAuthorize("hasRole('ADMIN')")

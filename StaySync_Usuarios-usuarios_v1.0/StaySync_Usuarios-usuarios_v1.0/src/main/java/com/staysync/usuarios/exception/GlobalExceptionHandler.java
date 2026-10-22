@@ -41,6 +41,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
+    @ExceptionHandler(com.staysync.usuarios.tenant.exception.HotelDuplicadoException.class)
+    public ResponseEntity<ErrorResponse> handleHotelDuplicado(
+            com.staysync.usuarios.tenant.exception.HotelDuplicadoException ex, WebRequest request) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
+
     @ExceptionHandler(EmailDuplicadoException.class)
     public ResponseEntity<ErrorResponse> handleEmailDuplicado(EmailDuplicadoException ex, WebRequest request) {
         log.warn("Email duplicado: {}", ex.getMessage());
