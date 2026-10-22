@@ -30,16 +30,21 @@ public class UsuarioBffController {
     public ResponseEntity<Object> buscarUsuarios(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(required = false, defaultValue = "") String q,
-            @RequestParam(required = false, defaultValue = "") String rol) {
-        return usuariosClient.buscarUsuarios(authHeader, q, rol);
+            @RequestParam(required = false, defaultValue = "") String rol,
+            @RequestParam(required = false) String tenantId) {
+        return usuariosClient.buscarUsuarios(authHeader, q, rol, tenantId);
     }
 
     @Operation(summary = "Listar todos los usuarios")
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Object> listarUsuarios(
-            @RequestHeader("Authorization") String authHeader) {
-        return usuariosClient.listarUsuarios(authHeader);
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sort,
+            @RequestParam(required = false) String tenantId) {
+        return usuariosClient.listarUsuarios(authHeader, page, size, sort, tenantId);
     }
 
     @Operation(summary = "Obtener perfil del usuario autenticado (cualquier rol)")

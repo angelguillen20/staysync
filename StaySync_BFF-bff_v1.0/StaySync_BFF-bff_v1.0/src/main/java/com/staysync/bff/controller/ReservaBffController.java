@@ -4,6 +4,7 @@ import com.staysync.bff.client.HabitacionesClient;
 import com.staysync.bff.client.ReservasClient;
 import com.staysync.bff.client.UsuariosClient;
 import com.staysync.bff.dto.reserva.ReservaDetalleResponse;
+import com.staysync.bff.security.AccesoHuesped;
 import com.staysync.bff.security.JwtService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,6 +37,7 @@ public class ReservaBffController {
     private final HabitacionesClient         habitacionesClient;
     private final UsuariosClient             usuariosClient;
     private final JwtService                 jwtService;
+    private final AccesoHuesped              accesoHuesped;
 
     @Operation(summary = "Listar todas las reservas")
     @GetMapping
@@ -111,6 +113,10 @@ public class ReservaBffController {
             @RequestHeader("Authorization") String authHeader,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> conContacto = new HashMap<>(body);
+        // Un huésped siempre reserva para sí mismo, aunque el body traiga otro usuarioId
+        if (accesoHuesped.esHuesped(authHeader)) {
+            conContacto.put(USUARIO_ID, accesoHuesped.usuarioId(authHeader));
+        }
         agregarContactoHuesped(authHeader, conContacto);
         var response = reservasClient.crear(authHeader, conContacto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response.getBody());
@@ -131,6 +137,7 @@ public class ReservaBffController {
     public ResponseEntity<Object> cancelar(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable Long id) {
+        accesoHuesped.verificarReservaPropia(authHeader, id);
         return reservasClient.cancelar(authHeader, id);
     }
 
@@ -141,6 +148,7 @@ public class ReservaBffController {
             @PathVariable Long usuarioId,
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
+        accesoHuesped.verificarMismoUsuario(authHeader, usuarioId);
         return reservasClient.listarPorUsuario(authHeader, usuarioId, page, size);
     }
 

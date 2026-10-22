@@ -56,11 +56,25 @@ public class UsuarioService {
     }
 
     public Page<UsuarioResponse> listarTodos(Pageable pageable, String emailSolicitante) {
+        return listarTodos(pageable, emailSolicitante, null);
+    }
+
+    /**
+     * SUPER_ADMIN: todos los hoteles, o solo {@code tenantFiltro} si viene.
+     * ADMIN: su hotel, sin las cuentas SUPER_ADMIN (son de la plataforma, no del hotel).
+     */
+    public Page<UsuarioResponse> listarTodos(Pageable pageable, String emailSolicitante, String tenantFiltro) {
         Pageable safePageable = (pageable != null) ? pageable : Pageable.unpaged();
         Usuario solicitante = solicitante(emailSolicitante);
-        Page<Usuario> pagina = esSuperAdmin(solicitante)
-                ? usuarioRepository.findAll(safePageable)
-                : usuarioRepository.findByTenantId(solicitante.getTenantId(), safePageable);
+        Page<Usuario> pagina;
+        if (!esSuperAdmin(solicitante)) {
+            pagina = usuarioRepository.findByTenantIdAndRolNot(
+                    solicitante.getTenantId(), Usuario.Rol.SUPER_ADMIN, safePageable);
+        } else if (tenantFiltro != null && !tenantFiltro.isBlank()) {
+            pagina = usuarioRepository.findByTenantId(tenantFiltro, safePageable);
+        } else {
+            pagina = usuarioRepository.findAll(safePageable);
+        }
         return pagina.map(u -> mapearSeguro(u, "listarTodos"));
     }
 
@@ -70,14 +84,21 @@ public class UsuarioService {
     }
 
     public List<UsuarioResponse> buscar(String q, String rol, String emailSolicitante) {
-        log.debug("buscar: q='{}', rol='{}'", q, rol);
+        return buscar(q, rol, emailSolicitante, null);
+    }
+
+    public List<UsuarioResponse> buscar(String q, String rol, String emailSolicitante, String tenantFiltro) {
+        log.debug("buscar: q='{}', rol='{}', hotel='{}'", q, rol, tenantFiltro);
         Usuario solicitante = solicitante(emailSolicitante);
 
         Specification<Usuario> spec = (root, query, cb) -> cb.isTrue(root.get("activo"));
 
         if (!esSuperAdmin(solicitante)) {
             String tenantId = solicitante.getTenantId();
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("tenantId"), tenantId));
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("tenantId"), tenantId))
+                    .and((root, query, cb) -> cb.notEqual(root.get("rol"), Usuario.Rol.SUPER_ADMIN));
+        } else if (tenantFiltro != null && !tenantFiltro.isBlank()) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("tenantId"), tenantFiltro));
         }
 
         if (rol != null && !rol.isBlank()) {

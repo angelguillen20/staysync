@@ -62,9 +62,10 @@ class SuperAdminAccesoTest {
     @WithMockUser(roles = "SUPER_ADMIN")
     @DisplayName("SUPER_ADMIN hereda los permisos de ADMIN (listar usuarios)")
     void superAdminHeredaAdmin() throws Exception {
-        when(usuariosClient.listarUsuarios(anyString())).thenReturn(ResponseEntity.ok(Map.of("content", List.of())));
+        when(usuariosClient.listarUsuarios(anyString(), eq(0), eq(10), eq("id"), eq("hotel-andes")))
+                .thenReturn(ResponseEntity.ok(Map.of("content", List.of())));
 
-        mockMvc.perform(get("/bff/usuarios").header("Authorization", "Bearer t"))
+        mockMvc.perform(get("/bff/usuarios").param("tenantId", "hotel-andes").header("Authorization", "Bearer t"))
                 .andExpect(status().isOk());
     }
 

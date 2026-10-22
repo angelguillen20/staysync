@@ -130,22 +130,34 @@ public class UsuariosClient {
                 Object.class);
     }
 
-    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "authFallback")
-    public ResponseEntity<Object> listarUsuarios(String authHeader) {
+    /** page, size y sort se reenvían tal cual; tenantId solo lo aplica usuarios-service a un SUPER_ADMIN. */
+    @CircuitBreaker(name = "usuariosCB", fallbackMethod = "listarFallback")
+    public ResponseEntity<Object> listarUsuarios(String authHeader, int page, int size, String sort, String tenantId) {
+        UriComponentsBuilder url = UriComponentsBuilder
+                .fromUriString(baseUrl + "/api/v1/usuarios")
+                .queryParam("page", page)
+                .queryParam("size", size)
+                .queryParam("sort", sort);
+        if (tenantId != null && !tenantId.isBlank()) {
+            url.queryParam("tenantId", tenantId);
+        }
         return restTemplate.exchange(
-                baseUrl + "/api/v1/usuarios",
+                url.toUriString(),
                 HttpMethod.GET,
                 new HttpEntity<>(buildHeaders(authHeader)),
                 Object.class);
     }
 
     @CircuitBreaker(name = "usuariosCB", fallbackMethod = "buscarFallback")
-    public ResponseEntity<Object> buscarUsuarios(String authHeader, String q, String rol) {
-        String url = UriComponentsBuilder
+    public ResponseEntity<Object> buscarUsuarios(String authHeader, String q, String rol, String tenantId) {
+        UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString(baseUrl + "/api/v1/usuarios/buscar")
                 .queryParam("q",   q   != null ? q   : "")
-                .queryParam("rol", rol != null ? rol : "")
-                .toUriString();
+                .queryParam("rol", rol != null ? rol : "");
+        if (tenantId != null && !tenantId.isBlank()) {
+            builder.queryParam("tenantId", tenantId);
+        }
+        String url = builder.toUriString();
         return restTemplate.exchange(url, HttpMethod.GET,
                 new HttpEntity<>(buildHeaders(authHeader)), Object.class);
     }
@@ -189,7 +201,13 @@ public class UsuariosClient {
     }
 
     @SuppressWarnings("java:S1172")
-    public ResponseEntity<Object> buscarFallback(String authHeader, String q, String rol, Exception ex) {
+    public ResponseEntity<Object> listarFallback(String authHeader, int page, int size, String sort,
+                                                 String tenantId, Exception ex) {
+        return authFallback(authHeader, ex);
+    }
+
+    @SuppressWarnings("java:S1172")
+    public ResponseEntity<Object> buscarFallback(String authHeader, String q, String rol, String tenantId, Exception ex) {
         log.warn("usuarios-service buscar no disponible: {}", ex.getMessage());
         return ResponseEntity.ok(Collections.emptyList());
     }

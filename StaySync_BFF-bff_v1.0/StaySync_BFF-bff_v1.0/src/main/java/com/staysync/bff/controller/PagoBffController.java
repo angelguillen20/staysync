@@ -1,12 +1,16 @@
 package com.staysync.bff.controller;
 
 import com.staysync.bff.client.PagosClient;
+import com.staysync.bff.security.AccesoHuesped;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/bff/pagos")
@@ -15,13 +19,20 @@ import org.springframework.web.bind.annotation.*;
 public class PagoBffController {
 
     private final PagosClient pagosClient;
+    private final AccesoHuesped accesoHuesped;
 
     @Operation(summary = "Procesar pago de una reserva")
     @PostMapping
     public ResponseEntity<Object> procesarPago(
             @RequestHeader("Authorization") String authHeader,
-            @RequestBody Object body) {
-        var response = pagosClient.procesarPago(authHeader, body);
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> pago = new HashMap<>(body);
+        // Un huésped solo paga sus propias reservas
+        if (accesoHuesped.esHuesped(authHeader)) {
+            accesoHuesped.verificarReservaPropia(authHeader, pago.get("reservaId"));
+            pago.put("usuarioId", accesoHuesped.usuarioId(authHeader));
+        }
+        var response = pagosClient.procesarPago(authHeader, pago);
         return ResponseEntity.status(HttpStatus.CREATED).body(response.getBody());
     }
 

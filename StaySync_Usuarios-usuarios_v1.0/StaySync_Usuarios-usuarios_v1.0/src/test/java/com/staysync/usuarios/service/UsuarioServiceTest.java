@@ -183,11 +183,11 @@ class UsuarioServiceTest {
     class ListarTests {
 
         @Test
-        @DisplayName("ADMIN solo lista los usuarios de su hotel")
+        @DisplayName("ADMIN solo lista los usuarios de su hotel, sin las cuentas SUPER_ADMIN")
         void adminListaSoloSuHotel() {
             comoSolicitante(adminDemo);
             Pageable pageable = PageRequest.of(0, 10);
-            when(usuarioRepository.findByTenantId("staysync-demo", pageable))
+            when(usuarioRepository.findByTenantIdAndRolNot("staysync-demo", Usuario.Rol.SUPER_ADMIN, pageable))
                     .thenReturn(new PageImpl<>(List.of(usuarioBase)));
             when(usuarioMapper.toResponse(usuarioBase)).thenReturn(responseBase);
 
@@ -206,6 +206,31 @@ class UsuarioServiceTest {
             when(usuarioMapper.toResponse(usuarioBase)).thenReturn(responseBase);
 
             assertThat(usuarioService.listarTodos(pageable, superAdmin.getEmail())).hasSize(1);
+            verify(usuarioRepository, never()).findByTenantId(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("SUPER_ADMIN puede filtrar por hotel")
+        void superAdminFiltraPorHotel() {
+            comoSolicitante(superAdmin);
+            Pageable pageable = PageRequest.of(0, 10);
+            when(usuarioRepository.findByTenantId("hotel-andes", pageable)).thenReturn(new PageImpl<>(List.of(usuarioBase)));
+            when(usuarioMapper.toResponse(usuarioBase)).thenReturn(responseBase);
+
+            assertThat(usuarioService.listarTodos(pageable, superAdmin.getEmail(), "hotel-andes")).hasSize(1);
+            verify(usuarioRepository, never()).findAll(any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("Un ADMIN no puede usar el filtro de hotel para ver otro hotel")
+        void adminIgnoraFiltroDeHotel() {
+            comoSolicitante(adminDemo);
+            Pageable pageable = PageRequest.of(0, 10);
+            when(usuarioRepository.findByTenantIdAndRolNot("staysync-demo", Usuario.Rol.SUPER_ADMIN, pageable))
+                    .thenReturn(new PageImpl<>(List.of()));
+
+            usuarioService.listarTodos(pageable, adminDemo.getEmail(), "hotel-andes");
+
             verify(usuarioRepository, never()).findByTenantId(anyString(), any());
         }
     }

@@ -51,6 +51,8 @@ public class DataInitializer implements ApplicationRunner {
         seed(tenantDemo,   "Recepcionista", "StaySync", "recep@staysync.com",   "Recep@1234",   Usuario.Rol.RECEPCIONISTA);
         seed(tenantDemo,   "Huésped",       "Demo",     "huesped@staysync.com", "Huesped@1234", Usuario.Rol.HUESPED);
         seed(TENANT_ANDES, "Admin",         "Andes",    "admin@hotelandes.com", "Admin@1234",   Usuario.Rol.ADMIN);
+        seed(TENANT_ANDES, "Recepcionista", "Andes",    "recep@hotelandes.com", "Recep@1234",   Usuario.Rol.RECEPCIONISTA);
+        seed(TENANT_ANDES, "Huésped",       "Andes",    "huesped@hotelandes.com", "Huesped@1234", Usuario.Rol.HUESPED);
     }
 
     private void seedHotel(String tenantId, String nombre, String theme) {

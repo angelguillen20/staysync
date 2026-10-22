@@ -11,6 +11,62 @@ import { esLogoValido, esSlugValido, guardarSlug, slugGuardado } from '../theme/
 
 const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
+// Cuentas que crea DataInitializer (usuarios-service). En un despliegue real se ocultan con
+// VITE_DEMO_CREDENCIALES=false: incluyen la del super admin, que administra todos los hoteles.
+const MOSTRAR_DEMO = import.meta.env.VITE_DEMO_CREDENCIALES !== 'false';
+const CUENTAS_DEMO = [
+  { hotel: 'Plataforma', slug: null, cuentas: [
+    { rol: 'Super admin', email: 'superadmin@staysync.com', password: 'Super@1234' },
+  ] },
+  { hotel: 'StaySync Demo', slug: 'staysync-demo', cuentas: [
+    { rol: 'Admin',     email: 'admin@staysync.com',   password: 'Admin@1234' },
+    { rol: 'Recepción', email: 'recep@staysync.com',   password: 'Recep@1234' },
+    { rol: 'Huésped',   email: 'huesped@staysync.com', password: 'Huesped@1234' },
+  ] },
+  { hotel: 'Hotel Andes', slug: 'hotel-andes', cuentas: [
+    { rol: 'Admin',     email: 'admin@hotelandes.com',   password: 'Admin@1234' },
+    { rol: 'Recepción', email: 'recep@hotelandes.com',   password: 'Recep@1234' },
+    { rol: 'Huésped',   email: 'huesped@hotelandes.com', password: 'Huesped@1234' },
+  ] },
+];
+
+/** Un clic en una cuenta rellena el formulario; "Ver portal" abre el login con la marca del hotel. */
+function CredencialesDemo({ onUsar, onPortal }) {
+  return (
+    <div className="mt-4 p-3 rounded" style={{ background: 'rgba(239,193,67,0.1)', border: '1px solid rgba(239,193,67,0.3)' }}>
+      <p className="mb-2 fw-semibold small" style={{ color: 'var(--ss-dark)' }}>
+        <i className="bi bi-info-circle me-1" />Credenciales de demo <span className="fw-normal text-muted">· clic para usar</span>
+      </p>
+      {CUENTAS_DEMO.map(({ hotel, slug, cuentas }) => (
+        <div key={hotel} className="mb-2">
+          <div className="d-flex justify-content-between align-items-center">
+            <small className="fw-semibold" style={{ color: 'var(--ss-dark)' }}>{hotel}</small>
+            {slug && (
+              <button type="button" className="btn btn-link btn-sm p-0 small" onClick={() => onPortal(slug)}>
+                Ver portal <i className="bi bi-box-arrow-up-right" />
+              </button>
+            )}
+          </div>
+          <div className="d-flex flex-wrap gap-1 mt-1">
+            {cuentas.map((c) => (
+              <button
+                key={c.email}
+                type="button"
+                className="btn btn-sm btn-outline-secondary py-0"
+                style={{ fontSize: '0.75rem' }}
+                title={`${c.email} / ${c.password}`}
+                onClick={() => onUsar(c)}
+              >
+                {c.rol}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 const PW_RULES = [
   { id: 'len', label: 'Al menos 8 caracteres',  test: pw => pw.length >= 8 },
@@ -317,16 +373,12 @@ export default function LoginPage() {
                 <i className="bi bi-google" />Continuar con Google
               </button>
 
-              <div className="mt-4 p-3 rounded" style={{ background: 'rgba(239,193,67,0.1)', border: '1px solid rgba(239,193,67,0.3)' }}>
-                <p className="mb-1 fw-semibold small" style={{ color: 'var(--ss-dark)' }}>
-                  <i className="bi bi-info-circle me-1" />Credenciales de demo
-                </p>
-                <small className="text-muted">
-                  Admin: admin@staysync.com / Admin@1234<br />
-                  Recepción: recep@staysync.com / Recep@1234<br />
-                  Huésped: huesped@staysync.com / Huesped@1234
-                </small>
-              </div>
+              {MOSTRAR_DEMO && (
+                <CredencialesDemo
+                  onUsar={({ email, password }) => { setForm({ email, password }); setError(''); }}
+                  onPortal={(slug) => navigate(`/login?hotel=${slug}`)}
+                />
+              )}
             </>
           )}
 
@@ -334,7 +386,13 @@ export default function LoginPage() {
           {tab === 'register' && (
             <>
               <h3 className="fw-bold mb-1">Crear cuenta</h3>
-              <p className="text-muted small mb-4">Registro de huéspedes · Todos los campos marcados con <span className="text-danger">*</span> son obligatorios</p>
+              <p className="text-muted small mb-2">Registro de huéspedes · Todos los campos marcados con <span className="text-danger">*</span> son obligatorios</p>
+              {/* El hotel sale del portal (?hotel=slug); sin portal, el backend usa el hotel por defecto */}
+              <div className="small mb-4 p-2 rounded" style={{ background: 'rgba(0,0,0,0.03)' }}>
+                <i className="bi bi-building me-1" />
+                Te registrarás como huésped de <strong>{marca?.nombre ?? 'StaySync Demo'}</strong>.
+                {' '}Para otro hotel, entra con el enlace de su portal.
+              </div>
 
               {regOk ? (
                 <div className="alert alert-success text-center">

@@ -61,12 +61,31 @@ public class SecurityConfig {
                 // Return 401 (not 403) for unauthenticated requests so the frontend
                 // can trigger the refresh-token flow in apiClient.js
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                        // 403 escrito aquí mismo: con sendError Spring reenvía a /error, que no es
+                        // pública, y el usuario recibía 401 (el frontend lo tomaba como sesión vencida)
+                        .accessDeniedHandler((request, response, e) -> {
+                            response.setStatus(HttpStatus.FORBIDDEN.value());
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write(
+                                    "{\"status\":403,\"message\":\"No tienes permisos para esta operación.\"}");
+                        }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         // Perfil propio: accesible para cualquier rol autenticado (HUESPED incluido)
                         .requestMatchers(HttpMethod.GET, "/bff/usuarios/perfil").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/bff/usuarios/perfil").authenticated()
+                        // Operación del hotel: el huésped no lista ni cambia reservas, pagos o tareas
+                        // ajenas. Lo suyo (mis reservas, cancelar, pagar) lo controla AccesoHuesped.
+                        .requestMatchers(HttpMethod.GET, "/bff/reservas", "/bff/reservas/hoy", "/bff/reservas/*/detalle")
+                                .hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers(HttpMethod.PATCH, "/bff/reservas/*/estado").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers(HttpMethod.GET, "/bff/pagos/**").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers(HttpMethod.POST, "/bff/pagos/*/reembolso").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers("/bff/servicios/solicitudes/todas", "/bff/servicios/aseo/**")
+                                .hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers(HttpMethod.PATCH, "/bff/servicios/solicitudes/*/estado")
+                                .hasAnyRole(ADMIN, RECEPCIONISTA)
                         // Admin + Recepcionista routes (also enforced by @PreAuthorize)
                         .requestMatchers("/bff/habitaciones/**").hasAnyRole(ADMIN, RECEPCIONISTA)
                         .requestMatchers("/bff/dashboard/**").hasAnyRole(ADMIN, RECEPCIONISTA)

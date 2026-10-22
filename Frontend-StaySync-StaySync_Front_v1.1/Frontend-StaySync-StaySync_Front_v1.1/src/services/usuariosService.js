@@ -1,11 +1,13 @@
 import apiClient from './apiClient';
 
-// params: { page?: number, size?: number, sort?: string } — respuesta paginada (Page<Usuario>)
+// params: { page?, size?, sort?, tenantId? } — respuesta paginada (Page<Usuario>).
+// tenantId solo filtra si quien consulta es SUPER_ADMIN; a un ADMIN el backend lo limita a su hotel.
 export const getUsuarios    = (params = {}) =>
   apiClient.get('/usuarios', { params: { page: 0, size: 10, sort: 'id', ...params } }).then(r => r.data);
 
 export const getHuespedes   = ()        => apiClient.get('/usuarios/huespedes').then(r => r.data);
-export const buscarUsuarios = (q, rol)  => apiClient.get('/usuarios/buscar', { params: { q: q ?? '', rol: rol ?? '' } }).then(r => r.data);
+export const buscarUsuarios = (q, rol, tenantId) =>
+  apiClient.get('/usuarios/buscar', { params: { q: q ?? '', rol: rol ?? '', ...(tenantId ? { tenantId } : {}) } }).then(r => r.data);
 export const getPerfil      = (id)      => apiClient.get(`/usuarios/${id}`).then(r => r.data);
 
 // Edición administrativa (ADMIN) de cualquier usuario — sin el gate de contraseña de auto-edición,

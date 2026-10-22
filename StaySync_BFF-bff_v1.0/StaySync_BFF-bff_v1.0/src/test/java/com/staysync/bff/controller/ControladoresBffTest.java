@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = {ReservaBffController.class, HabitacionBffController.class, PagoBffController.class,
         ServicioBffController.class, UsuarioBffController.class, ClimaBffController.class})
-@Import({SecurityConfig.class, JwtAuthFilter.class})
+@Import({SecurityConfig.class, JwtAuthFilter.class, com.staysync.bff.security.AccesoHuesped.class})
 @DisplayName("Controladores del BFF")
 class ControladoresBffTest {
 
@@ -42,6 +42,89 @@ class ControladoresBffTest {
 
     private static ResponseEntity<Object> ok(Object body) {
         return ResponseEntity.ok(body);
+    }
+
+    @Nested
+    @DisplayName("Un huésped solo opera sobre lo suyo")
+    class AislamientoHuesped {
+
+        @BeforeEach
+        void comoHuesped7() {
+            when(jwtService.extractRol("token")).thenReturn("HUESPED");
+            when(jwtService.extractClaim(eq("token"), any())).thenReturn(7L);
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("Crear: el usuarioId sale del token aunque el body diga otro")
+        @SuppressWarnings("unchecked")
+        void crearUsaSuPropioId() throws Exception {
+            when(usuariosClient.getPerfilPropio(AUTH)).thenReturn(ok(Map.of()));
+            when(reservasClient.crear(eq(AUTH), any())).thenReturn(ok(Map.of("id", 1)));
+
+            mockMvc.perform(post("/bff/reservas").header("Authorization", AUTH)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"usuarioId\":99,\"habitacionId\":3}"))
+                    .andExpect(status().isCreated());
+
+            verify(reservasClient).crear(eq(AUTH), argThat(b -> Long.valueOf(7).equals(((Map<String, Object>) b).get("usuarioId"))));
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("No ve las reservas de otro usuario")
+        void noVeReservasAjenas() throws Exception {
+            mockMvc.perform(get("/bff/reservas/usuario/99").header("Authorization", AUTH))
+                    .andExpect(status().isForbidden());
+            verify(reservasClient, never()).listarPorUsuario(any(), any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("No cancela la reserva de otro huésped")
+        void noCancelaReservaAjena() throws Exception {
+            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "usuarioId", 99)));
+
+            mockMvc.perform(patch("/bff/reservas/5/cancelar").header("Authorization", AUTH))
+                    .andExpect(status().isForbidden());
+            verify(reservasClient, never()).cancelar(any(), any());
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("Cancela su propia reserva")
+        void cancelaSuReserva() throws Exception {
+            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "usuarioId", 7)));
+            when(reservasClient.cancelar(AUTH, 5L)).thenReturn(ResponseEntity.noContent().build());
+
+            mockMvc.perform(patch("/bff/reservas/5/cancelar").header("Authorization", AUTH))
+                    .andExpect(status().isNoContent());
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("No paga la reserva de otro huésped")
+        void noPagaReservaAjena() throws Exception {
+            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "usuarioId", 99)));
+
+            mockMvc.perform(post("/bff/pagos").header("Authorization", AUTH)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"reservaId\":5,\"monto\":1000}"))
+                    .andExpect(status().isForbidden());
+            verify(pagosClient, never()).procesarPago(any(), any());
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("Las rutas de operación del hotel le responden 403")
+        void rutasDeOperacionProhibidas() throws Exception {
+            mockMvc.perform(get("/bff/reservas").header("Authorization", AUTH)).andExpect(status().isForbidden());
+            mockMvc.perform(get("/bff/reservas/5/detalle").header("Authorization", AUTH)).andExpect(status().isForbidden());
+            mockMvc.perform(patch("/bff/reservas/5/estado").header("Authorization", AUTH)
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"CONFIRMADA\"}"))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get("/bff/pagos/reserva/5").header("Authorization", AUTH)).andExpect(status().isForbidden());
+            mockMvc.perform(get("/bff/servicios/solicitudes/todas").header("Authorization", AUTH)).andExpect(status().isForbidden());
+            verifyNoInteractions(reservasClient, pagosClient, serviciosClient);
+        }
     }
 
     @Nested
@@ -167,7 +250,7 @@ class ControladoresBffTest {
     }
 
     @Test
-    @WithMockUser(roles = "HUESPED")
+    @WithMockUser(roles = "ADMIN")
     @DisplayName("Pagos: delegan en pagos-service")
     void pagos() throws Exception {
         when(pagosClient.procesarPago(eq(AUTH), any())).thenReturn(ok(Map.of("id", 1)));
@@ -230,8 +313,8 @@ class ControladoresBffTest {
     @DisplayName("Usuarios: delegan en usuarios-service")
     void usuarios() throws Exception {
         when(usuariosClient.listarHuespedes(AUTH)).thenReturn(ok(List.of()));
-        when(usuariosClient.buscarUsuarios(AUTH, "ana", "")).thenReturn(ok(List.of()));
-        when(usuariosClient.listarUsuarios(AUTH)).thenReturn(ok(Map.of()));
+        when(usuariosClient.buscarUsuarios(AUTH, "ana", "", null)).thenReturn(ok(List.of()));
+        when(usuariosClient.listarUsuarios(AUTH, 0, 10, "id", null)).thenReturn(ok(Map.of()));
         when(usuariosClient.getPerfilPropio(AUTH)).thenReturn(ok(Map.of()));
         when(usuariosClient.updatePerfilPropio(eq(AUTH), any())).thenReturn(ok(Map.of()));
         when(usuariosClient.getPerfil(AUTH, 5L)).thenReturn(ok(Map.of()));

@@ -41,8 +41,9 @@ public class UsuarioController {
     public ResponseEntity<List<UsuarioResponse>> buscar(
             @RequestParam(required = false, defaultValue = "") String q,
             @RequestParam(required = false, defaultValue = "") String rol,
+            @RequestParam(required = false) String tenantId,
             Authentication auth) {
-        return ResponseEntity.ok(usuarioService.buscar(q, rol, auth.getName()));
+        return ResponseEntity.ok(usuarioService.buscar(q, rol, auth.getName(), tenantId));
     }
 
     @GetMapping
@@ -52,9 +53,11 @@ public class UsuarioController {
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sort,
+            @RequestParam(required = false) String tenantId,
             Authentication auth) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
-        return ResponseEntity.ok(usuarioService.listarTodos(pageable, auth.getName()));
+        // tenantId solo filtra para un SUPER_ADMIN; a un ADMIN siempre se le limita a su hotel
+        return ResponseEntity.ok(usuarioService.listarTodos(pageable, auth.getName(), tenantId));
     }
 
     @GetMapping("/{id}")

@@ -62,6 +62,11 @@ public class GlobalExceptionHandler {
     }
 
     // @PreAuthorize denegado: sin esto caía en el handler genérico y respondía 500
+    @ExceptionHandler(AccesoDenegadoException.class)
+    public ResponseEntity<Map<String, Object>> handleAccesoDenegado(AccesoDenegadoException ex) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AuthorizationDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, "No tienes permisos para esta operación.");

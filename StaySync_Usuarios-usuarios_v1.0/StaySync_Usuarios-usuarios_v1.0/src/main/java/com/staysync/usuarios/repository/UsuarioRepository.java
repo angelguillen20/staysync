@@ -17,6 +17,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long>, JpaSpec
     boolean existsByEmail(String email);
     Optional<Usuario> findByIdAndActivoTrue(Long id);
     Page<Usuario> findByTenantId(String tenantId, Pageable pageable);
+    Page<Usuario> findByTenantIdAndRolNot(String tenantId, Usuario.Rol rol, Pageable pageable);
 
     /** Migración multi-tenant: asigna un hotel a los usuarios creados antes de existir tenant_id. */
     @Transactional

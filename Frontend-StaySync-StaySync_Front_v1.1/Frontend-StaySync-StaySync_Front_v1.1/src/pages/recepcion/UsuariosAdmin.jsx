@@ -216,6 +216,7 @@ export default function UsuariosAdmin() {
 
   const [q,          setQ]          = useState('');
   const [rolFiltro,  setRolFiltro]  = useState('TODOS');
+  const [hotelFiltro, setHotelFiltro] = useState(''); // solo SUPER_ADMIN; '' = todos los hoteles
   const [buscando,   setBuscando]   = useState(false); // true = resultados de /buscar (sin paginación)
 
   const [page,        setPage]        = useState(0);
@@ -231,7 +232,7 @@ export default function UsuariosAdmin() {
     setLoading(true);
     setError('');
     try {
-      const data = await getUsuarios({ page: p, size: 10, sort: 'id' });
+      const data = await getUsuarios({ page: p, size: 10, sort: 'id', ...(hotelFiltro ? { tenantId: hotelFiltro } : {}) });
       setUsuarios(data.content ?? []);
       setTotalPages(data.totalPages ?? 1);
       setTotalUsuarios(data.totalElements ?? data.content?.length ?? 0);
@@ -241,7 +242,7 @@ export default function UsuariosAdmin() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hotelFiltro]);
 
   useEffect(() => { cargarPagina(page); }, [page, cargarPagina]);
 
@@ -263,7 +264,7 @@ export default function UsuariosAdmin() {
     setLoading(true);
     setError('');
     try {
-      const data = await buscarUsuarios(q.trim(), rol);
+      const data = await buscarUsuarios(q.trim(), rol, hotelFiltro);
       setUsuarios(Array.isArray(data) ? data : []);
       setBuscando(true);
     } catch {
@@ -276,8 +277,14 @@ export default function UsuariosAdmin() {
   const handleLimpiar = () => {
     setQ('');
     setRolFiltro('TODOS');
+    setHotelFiltro('');
     setPage(0);
     cargarPagina(0);
+  };
+
+  const cambiarHotelFiltro = (tenantId) => {
+    setHotelFiltro(tenantId);
+    setPage(0); // cargarPagina cambia con el filtro y el efecto recarga la lista
   };
 
   const handleGuardar = async (campos, nuevoRol, nuevoHotel) => {
@@ -353,7 +360,20 @@ export default function UsuariosAdmin() {
       <div className="card border-0 shadow-sm mb-3">
         <div className="card-body py-3">
           <div className="row g-2 align-items-center">
-            <div className="col-md-6">
+            {esSuper && (
+              <div className="col-md-3">
+                <select
+                  className="form-select"
+                  value={hotelFiltro}
+                  onChange={(e) => cambiarHotelFiltro(e.target.value)}
+                  aria-label="Filtrar por hotel"
+                >
+                  <option value="">Todos los hoteles</option>
+                  {hoteles.map((h) => <option key={h.tenantId} value={h.tenantId}>{h.nombre}</option>)}
+                </select>
+              </div>
+            )}
+            <div className={esSuper ? 'col-md-3' : 'col-md-6'}>
               <div className="input-group">
                 <span className="input-group-text bg-white border-end-0">
                   <i className="bi bi-search text-muted" style={{ fontSize: '0.85rem' }} />
@@ -384,7 +404,7 @@ export default function UsuariosAdmin() {
               <button className="btn btn-ss-dark flex-grow-1" onClick={handleBuscar} disabled={loading}>
                 <i className="bi bi-search me-1" />Buscar
               </button>
-              {(q || rolFiltro !== 'TODOS' || buscando) && (
+              {(q || rolFiltro !== 'TODOS' || hotelFiltro || buscando) && (
                 <button className="btn btn-outline-secondary" onClick={handleLimpiar} disabled={loading} title="Limpiar filtros">
                   <i className="bi bi-x-lg" />
                 </button>
@@ -445,9 +465,16 @@ export default function UsuariosAdmin() {
                     </td>
                     <td>
                       <div className="d-flex gap-2">
-                        <button className="btn btn-outline-secondary btn-sm" onClick={() => setEditando(u)}>
-                          <i className="bi bi-pencil me-1" />Editar
-                        </button>
+                        {/* La cuenta de un super admin solo la gestiona otro super admin (el backend también lo impide) */}
+                        {(esSuper || u.rol !== 'SUPER_ADMIN') ? (
+                          <button className="btn btn-outline-secondary btn-sm" onClick={() => setEditando(u)}>
+                            <i className="bi bi-pencil me-1" />Editar
+                          </button>
+                        ) : (
+                          <span className="text-muted small" title="Cuenta de la plataforma">
+                            <i className="bi bi-lock" /> Protegida
+                          </span>
+                        )}
                         {u.activo !== false && u.id !== currentUser?.userId && (esSuper || u.rol !== 'SUPER_ADMIN') && (
                           <button
                             className="btn btn-outline-danger btn-sm"

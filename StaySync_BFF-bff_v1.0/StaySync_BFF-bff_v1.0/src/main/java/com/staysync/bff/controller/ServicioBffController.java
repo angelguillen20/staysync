@@ -1,6 +1,7 @@
 package com.staysync.bff.controller;
 
 import com.staysync.bff.client.ServiciosClient;
+import com.staysync.bff.security.AccesoHuesped;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -17,6 +19,7 @@ import java.util.Map;
 public class ServicioBffController {
 
     private final ServiciosClient serviciosClient;
+    private final AccesoHuesped accesoHuesped;
 
     @Operation(summary = "Listar servicios disponibles")
     @GetMapping("/disponibles")
@@ -37,8 +40,16 @@ public class ServicioBffController {
     @PostMapping("/solicitudes")
     public ResponseEntity<Object> solicitarServicio(
             @RequestHeader("Authorization") String authHeader,
-            @RequestBody Object body) {
-        var response = serviciosClient.solicitarServicio(authHeader, body);
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> solicitud = new HashMap<>(body);
+        // Un huésped pide servicios para sí y solo sobre sus reservas
+        if (accesoHuesped.esHuesped(authHeader)) {
+            solicitud.put("usuarioId", accesoHuesped.usuarioId(authHeader));
+            if (solicitud.get("reservaId") != null) {
+                accesoHuesped.verificarReservaPropia(authHeader, solicitud.get("reservaId"));
+            }
+        }
+        var response = serviciosClient.solicitarServicio(authHeader, solicitud);
         return ResponseEntity.status(HttpStatus.CREATED).body(response.getBody());
     }
 
@@ -59,6 +70,7 @@ public class ServicioBffController {
                     .badRequest()
                     .body(Map.of("message", "El parámetro usuarioId es requerido y debe ser un número válido."));
         }
+        accesoHuesped.verificarMismoUsuario(authHeader, usuarioId);
         return serviciosClient.listarSolicitudes(authHeader, usuarioId);
     }
 

@@ -79,7 +79,7 @@ class ClientesHttpTest {
         esperarConToken(HttpMethod.PATCH, "http://usuarios/api/v1/usuarios/5/hotel");
         esperarConToken(HttpMethod.PUT, "http://usuarios/api/v1/hoteles/hotel-andes/marca");
         esperarConToken(HttpMethod.GET, "http://usuarios/api/v1/hoteles");
-        esperarConToken(HttpMethod.GET, "http://usuarios/api/v1/usuarios");
+        esperarConToken(HttpMethod.GET, "http://usuarios/api/v1/usuarios?page=0&size=10&sort=id&tenantId=hotel-andes");
         esperarConToken(HttpMethod.GET, "http://usuarios/api/v1/usuarios/buscar?q=ana&rol=HUESPED");
         esperarConToken(HttpMethod.GET, "http://usuarios/api/v1/usuarios/huespedes");
         esperarConToken(HttpMethod.DELETE, "http://usuarios/api/v1/usuarios/5");
@@ -98,8 +98,8 @@ class ClientesHttpTest {
         c.cambiarHotel(TOKEN, 5L, BODY);
         c.actualizarMarca(TOKEN, "hotel-andes", BODY);
         c.listarHoteles(TOKEN);
-        c.listarUsuarios(TOKEN);
-        c.buscarUsuarios(TOKEN, "ana", "HUESPED");
+        c.listarUsuarios(TOKEN, 0, 10, "id", "hotel-andes");
+        c.buscarUsuarios(TOKEN, "ana", "HUESPED", null);
         c.listarHuespedes(TOKEN);
         c.desactivar(TOKEN, 5L);
         assertThat(c.obtenerThemeHotel("hotel-andes").getStatusCode().is2xxSuccessful()).isTrue();
@@ -122,7 +122,8 @@ class ClientesHttpTest {
         assertThatThrownBy(() -> c.loginFallback(BODY, CAIDA)).isInstanceOf(DownstreamServiceException.class);
         assertThatThrownBy(() -> c.passthruFallback(BODY, CAIDA)).isInstanceOf(DownstreamServiceException.class);
         assertThatThrownBy(() -> c.desactivarFallback(TOKEN, 5L, CAIDA)).isInstanceOf(DownstreamServiceException.class);
-        assertThat(c.buscarFallback(TOKEN, "q", "rol", CAIDA).getBody()).isEqualTo(List.of());
+        assertThat(c.buscarFallback(TOKEN, "q", "rol", null, CAIDA).getBody()).isEqualTo(List.of());
+        assertThatThrownBy(() -> c.listarFallback(TOKEN, 0, 10, "id", null, CAIDA)).isInstanceOf(DownstreamServiceException.class);
         assertThat(c.listarHuespedesFallback(TOKEN, CAIDA).getBody()).isEqualTo(List.of());
     }
 

@@ -19,6 +19,7 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
@@ -310,6 +311,9 @@ public class ReservaService {
         try {
             return restTemplate.getForObject(
                     habitacionesUrl + "/api/v1/habitaciones/" + habitacionId, Map.class);
+        } catch (HttpClientErrorException.NotFound e) {
+            // habitaciones-service filtra por hotel: 404 = no existe o es de otro hotel
+            throw new IllegalArgumentException("La habitación " + habitacionId + " no existe en este hotel");
         } catch (Exception e) {
             log.warn("No se pudo obtener datos de habitación {}: {}", habitacionId, e.getMessage());
             return null;

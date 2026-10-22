@@ -162,6 +162,21 @@ class ReservaServiceTest {
     }
 
     @Test
+    @DisplayName("crear() - rechaza una habitación que no existe en el hotel (404 de habitaciones)")
+    void rechazaHabitacionDeOtroHotel() {
+        CrearReservaRequest request = buildRequest(1);
+        when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
+        when(restTemplate.getForObject(anyString(), eq(Map.class))).thenThrow(
+                org.springframework.web.client.HttpClientErrorException.create(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Not Found", null, null, null));
+
+        assertThatThrownBy(() -> reservaService.crear(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no existe en este hotel");
+        verify(reservaRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("crear() - debe lanzar excepción si fechaSalida no es posterior a fechaEntrada")
     void debeLanzarExcepcionFechasInvalidas() {
         CrearReservaRequest request = new CrearReservaRequest();
