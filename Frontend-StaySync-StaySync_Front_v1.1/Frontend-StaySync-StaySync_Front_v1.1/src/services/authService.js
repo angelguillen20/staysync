@@ -3,10 +3,12 @@ import apiClient from './apiClient';
 /**
  * Authenticate a user — always via BFF (real JWT + refresh token in DB).
  * Demo user credentials (admin@, recep@, huesped@) must exist in the database.
+ * hotelSlug = portal desde el que entra: un huésped queda en ese hotel (una cuenta para toda
+ * la cadena); el personal siempre queda en el suyo.
  * @returns {Promise<AuthResponse>} Auth payload from BFF.
  */
-export async function login(email, password) {
-  const { data } = await apiClient.post('/auth/login', { email, password });
+export async function login(email, password, hotelSlug) {
+  const { data } = await apiClient.post('/auth/login', { email, password, hotelSlug: hotelSlug || undefined });
   return data;
 }
 

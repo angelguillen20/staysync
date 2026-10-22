@@ -190,7 +190,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
-      const data = await loginService(form.email, form.password);
+      const data = await loginService(form.email, form.password, slugGuardado());
       login(data);
       navigate(from ?? REDIRECT[data.rol] ?? '/huesped', { replace: true });
     } catch (err) {
@@ -235,7 +235,10 @@ export default function LoginPage() {
       setRegOk(true);
       setTimeout(() => { setTab('login'); setRegOk(false); }, 2500);
     } catch (err) {
-      setRegErr(mensajeDeError(err, 'No se pudo registrar. Intente más tarde.'));
+      // Un huésped tiene una sola cuenta para todos los hoteles: si ya existe, que inicie sesión aquí
+      setRegErr(err.response?.status === 409
+        ? `Ya tienes una cuenta con ese email. Inicia sesión con ella: sirve también en ${marca?.nombre ?? 'este hotel'}.`
+        : mensajeDeError(err, 'No se pudo registrar. Intente más tarde.'));
     } finally {
       setLoading(false);
     }

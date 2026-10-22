@@ -17,4 +17,8 @@ public class LoginRequest {
     @NotBlank(message = "La contraseña es obligatoria")
     @Schema(description = "Contraseña del usuario")
     private String password;
+
+    @Schema(description = "Portal desde el que entra (slug). Un huésped queda en ese hotel; el personal, siempre en el suyo",
+            example = "hotel-andes")
+    private String hotelSlug;
 }

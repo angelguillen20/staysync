@@ -181,6 +181,93 @@ class AuthServiceTest {
         verify(refreshTokenRepository).delete(expired);
     }
 
+    @Nested
+    @DisplayName("Un huésped, una cuenta para todos los hoteles")
+    class HuespedMultiHotel {
+
+        private Usuario huesped;
+
+        @BeforeEach
+        void huespedDeDemo() {
+            huesped = Usuario.builder().id(4L).tenantId("staysync-demo").nombre("Ana").apellido("Rojas")
+                    .email("ana@correo.cl").passwordHash("$2a$12$hashed").rol(Usuario.Rol.HUESPED).activo(true).build();
+        }
+
+        private LoginRequest loginDesde(String email, String slug) {
+            LoginRequest request = new LoginRequest();
+            request.setEmail(email);
+            request.setPassword("Pass@123");
+            request.setHotelSlug(slug);
+            return request;
+        }
+
+        @SuppressWarnings("unchecked")
+        private Map<String, Object> claimsDelToken() {
+            ArgumentCaptor<Map<String, Object>> claims = ArgumentCaptor.forClass(Map.class);
+            verify(jwtService).generateToken(eq(userDetails), claims.capture());
+            return claims.getValue();
+        }
+
+        @Test
+        @DisplayName("Entra al hotel del portal y la sesión recuerda ese hotel para el refresh")
+        void huespedEntraAlHotelDelPortal() {
+            when(usuarioRepository.findByEmail("ana@correo.cl")).thenReturn(Optional.of(huesped));
+            when(userDetailsService.loadUserByUsername("ana@correo.cl")).thenReturn(userDetails);
+            when(hotelService.resolverTenantId("hotel-andes")).thenReturn("hotel-andes");
+            when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            AuthResponse response = authService.login(loginDesde("ana@correo.cl", "hotel-andes"));
+
+            assertThat(claimsDelToken()).containsEntry("tenantId", "hotel-andes");
+            assertThat(response.getTenantId()).isEqualTo("hotel-andes");
+            ArgumentCaptor<RefreshToken> rt = ArgumentCaptor.forClass(RefreshToken.class);
+            verify(refreshTokenRepository).save(rt.capture());
+            assertThat(rt.getValue().getTenantId()).isEqualTo("hotel-andes");
+        }
+
+        @Test
+        @DisplayName("El personal queda siempre en su hotel aunque entre por otro portal")
+        void personalIgnoraElPortal() {
+            when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(usuario));
+            when(userDetailsService.loadUserByUsername("admin@test.com")).thenReturn(userDetails);
+            when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            authService.login(loginDesde("admin@test.com", "hotel-andes"));
+
+            assertThat(claimsDelToken()).containsEntry("tenantId", "staysync-demo");
+            verify(hotelService, never()).resolverTenantId(any());
+        }
+
+        @Test
+        @DisplayName("Un portal que no existe no impide entrar: usa su hotel")
+        void portalInexistenteUsaSuHotel() {
+            when(usuarioRepository.findByEmail("ana@correo.cl")).thenReturn(Optional.of(huesped));
+            when(userDetailsService.loadUserByUsername("ana@correo.cl")).thenReturn(userDetails);
+            when(hotelService.resolverTenantId("no-existe"))
+                    .thenThrow(new com.staysync.usuarios.tenant.exception.HotelNotFoundException("no-existe"));
+            when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            authService.login(loginDesde("ana@correo.cl", "no-existe"));
+
+            assertThat(claimsDelToken()).containsEntry("tenantId", "staysync-demo");
+        }
+
+        @Test
+        @DisplayName("refresh() mantiene al huésped en el hotel de su sesión")
+        void refreshMantieneElHotel() {
+            RefreshToken stored = RefreshToken.builder().token("rt").usuario(huesped).tenantId("hotel-andes")
+                    .expiraEn(LocalDateTime.now().plusDays(1)).build();
+            when(refreshTokenRepository.findByToken("rt")).thenReturn(Optional.of(stored));
+            when(userDetailsService.loadUserByUsername("ana@correo.cl")).thenReturn(userDetails);
+            when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            AuthResponse response = authService.refresh("rt");
+
+            assertThat(claimsDelToken()).containsEntry("tenantId", "hotel-andes");
+            assertThat(response.getTenantId()).isEqualTo("hotel-andes");
+        }
+    }
+
     @Test
     @DisplayName("logout() - debe eliminar refresh token si existe")
     void debeEliminarRefreshTokenEnLogout() {
