@@ -34,6 +34,42 @@ export function ajustarColor(hex, cantidad) {
   return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
 }
 
+function luminancia(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const lineal = (v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lineal((n >> 16) & 255) + 0.7152 * lineal((n >> 8) & 255) + 0.0722 * lineal(n & 255);
+}
+
+/** Contraste WCAG entre dos colores #RRGGBB: 1 (iguales) a 21 (negro sobre blanco). */
+export function contraste(a, b) {
+  const [claro, oscuro] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
+  return (claro + 0.05) / (oscuro + 0.05);
+}
+
+/**
+ * Combinaciones del theme que el portal usa y que no se leerían bien.
+ * Umbrales WCAG AA: 4.5 para texto normal, 3 para texto grande e íconos.
+ */
+export function problemasDeContraste(tema) {
+  const t = tema ?? {};
+  const validos = ['primary', 'secondary', 'background', 'text'].every((k) => esColorValido(t[k]));
+  if (!validos) return [];
+  const problemas = [];
+  if (contraste(t.primary, '#ffffff') < 4.5) {
+    problemas.push('El texto blanco de la barra y los botones no se lee sobre el color principal. Usa un principal más oscuro.');
+  }
+  if (contraste(t.secondary, t.primary) < 3) {
+    problemas.push('El nombre del hotel y el menú activo (acento) no se leen sobre el color principal. Usa un acento más claro.');
+  }
+  if (contraste(t.text, t.background) < 4.5) {
+    problemas.push('El texto no se lee sobre el fondo. Aumenta la diferencia entre ambos colores.');
+  }
+  return problemas;
+}
+
 /** Variables CSS que corresponden a un theme; ignora los colores inválidos. */
 export function variablesDeTema(tema) {
   const theme = tema ?? {};

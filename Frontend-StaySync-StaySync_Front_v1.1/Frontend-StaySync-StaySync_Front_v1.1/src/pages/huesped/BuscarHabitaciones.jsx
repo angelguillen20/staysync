@@ -38,7 +38,7 @@ export default function BuscarHabitaciones() {
         fechaSalida:    filtros.salida,
         numHuespedes:   Number(filtros.huespedes),
         fuente:         'WEB',
-        nombreContacto: `${user?.nombre} ${user?.apellido}`,
+        nombreContacto: user?.nombreCompleto,
         emailContacto:  user?.email,
       });
       navigate('/huesped/pago', {

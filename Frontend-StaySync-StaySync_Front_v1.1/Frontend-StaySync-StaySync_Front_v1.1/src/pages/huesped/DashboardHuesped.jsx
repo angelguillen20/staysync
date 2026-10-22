@@ -51,7 +51,7 @@ export default function DashboardHuesped() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold" style={{ color: 'var(--ss-dark)' }}>
-            Bienvenido, {user?.nombre} 👋
+            Bienvenido, {user?.nombreCompleto?.split(" ")[0]} 👋
           </h2>
           <p className="text-muted mb-0">Portal de huéspedes StaySync</p>
         </div>
@@ -124,7 +124,9 @@ export default function DashboardHuesped() {
         <div className="text-center py-5 text-muted">
           <i className="bi bi-calendar-x fs-1 d-block mb-2" />
           <p>Aún no tienes reservas.</p>
-          <p className="small">Contacta a recepción para hacer una reserva.</p>
+          <Link to="/huesped/buscar" className="btn btn-sm btn-ss-dark mt-1">
+            <i className="bi bi-search me-1" />Buscar habitaciones
+          </Link>
         </div>
       )}
       {!loading && reservas.length > 0 && (

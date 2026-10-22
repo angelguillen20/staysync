@@ -41,6 +41,7 @@ public class WeatherClient {
                 .queryParam("key", apiKey)
                 .queryParam("q", city)
                 .queryParam("aqi", "no")
+                .queryParam("lang", "es")
                 .toUriString();
 
         Map<String, Object> response = restTemplate.getForObject(url, Map.class);

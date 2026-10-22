@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useMarca } from '../../context/ThemeContext';
 import { actualizarMarca } from '../../services/hotelesService';
-import { esColorValido, esLogoValido, variablesDeTema } from '../../theme/hotelTheme';
+import { esColorValido, esLogoValido, problemasDeContraste, variablesDeTema } from '../../theme/hotelTheme';
 import AlertMessage from '../../components/common/AlertMessage';
 
 const COLORES = [
@@ -28,6 +28,8 @@ export default function MarcaHotelAdmin() {
   const logoInvalido = form.logoUrl.trim() !== '' && !esLogoValido(form.logoUrl.trim());
   const coloresInvalidos = Object.values(form.theme).some((c) => !esColorValido(c));
   const vistaPrevia = variablesDeTema(form.theme);
+  // Solo avisa: el hotel decide, pero sabe antes de guardar qué partes no se leerían
+  const avisosContraste = problemasDeContraste(form.theme);
 
   const setColor = (clave, valor) => setForm((p) => ({ ...p, theme: { ...p.theme, [clave]: valor } }));
 
@@ -120,6 +122,16 @@ export default function MarcaHotelAdmin() {
               ))}
             </div>
 
+            {avisosContraste.length > 0 && (
+              <div className="alert alert-warning small mt-3 mb-0" role="status">
+                <i className="bi bi-exclamation-triangle me-1" />
+                <strong>Contraste bajo</strong>
+                <ul className="mb-0 mt-1 ps-3">
+                  {avisosContraste.map((a) => <li key={a}>{a}</li>)}
+                </ul>
+              </div>
+            )}
+
             <button type="submit" className="btn btn-ss-dark fw-semibold mt-4" disabled={guardando}>
               {guardando
                 ? <><span className="spinner-border spinner-border-sm me-2" />Guardando...</>
@@ -131,7 +143,7 @@ export default function MarcaHotelAdmin() {
         {/* Vista previa: aplica las variables solo dentro de este bloque */}
         <div className="col-lg-6">
           <div className="card border-0 shadow-sm overflow-hidden" style={{ borderRadius: 12, ...vistaPrevia }}>
-            <div className="p-3 d-flex align-items-center gap-2" style={{ background: 'var(--ss-dark)', color: '#fff' }}>
+            <div className="p-3 d-flex align-items-center gap-2" style={{ background: 'var(--ss-dark)', color: 'var(--ss-gold)' }}>
               {esLogoValido(form.logoUrl.trim())
                 ? <img src={form.logoUrl.trim()} alt="" style={{ maxHeight: 28 }} />
                 : <i className="bi bi-building" />}

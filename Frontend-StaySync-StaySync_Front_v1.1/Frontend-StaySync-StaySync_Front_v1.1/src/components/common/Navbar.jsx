@@ -44,8 +44,8 @@ export default function Navbar({ onToggleSidebar }) {
   };
 
   return (
-    <nav className="navbar navbar-staysync fixed-top px-3">
-      <div className="d-flex align-items-center gap-3">
+    <nav className="navbar navbar-staysync fixed-top px-3 flex-nowrap">
+      <div className="d-flex align-items-center gap-3 overflow-hidden">
         <button
           className="btn btn-sm btn-outline-warning d-md-none"
           onClick={onToggleSidebar}
@@ -54,19 +54,19 @@ export default function Navbar({ onToggleSidebar }) {
           <i className="bi bi-list fs-5" />
         </button>
 
-        <Link to={HOME_ROUTE[user?.rol] ?? '/'} className="navbar-brand mb-0">
+        <Link to={HOME_ROUTE[user?.rol] ?? '/'} className="navbar-brand mb-0 text-truncate">
           <i className="bi bi-building me-2" />{user?.hotelNombre ?? 'StaySync'}
         </Link>
 
         {user && (
-          <span className="badge rounded-pill text-bg-warning text-dark fw-normal">
+          <span className="badge rounded-pill text-bg-warning text-dark fw-normal d-none d-md-inline">
             {PORTAL_LABELS[user.rol] ?? user.rol}
           </span>
         )}
       </div>
 
       {user && (
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 flex-shrink-0">
           <span className="text-white-50 d-none d-sm-inline small me-1">
             <i className="bi bi-person-circle me-1" />
             {user.nombreCompleto}

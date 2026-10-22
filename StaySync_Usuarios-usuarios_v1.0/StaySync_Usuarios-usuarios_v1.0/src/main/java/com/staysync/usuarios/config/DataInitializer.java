@@ -39,7 +39,7 @@ public class DataInitializer implements ApplicationRunner {
         seedHotel(tenantDemo, "StaySync Demo",
                 "{\"primary\":\"#1F4E79\",\"secondary\":\"#F2A900\",\"background\":\"#F7F9FC\",\"text\":\"#1A2433\"}");
         seedHotel(TENANT_ANDES, "Hotel Andes",
-                "{\"primary\":\"#7A2E1F\",\"secondary\":\"#2F6B4F\",\"background\":\"#FBF8F4\",\"text\":\"#2B211C\"}");
+                "{\"primary\":\"#7A2E1F\",\"secondary\":\"#E9B872\",\"background\":\"#FBF8F4\",\"text\":\"#2B211C\"}");
 
         int migrados = usuarioRepository.asignarTenantASinHotel(tenantDemo);
         if (migrados > 0) {

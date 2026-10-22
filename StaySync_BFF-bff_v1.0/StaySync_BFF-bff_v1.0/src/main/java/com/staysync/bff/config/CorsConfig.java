@@ -1,5 +1,6 @@
 package com.staysync.bff.config;
 
+import com.staysync.bff.security.HotelPublicoFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +24,10 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        // X-Hotel: portal del hotel que manda el frontend (HotelPublicoFilter); sin él el
+        // navegador bloquea en el preflight todas las llamadas una vez elegido un hotel
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With",
+                HotelPublicoFilter.HEADER));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
