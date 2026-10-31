@@ -5,6 +5,7 @@ import { crearReserva }   from '../../services/reservasService';
 import { useAuth }        from '../../context/AuthContext';
 import LoadingSpinner     from '../../components/common/LoadingSpinner';
 import AlertMessage       from '../../components/common/AlertMessage';
+import { hoyHotel } from '../../utils/fechas';
 
 export default function BuscarHabitaciones() {
   const { user } = useAuth();
@@ -75,7 +76,7 @@ export default function BuscarHabitaciones() {
                 id="buscar-entrada"
                 type="date"
                 className="form-control"
-                min={new Date().toISOString().split('T')[0]}
+                min={hoyHotel()}
                 value={filtros.entrada}
                 onChange={e => setFiltros(p => ({ ...p, entrada: e.target.value }))}
               />
@@ -86,7 +87,7 @@ export default function BuscarHabitaciones() {
                 id="buscar-salida"
                 type="date"
                 className="form-control"
-                min={filtros.entrada || new Date().toISOString().split('T')[0]}
+                min={filtros.entrada || hoyHotel()}
                 value={filtros.salida}
                 onChange={e => setFiltros(p => ({ ...p, salida: e.target.value }))}
               />

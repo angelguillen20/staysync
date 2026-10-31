@@ -1,3 +1,4 @@
+import { lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout         from './components/common/Layout';
@@ -5,29 +6,32 @@ import Layout         from './components/common/Layout';
 import LoginPage        from './pages/LoginPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
-import PerfilPage       from './pages/PerfilPage';
+
+/* Las páginas del Layout se descargan al entrar: un huésped no baja el panel de recepción.
+   El <Suspense> está en Layout, así la barra lateral no parpadea al cambiar de página. */
+const PerfilPage = lazy(() => import('./pages/PerfilPage'));
 
 /* Recepción / Admin */
-import DashboardRecepcion   from './components/recepcion/DashboardRecepcion';
-import HabitacionesRecepcion from './pages/recepcion/HabitacionesRecepcion';
-import ReservasRecepcion    from './pages/recepcion/ReservasRecepcion';
-import HuespedesRecepcion   from './pages/recepcion/HuespedesRecepcion';
-import CheckinRecepcion     from './pages/recepcion/CheckinRecepcion';
-import PagosRecepcion       from './pages/recepcion/PagosRecepcion';
-import UsuariosAdmin        from './pages/recepcion/UsuariosAdmin';
-import DashboardOperaciones from './components/operaciones/DashboardOperaciones';
-import AseoRecepcion        from './pages/recepcion/AseoRecepcion';
-import MarcaHotelAdmin      from './pages/recepcion/MarcaHotelAdmin';
-import HotelesAdmin         from './pages/recepcion/HotelesAdmin';
+const DashboardRecepcion    = lazy(() => import('./components/recepcion/DashboardRecepcion'));
+const HabitacionesRecepcion = lazy(() => import('./pages/recepcion/HabitacionesRecepcion'));
+const ReservasRecepcion     = lazy(() => import('./pages/recepcion/ReservasRecepcion'));
+const HuespedesRecepcion    = lazy(() => import('./pages/recepcion/HuespedesRecepcion'));
+const CheckinRecepcion      = lazy(() => import('./pages/recepcion/CheckinRecepcion'));
+const PagosRecepcion        = lazy(() => import('./pages/recepcion/PagosRecepcion'));
+const UsuariosAdmin         = lazy(() => import('./pages/recepcion/UsuariosAdmin'));
+const DashboardOperaciones  = lazy(() => import('./components/operaciones/DashboardOperaciones'));
+const AseoRecepcion         = lazy(() => import('./pages/recepcion/AseoRecepcion'));
+const MarcaHotelAdmin       = lazy(() => import('./pages/recepcion/MarcaHotelAdmin'));
+const HotelesAdmin          = lazy(() => import('./pages/recepcion/HotelesAdmin'));
 
 /* Huésped */
-import DashboardHuesped   from './pages/huesped/DashboardHuesped';
-import ReservasHuesped    from './pages/huesped/ReservasHuesped';
-import BuscarHabitaciones from './pages/huesped/BuscarHabitaciones';
-import ServiciosHuesped   from './pages/huesped/ServiciosHuesped';
-import PasarelaPago       from './pages/huesped/PasarelaPago';
-import PagoExitoso        from './pages/huesped/PagoExitoso';
-import PortalesHuesped    from './pages/huesped/PortalesHuesped';
+const DashboardHuesped   = lazy(() => import('./pages/huesped/DashboardHuesped'));
+const ReservasHuesped    = lazy(() => import('./pages/huesped/ReservasHuesped'));
+const BuscarHabitaciones = lazy(() => import('./pages/huesped/BuscarHabitaciones'));
+const ServiciosHuesped   = lazy(() => import('./pages/huesped/ServiciosHuesped'));
+const PasarelaPago       = lazy(() => import('./pages/huesped/PasarelaPago'));
+const PagoExitoso        = lazy(() => import('./pages/huesped/PagoExitoso'));
+const PortalesHuesped    = lazy(() => import('./pages/huesped/PortalesHuesped'));
 
 export default function App() {
   return (
