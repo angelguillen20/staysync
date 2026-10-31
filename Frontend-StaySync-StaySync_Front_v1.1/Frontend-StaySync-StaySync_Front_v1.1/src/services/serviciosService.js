@@ -12,3 +12,9 @@ export const actualizarSolicitud = (id, body) => apiClient.patch(`/servicios/sol
 // Tareas de aseo: las genera el sistema con los eventos de reserva
 export const getAseo       = ()   => apiClient.get('/servicios/aseo').then(r => r.data);
 export const completarAseo = (id) => apiClient.patch(`/servicios/aseo/${id}/completar`).then(r => r.data);
+
+// Catálogo del hotel (ADMIN)
+export const getCatalogo        = ()         => apiClient.get('/servicios/catalogo').then(r => r.data);
+export const getCategorias      = ()         => apiClient.get('/servicios/categorias').then(r => r.data);
+export const crearServicio      = (body)     => apiClient.post('/servicios', body).then(r => r.data);
+export const actualizarServicio = (id, body) => apiClient.put(`/servicios/${id}`, body).then(r => r.data);

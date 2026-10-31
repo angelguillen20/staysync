@@ -14,6 +14,16 @@
   --ss-danger:  #dc3545;
   --ss-warning: #efc143;
   --ss-info:    #17a2b8;
+
+  /* Sistema de diseño: la marca la fija cada hotel; esto solo ordena lo neutro */
+  --ss-line:      rgba(34, 32, 22, 0.12);
+  --ss-ink-soft:  #6b6553;
+  --ss-surface:   #ffffff;
+  --ss-radius-sm: 4px;   /* placas, chips */
+  --ss-radius:    10px;  /* tarjetas, tablas */
+  --ss-radius-lg: 14px;  /* modales */
+  --ss-font:      'Onest', 'Segoe UI', system-ui, sans-serif;
+  --ss-font-plate:'Big Shoulders Display', 'Arial Narrow', sans-serif;
 }
 
 /* --- Reset & Base --- */
@@ -23,13 +33,19 @@ body {
   background-color: var(--ss-cream);
   /* --ss-text solo existe si el hotel define un color de texto propio (marca blanca) */
   color: var(--ss-text, var(--ss-dark));
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--ss-font);
+  font-size: 0.95rem;
+  line-height: 1.5;
   min-height: 100vh;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* --- Typography --- */
-h1, h2, h3, h4, h5, h6 { color: var(--ss-dark); font-weight: 600; }
+h1, h2, h3, h4, h5, h6 { color: var(--ss-dark); font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+h2 { font-size: 1.6rem; }
+h4 { font-size: 1.2rem; }
+h5 { font-size: 1.05rem; }
 
 .text-gold   { color: var(--ss-gold) !important; }
 .text-dark-ss{ color: var(--ss-dark) !important; }
@@ -112,12 +128,11 @@ h1, h2, h3, h4, h5, h6 { color: var(--ss-dark); font-weight: 600; }
 }
 .sidebar .nav-link i { font-size: 1.1rem; width: 20px; text-align: center; }
 .sidebar-section-title {
-  color: rgba(255,255,255,0.4);
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  padding: 1rem 1.25rem 0.4rem;
+  display: block;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 1rem 1.25rem 0.35rem;
 }
 
 /* --- Main content with sidebar --- */
@@ -133,10 +148,8 @@ h1, h2, h3, h4, h5, h6 { color: var(--ss-dark); font-weight: 600; }
   background-color: #ffffff;
   border: 1px solid rgba(34,32,22,0.08);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(34,32,22,0.06);
-  transition: box-shadow 0.2s, transform 0.2s;
+  box-shadow: none;
 }
-.card-ss:hover { box-shadow: 0 6px 20px rgba(34,32,22,0.12); transform: translateY(-2px); }
 
 .card-stat {
   border-radius: 12px;
@@ -255,8 +268,95 @@ h1, h2, h3, h4, h5, h6 { color: var(--ss-dark); font-weight: 600; }
 ::-webkit-scrollbar-thumb { background: var(--ss-gold); border-radius: 3px; }
 
 /* --- Animations --- */
+/* Solo un fundido corto al cambiar de página: nada de deslizar cada bloque */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-.fade-in-up { animation: fadeInUp 0.35s ease both; }
+.fade-in-up { animation: fadeInUp 0.18s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* =============================================
+   Sistema de diseño
+   ============================================= */
+
+/* Superficies planas: borde fino en vez de sombra, el radio sigue la jerarquía */
+.card.shadow-sm, .card-ss { box-shadow: none !important; border: 1px solid var(--ss-line) !important; border-radius: var(--ss-radius) !important; }
+.modal-content { border-radius: var(--ss-radius-lg); border: 0; }
+.table > thead th {
+  font-size: 0.8rem; font-weight: 600; color: var(--ss-ink-soft);
+  border-bottom: 1px solid var(--ss-line); white-space: nowrap;
+}
+.table > :not(caption) > * > * { border-bottom-color: var(--ss-line); }
+.text-muted { color: var(--ss-ink-soft) !important; }
+
+/* Estadísticas: planas, el número manda */
+.card-stat { background: var(--ss-surface) !important; color: var(--ss-dark) !important; border: 1px solid var(--ss-line); }
+.card-stat-gold    { border-left: 4px solid var(--ss-gold); }
+.card-stat-dark    { border-left: 4px solid var(--ss-dark); }
+.card-stat-success { border-left: 4px solid var(--ss-success); }
+.card-stat-danger  { border-left: 4px solid var(--ss-danger); }
+.card-stat-warning { border-left: 4px solid #fd7e14; }
+.card-stat-info    { border-left: 4px solid var(--ss-info); }
+.card-stat * { color: inherit; }
+
+/* Foco visible para teclado en todo lo interactivo */
+:focus-visible { outline: 3px solid var(--ss-gold); outline-offset: 2px; }
+.btn:focus-visible { box-shadow: none; }
+
+/* Placa de habitación: el número como en la puerta. Es el único gesto de marca fuerte. */
+.placa {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 3.1rem; padding: 0.15rem 0.55rem;
+  background: var(--ss-dark); color: var(--ss-gold);
+  border-radius: var(--ss-radius-sm);
+  font-family: var(--ss-font-plate); font-weight: 800; font-size: 1.15rem; line-height: 1.25;
+  letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 1px rgba(239,193,67,0.35);
+}
+.placa-sm { min-width: 2.4rem; font-size: 0.95rem; padding: 0 0.4rem; }
+.placa-lg { min-width: 4.2rem; font-size: 1.9rem; padding: 0.2rem 0.75rem; }
+
+/* Cifras grandes (reportes, cuenta) en la misma letra de las placas */
+.cifra { font-family: var(--ss-font-plate); font-weight: 800; font-size: 2.2rem; line-height: 1; font-variant-numeric: tabular-nums; }
+
+/* Fotos: si no hay o no carga, un respaldo con la placa del número */
+.foto { position: relative; overflow: hidden; background: var(--ss-dark); aspect-ratio: 4 / 3; border-radius: var(--ss-radius) var(--ss-radius) 0 0; }
+.foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.foto-respaldo {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.35rem;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 14px, rgba(239,193,67,0.06) 14px 15px),
+    var(--ss-dark);
+  color: rgba(254,248,225,0.7); font-size: 0.8rem;
+}
+.foto .placa { position: absolute; left: 0.6rem; bottom: 0.6rem; }
+
+/* Selector de fotos */
+.subir-foto { border: 1px dashed var(--ss-line); border-radius: var(--ss-radius); padding: 0.75rem; background: var(--ss-surface); }
+.subir-foto-preview { width: 72px; height: 72px; border-radius: var(--ss-radius-sm); object-fit: cover; background: var(--ss-cream); }
+
+/* Calendario de ocupación: habitaciones × días */
+.calendario { overflow-x: auto; border: 1px solid var(--ss-line); border-radius: var(--ss-radius); background: var(--ss-surface); }
+.calendario table { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+.calendario th, .calendario td { border-bottom: 1px solid var(--ss-line); border-right: 1px solid var(--ss-line); padding: 0; height: 2.6rem; }
+.calendario thead th { position: sticky; top: 0; background: var(--ss-surface); z-index: 2; font-size: 0.72rem; font-weight: 500; color: var(--ss-ink-soft); text-align: center; min-width: 2.6rem; padding: 0.3rem 0; }
+.calendario thead th.hoy { color: var(--ss-dark); font-weight: 700; box-shadow: inset 0 -3px 0 var(--ss-gold); }
+.calendario thead th.fin-de-semana, .calendario td.fin-de-semana { background: rgba(254,248,225,0.6); }
+.calendario .col-hab { position: sticky; left: 0; background: var(--ss-surface); z-index: 3; padding: 0 0.6rem; min-width: 5.5rem; text-align: left; }
+.calendario .estadia {
+  display: block; height: 1.9rem; margin: 0.35rem 0; padding: 0 0.45rem;
+  border-radius: var(--ss-radius-sm); font-size: 0.74rem; line-height: 1.9rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; cursor: pointer; border: 0; width: 100%; text-align: left;
+}
+.estadia-PENDIENTE  { background: #8a6508; }
+.estadia-CONFIRMADA { background: #2f6b4f; }
+.estadia-CHECKIN    { background: var(--ss-dark); color: var(--ss-gold) !important; }
+.estadia-CHECKOUT   { background: var(--ss-ink-soft); }
+.estadia-NO_SHOW    { background: #a33a2e; }
+
+/* Cuenta del huésped: líneas tipo boleta */
+.cuenta-linea { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0; border-bottom: 1px dashed var(--ss-line); font-variant-numeric: tabular-nums; }
+.cuenta-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 0.75rem; }

@@ -5,6 +5,7 @@ import { getMisReservas } from '../../services/reservasService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
 import ModalBackdrop  from '../../components/common/ModalBackdrop';
+import Foto           from '../../components/common/Foto';
 
 // Reservas desde las que tiene sentido pedir un servicio (estancia confirmada o en curso)
 const ESTADOS_RESERVA_ELEGIBLES = new Set(['CONFIRMADA', 'CHECKIN']);
@@ -303,7 +304,8 @@ export default function ServiciosHuesped() {
               <div className="row g-3">
                 {items.map((s) => (
                   <div key={s.id} className="col-sm-6 col-lg-4">
-                    <div className="card border-0 h-100" style={{ borderRadius: 12, boxShadow: '0 2px 10px rgba(34,32,22,0.08)' }}>
+                    <div className="card shadow-sm h-100" style={{ overflow: 'hidden' }}>
+                      {s.imagenUrl && <Foto src={s.imagenUrl} alt={s.nombre} />}
                       <div className="card-body p-3 d-flex flex-column">
                         <div className="d-flex justify-content-between align-items-start mb-2 gap-2">
                           <span className="fw-semibold" style={{ color: 'var(--ss-dark)' }}>{s.nombre}</span>
@@ -319,7 +321,7 @@ export default function ServiciosHuesped() {
                         )}
                         <div className="d-flex justify-content-between align-items-center mt-auto">
                           <span className="fw-bold" style={{ color: 'var(--ss-dark)' }}>
-                            ${Number(s.precio ?? 0).toLocaleString('es-CO')}
+                            ${Number(s.precio ?? 0).toLocaleString('es-CL')}
                           </span>
                           <button
                             className="btn btn-ss-dark btn-sm"

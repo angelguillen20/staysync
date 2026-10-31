@@ -21,3 +21,13 @@ export const nochesEntre = (entrada, salida) =>
 
 /* Días desde hoy (del hotel) hasta la fecha: 0 = hoy, negativo = ya pasó. */
 export const diasHasta = (iso) => nochesEntre(hoyHotel(), iso);
+
+/* "YYYY-MM-DD" + n días, sin pasar por UTC. */
+export function sumarDias(iso, n) {
+  const d = parseFecha(iso);
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/* Los n días desde iso (incluido). */
+export const listaDias = (iso, n) => Array.from({ length: n }, (_, i) => sumarDias(iso, i));

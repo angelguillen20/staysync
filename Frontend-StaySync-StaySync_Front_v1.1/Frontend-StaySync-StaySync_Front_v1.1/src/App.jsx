@@ -23,6 +23,9 @@ const DashboardOperaciones  = lazy(() => import('./components/operaciones/Dashbo
 const AseoRecepcion         = lazy(() => import('./pages/recepcion/AseoRecepcion'));
 const MarcaHotelAdmin       = lazy(() => import('./pages/recepcion/MarcaHotelAdmin'));
 const HotelesAdmin          = lazy(() => import('./pages/recepcion/HotelesAdmin'));
+const CalendarioRecepcion   = lazy(() => import('./pages/recepcion/CalendarioRecepcion'));
+const ReportesRecepcion     = lazy(() => import('./pages/recepcion/ReportesRecepcion'));
+const ServiciosAdmin        = lazy(() => import('./pages/recepcion/ServiciosAdmin'));
 
 /* Huésped */
 const DashboardHuesped   = lazy(() => import('./pages/huesped/DashboardHuesped'));
@@ -54,6 +57,7 @@ export default function App() {
             <Route path="/recepcion/pagos"       element={<PagosRecepcion />} />
             <Route path="/recepcion/operaciones" element={<DashboardOperaciones />} />
             <Route path="/recepcion/aseo"        element={<AseoRecepcion />} />
+            <Route path="/recepcion/calendario"  element={<CalendarioRecepcion />} />
           </Route>
         </Route>
 
@@ -62,6 +66,8 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/recepcion/usuarios" element={<UsuariosAdmin />} />
             <Route path="/recepcion/marca"    element={<MarcaHotelAdmin />} />
+            <Route path="/recepcion/servicios" element={<ServiciosAdmin />} />
+            <Route path="/recepcion/reportes" element={<ReportesRecepcion />} />
           </Route>
         </Route>
 

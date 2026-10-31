@@ -41,3 +41,6 @@ export async function updatePerfilPropio(campos) {
 export async function updatePerfil(id, { email, passwordActual, ...campos }) {
   return apiClient.put(`/usuarios/${id}`, { ...campos, passwordActual }).then(r => r.data);
 }
+
+// Huésped sin cuenta que llega a recepción. Devuelve { usuario, passwordTemporal }
+export const registrarHuesped = (body) => apiClient.post('/usuarios/huespedes', body).then(r => r.data);

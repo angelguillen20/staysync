@@ -4,6 +4,7 @@ import { useMarca } from '../../context/ThemeContext';
 import { actualizarMarca } from '../../services/hotelesService';
 import { esColorValido, esLogoValido, problemasDeContraste, variablesDeTema } from '../../theme/hotelTheme';
 import AlertMessage from '../../components/common/AlertMessage';
+import SubirFoto from '../../components/common/SubirFoto';
 
 const COLORES = [
   { clave: 'primary',    label: 'Color principal',  ayuda: 'Barra superior, botones y títulos', defecto: '#222016' },
@@ -82,17 +83,8 @@ export default function MarcaHotelAdmin() {
               disabled={guardando}
             />
 
-            <label htmlFor="marca-logo" className="form-label fw-medium small">
-              URL del logo <span className="text-muted fw-normal">(opcional, https)</span>
-            </label>
-            <input
-              id="marca-logo"
-              className={`form-control mb-1 ${logoInvalido ? 'is-invalid' : ''}`}
-              placeholder="https://..."
-              value={form.logoUrl}
-              onChange={(e) => setForm((p) => ({ ...p, logoUrl: e.target.value }))}
-              disabled={guardando}
-            />
+            <SubirFoto label="Logo (opcional)" carpeta="hoteles" value={form.logoUrl}
+                       onChange={(url) => setForm((p) => ({ ...p, logoUrl: url }))} />
             {logoInvalido && <div className="invalid-feedback d-block">El logo debe ser una URL que empiece con https://</div>}
 
             <div className="row g-3 mt-2">

@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { getHuespedes } from '../../services/usuariosService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
+import ModalHuespedNuevo from '../../components/recepcion/ModalHuespedNuevo';
 
 export default function HuespedesRecepcion() {
   const [huespedes, setHuespedes] = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState('');
   const [busqueda,  setBusqueda]  = useState('');
+  const [nuevo,     setNuevo]     = useState(false);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -48,16 +50,22 @@ export default function HuespedesRecepcion() {
             <i className="bi bi-people me-2" style={{ color: 'var(--ss-gold)' }} />Huéspedes
           </h2>
           <small className="text-muted">
-            {huespedes.length} registrados · {activos} activos
+            {huespedes.length} registrados, {activos} activos
           </small>
         </div>
-        <button
-          className="btn btn-outline-secondary btn-sm"
-          onClick={cargar}
-          disabled={loading}
-        >
-          <i className="bi bi-arrow-clockwise me-1" />Actualizar
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            onClick={cargar}
+            disabled={loading}
+          >
+            <i className="bi bi-arrow-clockwise me-1" />Actualizar
+          </button>
+          <button className="btn btn-ss-dark btn-sm" onClick={() => setNuevo(true)}>
+            <i className="bi bi-person-plus me-1" aria-hidden="true" />Registrar huésped
+          </button>
+        </div>
+        {nuevo && <ModalHuespedNuevo onClose={() => setNuevo(false)} onCreated={cargar} />}
       </div>
 
       <AlertMessage message={error} onClose={() => setError('')} />

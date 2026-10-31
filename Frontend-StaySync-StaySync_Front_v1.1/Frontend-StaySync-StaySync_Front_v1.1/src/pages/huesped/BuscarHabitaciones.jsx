@@ -5,6 +5,7 @@ import { crearReserva }   from '../../services/reservasService';
 import { useAuth }        from '../../context/AuthContext';
 import LoadingSpinner     from '../../components/common/LoadingSpinner';
 import AlertMessage       from '../../components/common/AlertMessage';
+import Foto               from '../../components/common/Foto';
 import { hoyHotel } from '../../utils/fechas';
 
 export default function BuscarHabitaciones() {
@@ -120,15 +121,13 @@ export default function BuscarHabitaciones() {
         <div className="row g-3">
           {habitaciones.map(h => (
             <div key={h.id} className="col-md-6 col-xl-4">
-              <div className="card border-0 shadow-sm h-100">
+              <div className="card border-0 shadow-sm h-100" style={{ overflow: 'hidden' }}>
+                <Foto src={h.imagenPrincipal} alt={`Habitación ${h.numero}`} numero={h.numero} />
                 <div className="card-body">
                   <div className="d-flex justify-content-between align-items-start mb-2">
-                    <h5 className="fw-bold mb-0">Habitación {h.numero}</h5>
+                    <h5 className="fw-bold mb-0">{h.tipoNombre ?? 'Habitación'}</h5>
                     <span className="badge bg-success">Disponible</span>
                   </div>
-                  <p className="text-muted small mb-1">
-                    <i className="bi bi-tag me-1" />{h.tipo}
-                  </p>
                   <p className="text-muted small mb-1">
                     <i className="bi bi-people me-1" />Capacidad: {h.capacidad} personas
                   </p>
@@ -137,7 +136,7 @@ export default function BuscarHabitaciones() {
                   )}
                   <div className="d-flex justify-content-between align-items-center mt-3">
                     <span className="fw-bold fs-5" style={{ color: 'var(--ss-dark)' }}>
-                      ${h.precioPorNoche?.toLocaleString()}
+                      ${h.precioPorNoche?.toLocaleString('es-CL')}
                       <small className="fw-normal text-muted fs-6">/noche</small>
                     </span>
                     <button

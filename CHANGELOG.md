@@ -44,6 +44,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - GitHub Actions CI/CD: tests, imágenes en ECR, despliegue en ECS Fargate y frontend en S3
 - Reservas: las PENDIENTE sin pagar se cancelan a las 24 h y liberan la habitación; el confirmado que no llega pasa a NO_SHOW
 - Frontend: las páginas se cargan bajo demanda (bundle inicial 388 KB → 249 KB)
+- Cuenta del huésped: estadía + servicios consumidos − pagos; recepción cobra el saldo y el check-out exige la cuenta saldada
+- Catálogo de servicios administrable por el hotel (con foto); 6 categorías precargadas
+- Fotos: logo del hotel, galería por habitación (con portada) y foto de servicio, subidas a `media/` del bucket del frontend
+- Recepción: registrar huéspedes sin cuenta (walk-in) con contraseña temporal y modificar fechas/habitación de una reserva
+- Calendario de ocupación (habitaciones × días) y reportes mensuales (ocupación, ingresos, tarifa promedio, RevPAR, CSV)
+- Diseño: tipografía Onest, placa de número de habitación, superficies planas y menú agrupado por tarea
 
 ### Cambiado
 - Mensajería asíncrona: RabbitMQ reemplazado por SNS + SQS con DLQ (LocalStack en local)
@@ -60,6 +66,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - Recepción: la reserva manual mandaba `fuente: DIRECTA` y sin huésped, y nunca se creaba
 - Frontend: las fechas se mostraban un día antes (`new Date('YYYY-MM-DD')` es UTC)
 - BFF: el detalle de reserva leía `codigoReserva` y `precio` en vez de `codigo` y `precioPorNoche`
+- Recepción solo veía las 10 reservas más recientes (el BFF no pedía `size`)
+- Búsqueda de habitaciones y reserva manual mostraban el tipo vacío (`tipo` en vez de `tipoNombre`)
 
 ### Eliminado
 - `docker-compose.prod.yml` (despliegue en EC2) y `scripts/redeploy.ps1`: el despliegue lo hace el CI
