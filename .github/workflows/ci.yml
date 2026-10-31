@@ -154,12 +154,12 @@ jobs:
           SVC: ${{ matrix.service }}
           IMAGE: ${{ steps.image.outputs.uri }}
         run: |
-          aws ecs describe-task-definition --task-definition staysync-$SVC --query taskDefinition \
-            | jq --arg IMG "$IMAGE" '.containerDefinitions[0].image = $IMG
-                | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
-                      .compatibilities, .registeredAt, .registeredBy)' > td.json
+          # LabRole ya no puede leer Secrets Manager (SCP de AWS Academy): el script los lee con
+          # estas credenciales y los pasa como variables de entorno, enmascarados en el log
+          python3 scripts/deploy/task_definition.py "$SVC" "$IMAGE" td.json
           ARN=$(aws ecs register-task-definition --cli-input-json file://td.json \
                   --query taskDefinition.taskDefinitionArn --output text)
+          rm td.json
           echo "Nueva task definition: $ARN"
           aws ecs update-service --cluster $ECS_CLUSTER --service $SVC --task-definition $ARN > /dev/null
           aws ecs wait services-stable --cluster $ECS_CLUSTER --services $SVC

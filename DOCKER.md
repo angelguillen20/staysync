@@ -222,7 +222,15 @@ Para que los eventos funcionen en AWS, crea el topic y las colas con
 `scripts/mensajeria/crear-mensajeria.sh` y agrega a las task definitions de los servicios
 con mensajería `EVENTOS_ENABLED=true`, `EVENTOS_TOPIC_ARN` y `AWS_REGION`.
 
-Las variables sensibles se pasan vía **AWS Secrets Manager** o **Parameter Store**, nunca en el código.
+Las variables sensibles se guardan en **AWS Secrets Manager**, nunca en el código.
+
+> **AWS Academy (desde el 30/10/2026):** una SCP de la organización prohíbe a `LabRole` leer
+> Secrets Manager, así que ECS no puede inyectar los `secrets` de la tarea. El deploy del CI
+> (`scripts/deploy/task_definition.py`) los lee con las credenciales del alumno y los pasa como
+> variables de entorno de la tarea; el mapeo variable → secreto queda en `dockerLabels`
+> (`staysync.secreto.*`). Para agregar un secreto nuevo, agrega la etiqueta
+> `staysync.secreto.<VARIABLE>` con el `valueFrom` en la task definition. La clave de RDS rota
+> cada 7 días: si un servicio no conecta a la base después de una rotación, vuelve a desplegar.
 
 ### Variables de entorno en AWS (Secrets Manager)
 
