@@ -11,8 +11,8 @@ import { fmtFecha } from '../../utils/fechas';
 const ESTADO_META = {
   DISPONIBLE:       { label: 'Disponible',        badge: 'bg-success',           icon: 'bi-check-circle-fill',  color: '#198754' },
   OCUPADA:          { label: 'Ocupada',           badge: 'bg-danger',            icon: 'bi-person-fill',        color: '#dc3545' },
-  EN_LIMPIEZA:      { label: '🧹 En limpieza',   badge: 'bg-warning text-dark', icon: 'bi-brush',              color: '#e6a817' },
-  MANTENIMIENTO:    { label: '🔧 Mantenimiento', badge: 'bg-secondary',         icon: 'bi-tools',              color: '#6c757d' },
+  EN_LIMPIEZA:      { label: 'En limpieza',   badge: 'bg-warning text-dark', icon: 'bi-brush',              color: '#e6a817' },
+  MANTENIMIENTO:    { label: 'Mantenimiento', badge: 'bg-secondary',         icon: 'bi-tools',              color: '#6c757d' },
   FUERA_DE_SERVICIO:{ label: 'Fuera de servicio', badge: 'bg-dark',              icon: 'bi-x-octagon-fill',     color: '#343a40' },
 };
 
@@ -173,7 +173,7 @@ export default function DashboardRecepcion() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
-            <i className="bi bi-grid-3x3-gap-fill me-2" style={{ color: 'var(--ss-gold)' }} />Dashboard Recepción
+            <i className="bi bi-grid-3x3-gap-fill me-2" style={{ color: 'var(--ss-gold)' }} />Panel de recepción
           </h2>
           <small className="text-muted">Vista general en tiempo real</small>
         </div>
@@ -191,7 +191,7 @@ export default function DashboardRecepcion() {
       <AlertMessage message={error} onClose={() => setError('')} />
 
       {/* ── Stats habitaciones ── */}
-      <p className="small fw-semibold text-muted text-uppercase mb-2" style={{ letterSpacing: '0.06em' }}>
+      <p className="small fw-semibold text-muted mb-2">
         Estado de habitaciones
       </p>
       <div className="row g-3 mb-4">
@@ -204,7 +204,7 @@ export default function DashboardRecepcion() {
       {/* ── Stats reservas (del dashboard service) ── */}
       {stats && (
         <>
-          <p className="small fw-semibold text-muted text-uppercase mb-2" style={{ letterSpacing: '0.06em' }}>
+          <p className="small fw-semibold text-muted mb-2">
             Estado de reservas
           </p>
           <div className="row g-3 mb-4">
@@ -259,7 +259,7 @@ export default function DashboardRecepcion() {
 
       {/* ── Filtros habitaciones ── */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-        <p className="small fw-semibold text-muted text-uppercase mb-0" style={{ letterSpacing: '0.06em' }}>
+        <p className="small fw-semibold text-muted mb-0">
           Mapa de habitaciones
         </p>
         <div className="d-flex flex-wrap gap-2">
