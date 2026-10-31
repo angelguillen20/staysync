@@ -5,6 +5,7 @@ import LoadingSpinner                     from '../common/LoadingSpinner';
 import AlertMessage                       from '../common/AlertMessage';
 import WidgetClima                        from '../common/WidgetClima';
 import ModalReserva                       from './ModalReserva';
+import Placa                              from '../common/Placa';
 import { fmtFecha } from '../../utils/fechas';
 
 const ESTADO_META = {
@@ -72,11 +73,9 @@ function HabitacionCard({ hab, onCambiar, updating }) {
       >
         <div className="card-body p-3">
           <div className="d-flex justify-content-between align-items-start mb-2">
-            <div>
-              <span className="fw-bold" style={{ fontSize: '1.1rem', color: 'var(--ss-dark)' }}>
-                Hab. {hab.numero}
-              </span>
-              {hab.piso && <small className="text-muted ms-1">· Piso {hab.piso}</small>}
+            <div className="d-flex align-items-center gap-2">
+              <Placa numero={hab.numero} />
+              {hab.piso && <small className="text-muted">Piso {hab.piso}</small>}
             </div>
             <span className={`badge ${meta.badge} d-flex align-items-center gap-1`} style={{ fontSize: '0.7rem' }}>
               <i className={`bi ${meta.icon}`} />{meta.label}
@@ -244,10 +243,10 @@ export default function DashboardRecepcion() {
                   return (
                     <tr key={res.id ?? i}>
                       <td className="ps-3 text-muted">#{res.id}</td>
-                      <td className="fw-semibold">Hab. {res.habitacionNumero ?? res.habitacionId ?? '—'}</td>
+                      <td><Placa numero={habitaciones.find(h => h.id === res.habitacionId)?.numero ?? res.habitacionId} tamano="sm" /></td>
                       <td>{fmtFecha(res.fechaEntrada)}</td>
                       <td>{fmtFecha(res.fechaSalida)}</td>
-                      <td>{res.precioTotal ? `$${Number(res.precioTotal).toLocaleString('es-CO')}` : '—'}</td>
+                      <td>{res.precioTotal ? `$${Number(res.precioTotal).toLocaleString('es-CL')}` : '—'}</td>
                       <td><span className={`badge ${em.badge}`}>{em.label}</span></td>
                     </tr>
                   );

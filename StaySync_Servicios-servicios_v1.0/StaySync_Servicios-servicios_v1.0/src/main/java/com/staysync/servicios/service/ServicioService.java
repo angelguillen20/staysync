@@ -1,16 +1,20 @@
 package com.staysync.servicios.service;
 
+import com.staysync.servicios.dto.request.ServicioRequest;
 import com.staysync.servicios.dto.request.SolicitudServicioRequest;
 import com.staysync.servicios.dto.response.ServicioResponse;
 import com.staysync.servicios.dto.response.SolicitudServicioResponse;
 import com.staysync.servicios.exception.ServicioNotFoundException;
+import com.staysync.servicios.model.CategoriaServicio;
 import com.staysync.servicios.model.Servicio;
 import com.staysync.servicios.model.SolicitudServicio;
 import com.staysync.servicios.model.SolicitudServicio.EstadoSolicitud;
+import com.staysync.servicios.repository.CategoriaServicioRepository;
 import com.staysync.servicios.repository.ServicioRepository;
 import com.staysync.servicios.repository.SolicitudServicioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,10 +30,47 @@ public class ServicioService {
 
     private final ServicioRepository servicioRepository;
     private final SolicitudServicioRepository solicitudRepository;
+    private final CategoriaServicioRepository categoriaRepository;
 
     public List<ServicioResponse> listarDisponibles() {
         return servicioRepository.findByDisponibleTrue().stream()
                 .map(this::toResponse).collect(Collectors.toList());
+    }
+
+    /** Catálogo completo del hotel, también los no disponibles: lo administra el ADMIN. */
+    public List<ServicioResponse> listarCatalogo() {
+        return servicioRepository.findAll(Sort.by("nombre")).stream()
+                .map(this::toResponse).collect(Collectors.toList());
+    }
+
+    public List<CategoriaServicio> listarCategorias() {
+        return categoriaRepository.findByActivaTrueOrderByNombre();
+    }
+
+    @Transactional
+    public ServicioResponse crear(ServicioRequest request) {
+        return toResponse(servicioRepository.save(aplicar(new Servicio(), request)));
+    }
+
+    /**
+     * Para retirar un servicio se marca no disponible: las solicitudes ya hechas lo siguen
+     * referenciando (y se cobran en la cuenta del huésped).
+     */
+    @Transactional
+    public ServicioResponse actualizar(Long id, ServicioRequest request) {
+        return toResponse(servicioRepository.save(aplicar(findOrThrow(id), request)));
+    }
+
+    private Servicio aplicar(Servicio s, ServicioRequest r) {
+        s.setCategoria(categoriaRepository.findById(r.getCategoriaId())
+                .orElseThrow(() -> new IllegalArgumentException("La categoría " + r.getCategoriaId() + " no existe")));
+        s.setNombre(r.getNombre().trim());
+        s.setDescripcion(r.getDescripcion());
+        s.setPrecio(r.getPrecio());
+        s.setDisponible(!Boolean.FALSE.equals(r.getDisponible()));
+        s.setRequiereReserva(Boolean.TRUE.equals(r.getRequiereReserva()));
+        s.setImagenUrl(r.getImagenUrl() == null || r.getImagenUrl().isBlank() ? null : r.getImagenUrl());
+        return s;
     }
 
     public ServicioResponse obtenerPorId(Long id) {
@@ -95,6 +136,7 @@ public class ServicioService {
                 .precio(s.getPrecio())
                 .disponible(s.getDisponible())
                 .requiereReserva(s.getRequiereReserva())
+                .imagenUrl(s.getImagenUrl())
                 .createdAt(s.getCreatedAt())
                 .build();
     }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { parseFecha, fmtFecha, hoyHotel, nochesEntre, diasHasta } from '../utils/fechas';
+import { parseFecha, fmtFecha, hoyHotel, nochesEntre, diasHasta, sumarDias, listaDias } from '../utils/fechas';
 
 describe('fechas de reserva', () => {
   afterEach(() => vi.useRealTimers());
@@ -17,6 +17,13 @@ describe('fechas de reserva', () => {
   it('cuenta noches, también cruzando el cambio de horario', () => {
     expect(nochesEntre('2026-10-30', '2026-11-02')).toBe(3);
     expect(nochesEntre('2026-09-05', '2026-09-07')).toBe(2);
+  });
+
+  it('suma días cruzando fin de mes, de año y el cambio de horario', () => {
+    expect(sumarDias('2026-10-30', 3)).toBe('2026-11-02');
+    expect(sumarDias('2026-12-31', 1)).toBe('2027-01-01');
+    expect(sumarDias('2026-09-05', 2)).toBe('2026-09-07');
+    expect(listaDias('2026-02-27', 3)).toEqual(['2026-02-27', '2026-02-28', '2026-03-01']);
   });
 
   it('"hoy" es el día del hotel aunque en UTC ya sea mañana', () => {

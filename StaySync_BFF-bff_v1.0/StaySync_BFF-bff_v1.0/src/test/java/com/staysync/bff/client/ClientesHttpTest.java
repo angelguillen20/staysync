@@ -165,7 +165,7 @@ class ClientesHttpTest {
     @DisplayName("ReservasClient llama a los endpoints de reservas-service")
     void reservas() {
         ReservasClient c = new ReservasClient(restTemplate, services);
-        esperarConToken(HttpMethod.GET, "http://reservas/api/v1/reservas");
+        esperarConToken(HttpMethod.GET, "http://reservas/api/v1/reservas?size=500");
         esperarConToken(HttpMethod.GET, "http://reservas/api/v1/reservas/hoy");
         esperarConToken(HttpMethod.GET, "http://reservas/api/v1/reservas/9");
         server.expect(requestTo(startsWith("http://reservas/api/v1/reservas/usuario/7")))

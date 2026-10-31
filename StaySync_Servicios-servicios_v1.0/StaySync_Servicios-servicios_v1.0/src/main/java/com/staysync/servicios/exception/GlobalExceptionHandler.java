@@ -22,6 +22,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), req);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, WebRequest req) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req);
+    }
+
     @ExceptionHandler(ReservaNoActivaException.class)
     public ResponseEntity<ErrorResponse> handleReservaNoActiva(ReservaNoActivaException ex, WebRequest req) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req);

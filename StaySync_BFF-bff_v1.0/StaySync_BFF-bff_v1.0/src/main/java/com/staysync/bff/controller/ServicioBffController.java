@@ -5,6 +5,7 @@ import com.staysync.bff.security.AccesoHuesped;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +27,36 @@ public class ServicioBffController {
     public ResponseEntity<Object> listarDisponibles(
             @RequestHeader("Authorization") String authHeader) {
         return serviciosClient.listarDisponibles(authHeader);
+    }
+
+    @Operation(summary = "Catálogo completo del hotel, incluidos los no disponibles")
+    @GetMapping("/catalogo")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Object> catalogo(@RequestHeader("Authorization") String authHeader) {
+        return serviciosClient.reenviar(authHeader, HttpMethod.GET, "/api/v1/servicios/catalogo", null);
+    }
+
+    @Operation(summary = "Categorías de servicios")
+    @GetMapping("/categorias")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Object> categorias(@RequestHeader("Authorization") String authHeader) {
+        return serviciosClient.reenviar(authHeader, HttpMethod.GET, "/api/v1/servicios/categorias", null);
+    }
+
+    @Operation(summary = "Agregar un servicio al catálogo")
+    @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Object> crear(@RequestHeader("Authorization") String authHeader,
+                                        @RequestBody Object body) {
+        return serviciosClient.reenviar(authHeader, HttpMethod.POST, "/api/v1/servicios", body);
+    }
+
+    @Operation(summary = "Editar un servicio (disponible=false lo retira)")
+    @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Object> actualizar(@RequestHeader("Authorization") String authHeader,
+                                             @PathVariable Long id, @RequestBody Object body) {
+        return serviciosClient.reenviar(authHeader, HttpMethod.PUT, "/api/v1/servicios/" + id, body);
     }
 
     @Operation(summary = "Listar servicios por categoría")

@@ -1,6 +1,7 @@
 package com.staysync.habitaciones.controller;
 
 import com.staysync.habitaciones.dto.request.CrearHabitacionRequest;
+import com.staysync.habitaciones.dto.request.ImagenRequest;
 import com.staysync.habitaciones.dto.response.HabitacionResponse;
 import com.staysync.habitaciones.model.Habitacion.EstadoHabitacion;
 import com.staysync.habitaciones.service.HabitacionService;
@@ -73,6 +74,19 @@ public class HabitacionController {
                 java.util.Arrays.toString(EstadoHabitacion.values()));
         }
         return ResponseEntity.ok(habitacionService.cambiarEstado(id, estado));
+    }
+
+    @PostMapping("/{id}/imagenes")
+    @Operation(summary = "Agregar una foto a la habitación (la primera queda como portada)")
+    public ResponseEntity<HabitacionResponse> agregarImagen(@PathVariable Long id,
+                                                            @Valid @RequestBody ImagenRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(habitacionService.agregarImagen(id, request));
+    }
+
+    @DeleteMapping("/{id}/imagenes/{imagenId}")
+    @Operation(summary = "Quitar una foto de la habitación")
+    public ResponseEntity<HabitacionResponse> eliminarImagen(@PathVariable Long id, @PathVariable Long imagenId) {
+        return ResponseEntity.ok(habitacionService.eliminarImagen(id, imagenId));
     }
 
     @DeleteMapping("/{id}")

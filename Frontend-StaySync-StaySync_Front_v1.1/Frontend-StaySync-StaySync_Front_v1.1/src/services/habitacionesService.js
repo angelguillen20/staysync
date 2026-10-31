@@ -14,3 +14,7 @@ export const getTiposHabitacion = () => apiClient.get('/habitaciones/tipos').the
 export const getAmenidades      = () => apiClient.get('/habitaciones/amenidades').then(r => r.data);
 export const crearHabitacion    = (body) => apiClient.post('/habitaciones', body).then(r => r.data);
 export const desactivarHabitacion = (id) => apiClient.delete(`/habitaciones/${id}`).then(r => r.data);
+
+// Fotos (ADMIN). body: { url, esPrincipal }
+export const agregarImagen  = (id, body)     => apiClient.post(`/habitaciones/${id}/imagenes`, body).then(r => r.data);
+export const eliminarImagen = (id, imagenId) => apiClient.delete(`/habitaciones/${id}/imagenes/${imagenId}`).then(r => r.data);

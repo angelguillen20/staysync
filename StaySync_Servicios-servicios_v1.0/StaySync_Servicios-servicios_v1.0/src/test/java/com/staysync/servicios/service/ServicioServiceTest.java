@@ -1,6 +1,8 @@
 package com.staysync.servicios.service;
 
+import com.staysync.servicios.dto.request.ServicioRequest;
 import com.staysync.servicios.dto.request.SolicitudServicioRequest;
+import com.staysync.servicios.repository.CategoriaServicioRepository;
 import com.staysync.servicios.dto.response.ServicioResponse;
 import com.staysync.servicios.dto.response.SolicitudServicioResponse;
 import com.staysync.servicios.exception.ServicioNotFoundException;
@@ -28,6 +30,7 @@ class ServicioServiceTest {
 
     @Mock private ServicioRepository servicioRepository;
     @Mock private SolicitudServicioRepository solicitudRepository;
+    @Mock private CategoriaServicioRepository categoriaRepository;
 
     @InjectMocks private ServicioService servicioService;
 
@@ -213,5 +216,57 @@ class ServicioServiceTest {
                 .isInstanceOf(ServicioNotFoundException.class);
 
         verify(solicitudRepository, never()).save(any());
+    }
+
+    // ── CATÁLOGO (ADMIN) ──────────────────────────────────────────────────────
+
+    private static ServicioRequest servicioRequest(Long categoriaId) {
+        ServicioRequest r = new ServicioRequest();
+        r.setCategoriaId(categoriaId);
+        r.setNombre("  Traslado aeropuerto ");
+        r.setPrecio(BigDecimal.valueOf(25000));
+        r.setImagenUrl("/media/staysync-demo/servicios/x.webp");
+        return r;
+    }
+
+    @Test
+    @DisplayName("crear() - agrega el servicio con su categoría y foto")
+    void creaServicio() {
+        when(categoriaRepository.findById(1L)).thenReturn(Optional.of(categoria));
+        when(servicioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ServicioResponse r = servicioService.crear(servicioRequest(1L));
+
+        assertThat(r.getNombre()).isEqualTo("Traslado aeropuerto");
+        assertThat(r.getCategoriaNombre()).isEqualTo("Spa");
+        assertThat(r.getImagenUrl()).isEqualTo("/media/staysync-demo/servicios/x.webp");
+        assertThat(r.getDisponible()).isTrue();
+    }
+
+    @Test
+    @DisplayName("crear() - una categoría inexistente es un error del cliente (400), no se guarda nada")
+    void rechazaCategoriaInexistente() {
+        when(categoriaRepository.findById(9L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> servicioService.crear(servicioRequest(9L)))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(servicioRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("actualizar() - retirar un servicio lo deja no disponible sin borrarlo")
+    void retiraServicio() {
+        ServicioRequest r = servicioRequest(1L);
+        r.setDisponible(false);
+        r.setImagenUrl(" ");
+        when(servicioRepository.findById(1L)).thenReturn(Optional.of(servicio));
+        when(categoriaRepository.findById(1L)).thenReturn(Optional.of(categoria));
+        when(servicioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ServicioResponse resp = servicioService.actualizar(1L, r);
+
+        assertThat(resp.getDisponible()).isFalse();
+        assertThat(resp.getImagenUrl()).isNull();
+        verify(servicioRepository, never()).delete(any());
     }
 }

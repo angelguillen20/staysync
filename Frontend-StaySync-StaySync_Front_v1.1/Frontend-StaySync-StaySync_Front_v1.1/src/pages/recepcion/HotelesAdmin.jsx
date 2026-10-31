@@ -4,6 +4,7 @@ import { crearHotel } from '../../services/hotelesService';
 import { esColorValido, esLogoValido, esSlugValido, problemasDeContraste } from '../../theme/hotelTheme';
 import AlertMessage from '../../components/common/AlertMessage';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import SubirFoto from '../../components/common/SubirFoto';
 
 const COLORES = [
   { clave: 'primary',    label: 'Principal', defecto: '#222016' },
@@ -161,11 +162,9 @@ export default function HotelesAdmin() {
                 </small>
               </div>
               <div className="col-12">
-                <label htmlFor="hotel-logo" className="form-label small fw-medium">
-                  URL del logo <span className="text-muted fw-normal">(opcional, https)</span>
-                </label>
-                <input id="hotel-logo" className={`form-control ${logoInvalido ? 'is-invalid' : ''}`} placeholder="https://..."
-                       value={form.logoUrl} onChange={(e) => setCampo('logoUrl', e.target.value)} disabled={guardando} />
+                <SubirFoto label="Logo (opcional)" carpeta="hoteles" value={form.logoUrl}
+                           onChange={(url) => setCampo('logoUrl', url)} />
+                {logoInvalido && <small className="text-danger">El logo debe ser una URL que empiece con https://</small>}
               </div>
               {COLORES.map((c) => (
                 <div key={c.clave} className="col-6 col-md-3">

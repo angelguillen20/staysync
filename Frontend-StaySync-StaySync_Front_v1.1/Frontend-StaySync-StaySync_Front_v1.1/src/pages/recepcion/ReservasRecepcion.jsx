@@ -4,6 +4,9 @@ import { getHabitaciones } from '../../services/habitacionesService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
 import ModalReserva   from '../../components/recepcion/ModalReserva';
+import ModalModificarReserva from '../../components/recepcion/ModalModificarReserva';
+import ModalCuenta    from '../../components/recepcion/ModalCuenta';
+import Placa          from '../../components/common/Placa';
 import { fmtFecha, diasHasta } from '../../utils/fechas';
 
 const ESTADO_BADGE = {
@@ -30,6 +33,9 @@ const TRANSICION_LABEL = {
   CHECKOUT:   'Check-out',
   CANCELADA:  'Cancelar',
 };
+
+/* Solo se cambian fechas/habitación antes de que empiece la estadía */
+const MODIFICABLES = ['PENDIENTE', 'CONFIRMADA'];
 
 /* Estados cerrados: ya no admiten acciones y no se listan aquí */
 const CERRADAS = ['CANCELADA', 'CHECKOUT', 'NO_SHOW'];
@@ -61,6 +67,8 @@ export default function ReservasRecepcion() {
   const [modalOpen, setModalOpen] = useState(false);
   const [busqueda,  setBusqueda]  = useState('');
   const [sortConfig, setSortConfig] = useState({ campo: 'fechaEntrada', dir: 'asc' });
+  const [modificando, setModificando] = useState(null);
+  const [cuenta,      setCuenta]      = useState(null);
 
   const cargar = async () => {
     setLoading(true);
@@ -88,6 +96,11 @@ export default function ReservasRecepcion() {
   };
 
   const handleCambiarEstado = async (id, estado) => {
+    // El check-out pasa por la cuenta: con saldo pendiente el BFF no lo permite
+    if (estado === 'CHECKOUT') {
+      setCuenta(reservas.find(r => r.id === id));
+      return;
+    }
     setUpdating(id + estado);
     try {
       await cambiarEstadoReserva(id, { estado });
@@ -218,7 +231,7 @@ export default function ReservasRecepcion() {
                       <div className="fw-medium small">{r.codigo ?? '—'}</div>
                       <div className="text-muted" style={{ fontSize: '0.72rem' }}>{r.huespedNombre || `Usr. #${r.usuarioId}`}</div>
                     </td>
-                    <td className="fw-medium">Hab. {r.habitacionNumero}</td>
+                    <td><Placa numero={r.habitacionNumero} tamano="sm" /></td>
                     <td>{fmtFecha(r.fechaEntrada)}</td>
                     <td>{fmtFecha(r.fechaSalida)}</td>
                     <td>{r.numHuespedes ?? '—'}</td>
@@ -244,6 +257,14 @@ export default function ReservasRecepcion() {
                             }
                           </button>
                         ))}
+                        {MODIFICABLES.includes(r.estado) && (
+                          <button className="btn btn-sm btn-outline-secondary" style={{ fontSize: '0.72rem' }} onClick={() => setModificando(r)}>
+                            Modificar
+                          </button>
+                        )}
+                        <button className="btn btn-sm btn-outline-secondary" style={{ fontSize: '0.72rem' }} onClick={() => setCuenta(r)}>
+                          Cuenta
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -259,6 +280,21 @@ export default function ReservasRecepcion() {
         onClose={() => setModalOpen(false)}
         onCreated={cargar}
       />
+      {modificando && (
+        <ModalModificarReserva reserva={modificando} onClose={() => setModificando(null)} onSaved={cargar} />
+      )}
+      {cuenta && (
+        <ModalCuenta
+          reserva={cuenta}
+          onClose={() => setCuenta(null)}
+          onCheckout={cuenta.estado === 'CHECKIN'
+            ? async () => {
+                await cambiarEstadoReserva(cuenta.id, { estado: 'CHECKOUT' });
+                setReservas(prev => prev.map(x => x.id === cuenta.id ? { ...x, estado: 'CHECKOUT' } : x));
+              }
+            : undefined}
+        />
+      )}
     </div>
   );
 }

@@ -17,5 +17,6 @@ public class ServicioResponse {
     private BigDecimal precio;
     private Boolean disponible;
     private Boolean requiereReserva;
+    private String imagenUrl;
     private LocalDateTime createdAt;
 }

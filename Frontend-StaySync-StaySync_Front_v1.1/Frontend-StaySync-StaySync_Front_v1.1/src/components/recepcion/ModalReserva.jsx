@@ -3,6 +3,7 @@ import { getHabitaciones } from '../../services/habitacionesService';
 import { crearReserva }    from '../../services/reservasService';
 import { getHuespedes }    from '../../services/usuariosService';
 import AlertMessage        from '../common/AlertMessage';
+import ModalHuespedNuevo   from './ModalHuespedNuevo';
 import { hoyHotel } from '../../utils/fechas';
 
 const EMPTY = {
@@ -24,6 +25,14 @@ export default function ModalReserva({ show, onClose, onCreated }) {
   const [huespedes, setHuespedes] = useState([]);
   const [saving,    setSaving]    = useState(false);
   const [error,     setError]     = useState('');
+  const [nuevoHuesped, setNuevoHuesped] = useState(false);
+
+  // El huésped recién registrado queda elegido en el formulario
+  const huespedCreado = (u) => {
+    if (!u?.id) return;
+    setHuespedes(prev => [...prev, u]);
+    setForm(p => ({ ...p, usuarioId: String(u.id) }));
+  };
 
   useEffect(() => {
     if (show) {
@@ -103,7 +112,10 @@ export default function ModalReserva({ show, onClose, onCreated }) {
                     ))}
                   </select>
                   <small className="text-muted">
-                    ¿No aparece? El huésped crea su cuenta desde el portal; le llegará el correo de la reserva.
+                    ¿No aparece?{' '}
+                    <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => setNuevoHuesped(true)}>
+                      Registrar huésped nuevo
+                    </button>
                   </small>
                 </div>
 
@@ -215,6 +227,7 @@ export default function ModalReserva({ show, onClose, onCreated }) {
           </div>
         </div>
       </div>
+      {nuevoHuesped && <ModalHuespedNuevo onClose={() => setNuevoHuesped(false)} onCreated={huespedCreado} />}
     </div>
   );
 }

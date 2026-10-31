@@ -3,6 +3,7 @@ package com.staysync.reservas.service;
 import com.staysync.eventos.Outbox;
 import com.staysync.eventos.TiposEvento;
 import com.staysync.reservas.dto.request.CrearReservaRequest;
+import com.staysync.reservas.dto.request.ModificarReservaRequest;
 import com.staysync.reservas.dto.response.ReservaResponse;
 import com.staysync.reservas.exception.*;
 import com.staysync.reservas.model.HuespedAdicional;
@@ -52,6 +53,7 @@ public class ReservaService {
     private static final long       HORAS_RETENCION_SIN_PAGO = 24;
     /** El huésped que no llega puede hacer check-in hasta el check-out (12:00) del día siguiente. */
     private static final long       HORAS_GRACIA_NO_SHOW    = 12;
+    private static final long       MAX_DIAS_RANGO          = 400;
     private static final DateTimeFormatter FMT_LIMITE =
             DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm z");
 
@@ -70,11 +72,7 @@ public class ReservaService {
      */
     @Transactional
     public ReservaResponse crear(CrearReservaRequest request) {
-        long noches = request.getFechaSalida().toEpochDay() - request.getFechaEntrada().toEpochDay();
-        if (noches <= 0) throw new IllegalArgumentException("La fecha de salida debe ser posterior a la de entrada");
-        if (request.getFechaEntrada().isBefore(LocalDate.now(ZONA_HOTEL))) {
-            throw new IllegalArgumentException("La fecha de entrada no puede ser en el pasado");
-        }
+        validarFechas(request.getFechaEntrada(), request.getFechaSalida());
 
         boolean conflicto = reservaRepository.existeConflicto(
                 request.getHabitacionId(), request.getFechaEntrada(), request.getFechaSalida());
@@ -82,19 +80,8 @@ public class ReservaService {
             throw new HabitacionNoDisponibleException(request.getHabitacionId());
         }
 
-        Map<String, Object> habitacion = obtenerDatosHabitacion(request.getHabitacionId());
-        // Sin la habitación no hay precio ni capacidad: mejor rechazar que cobrar un precio inventado
-        if (habitacion == null || habitacion.get("precioPorNoche") == null) {
-            throw new ServicioNoDisponibleException("habitaciones");
-        }
-
-        if (habitacion.get("capacidad") instanceof Number cap && request.getNumHuespedes() > cap.intValue()) {
-            throw new IllegalArgumentException(
-                "La habitación tiene capacidad máxima de " + cap.intValue() + " huéspedes. Solicitados: " + request.getNumHuespedes());
-        }
-
-        java.math.BigDecimal precioPorNoche = new java.math.BigDecimal(habitacion.get("precioPorNoche").toString());
-        java.math.BigDecimal precioTotal = precioPorNoche.multiply(java.math.BigDecimal.valueOf(noches));
+        java.math.BigDecimal precioTotal = precioDeEstadia(request.getHabitacionId(),
+                request.getFechaEntrada(), request.getFechaSalida(), request.getNumHuespedes());
 
         Reserva reserva = Reserva.builder()
                 .codigo(generarCodigo())
@@ -131,6 +118,71 @@ public class ReservaService {
         log.info("Reserva creada: {} con {} huéspedes adicionales",
                 guardada.getCodigo(), guardada.getHuespedesAdicionales().size());
         return toResponse(guardada);
+    }
+
+    /**
+     * Cambia fechas y/o habitación de una reserva que aún no empieza (PENDIENTE o CONFIRMADA).
+     * El precio se recalcula: si ya estaba pagada, la diferencia queda como saldo en la cuenta del
+     * huésped. Las noches se liberan y se vuelven a bloquear en la misma transacción, así que si
+     * otra reserva tomó alguna, la modificación se rechaza y la reserva queda como estaba.
+     */
+    @Transactional
+    public ReservaResponse modificar(Long id, ModificarReservaRequest request) {
+        Reserva reserva = findOrThrow(id);
+        if (reserva.getEstado() != EstadoReserva.PENDIENTE && reserva.getEstado() != EstadoReserva.CONFIRMADA) {
+            throw new IllegalArgumentException(
+                    "Solo se modifican reservas pendientes o confirmadas (estado " + reserva.getEstado() + ")");
+        }
+        Long habitacionId = request.getHabitacionId() != null ? request.getHabitacionId() : reserva.getHabitacionId();
+        validarFechas(request.getFechaEntrada(), request.getFechaSalida());
+        if (reservaRepository.existeConflictoExcluyendo(
+                habitacionId, request.getFechaEntrada(), request.getFechaSalida(), id)) {
+            throw new HabitacionNoDisponibleException(habitacionId);
+        }
+        reserva.setPrecioTotal(precioDeEstadia(habitacionId,
+                request.getFechaEntrada(), request.getFechaSalida(), reserva.getNumHuespedes()));
+        reserva.setHabitacionId(habitacionId);
+        reserva.setFechaEntrada(request.getFechaEntrada());
+        reserva.setFechaSalida(request.getFechaSalida());
+
+        nocheRepository.liberarNoches(id);
+        Reserva guardada = reservaRepository.save(reserva);
+        bloquearNoches(guardada);
+        log.info("Reserva {} modificada: habitación {} del {} al {}", guardada.getCodigo(),
+                habitacionId, guardada.getFechaEntrada(), guardada.getFechaSalida());
+        return toResponse(guardada);
+    }
+
+    /** Reservas que ocupan algún día del rango [desde, hasta): calendario y reportes. */
+    public List<ReservaResponse> listarEnRango(LocalDate desde, LocalDate hasta) {
+        if (!hasta.isAfter(desde) || ChronoUnit.DAYS.between(desde, hasta) > MAX_DIAS_RANGO) {
+            throw new IllegalArgumentException("El rango debe tener entre 1 y " + MAX_DIAS_RANGO + " días");
+        }
+        return reservaRepository.findEnRango(desde, hasta).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    private static void validarFechas(LocalDate entrada, LocalDate salida) {
+        if (!salida.isAfter(entrada)) {
+            throw new IllegalArgumentException("La fecha de salida debe ser posterior a la de entrada");
+        }
+        if (entrada.isBefore(LocalDate.now(ZONA_HOTEL))) {
+            throw new IllegalArgumentException("La fecha de entrada no puede ser en el pasado");
+        }
+    }
+
+    /** Precio real de la estadía según habitaciones-service, validando la capacidad. */
+    private java.math.BigDecimal precioDeEstadia(Long habitacionId, LocalDate entrada, LocalDate salida, int huespedes) {
+        Map<String, Object> habitacion = obtenerDatosHabitacion(habitacionId);
+        // Sin la habitación no hay precio ni capacidad: mejor rechazar que cobrar un precio inventado
+        if (habitacion == null || habitacion.get("precioPorNoche") == null) {
+            throw new ServicioNoDisponibleException("habitaciones");
+        }
+        if (habitacion.get("capacidad") instanceof Number cap && huespedes > cap.intValue()) {
+            throw new IllegalArgumentException(
+                "La habitación tiene capacidad máxima de " + cap.intValue() + " huéspedes. Solicitados: " + huespedes);
+        }
+        return new java.math.BigDecimal(habitacion.get("precioPorNoche").toString())
+                .multiply(java.math.BigDecimal.valueOf(ChronoUnit.DAYS.between(entrada, salida)));
     }
 
     private void bloquearNoches(Reserva reserva) {

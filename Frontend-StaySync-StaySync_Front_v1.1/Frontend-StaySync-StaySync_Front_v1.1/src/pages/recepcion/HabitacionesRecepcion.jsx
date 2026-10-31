@@ -7,6 +7,8 @@ import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
 import ModalBackdrop  from '../../components/common/ModalBackdrop';
+import Foto           from '../../components/common/Foto';
+import ModalFotosHabitacion from '../../components/recepcion/ModalFotosHabitacion';
 
 const ESTADO_META = {
   DISPONIBLE:      { label: 'Disponible',        badge: 'bg-success',           icon: 'bi-check-circle-fill',  color: '#198754', bg: '#f0fdf4' },
@@ -59,7 +61,7 @@ function OcupacionBar({ conteo, total }) {
   );
 }
 
-function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactivar, deactivating }) {
+function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactivar, deactivating, onFotos }) {
   const meta      = ESTADO_META[hab.estado] ?? { label: hab.estado, badge: 'bg-secondary', icon: 'bi-question', color: '#6c757d', bg: '#f8f9fa' };
   const next      = TRANSICIONES[hab.estado] ?? [];
   const isUpdating = updating === hab.id;
@@ -79,14 +81,13 @@ function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactiv
           overflow: 'hidden',
         }}
       >
-        {/* Colored header strip */}
+        <Foto src={hab.imagenPrincipal} alt={`Habitación ${hab.numero}`} numero={hab.numero} />
+        {/* El estado de hoy, en la franja de color */}
         <div
           className="d-flex align-items-center justify-content-between px-3 py-2"
           style={{ background: meta.bg, borderBottom: `3px solid ${meta.color}` }}
         >
-          <span className="fw-bold" style={{ fontSize: '1.05rem', color: 'var(--ss-dark)' }}>
-            Hab. <span style={{ fontSize: '1.2rem' }}>{hab.numero}</span>
-          </span>
+          <span className="small text-muted">{(hab.imagenes?.length ?? 0) === 1 ? '1 foto' : `${hab.imagenes?.length ?? 0} fotos`}</span>
           <span className={`badge ${meta.badge} d-flex align-items-center gap-1`} style={{ fontSize: '0.7rem' }}>
             <i className={`bi ${meta.icon}`} />{meta.label}
           </span>
@@ -114,7 +115,7 @@ function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactiv
           >
             <span className="small text-muted">Precio/noche</span>
             <span className="fw-bold" style={{ color: 'var(--ss-dark)' }}>
-              ${hab.precioPorNoche?.toLocaleString('es-CO') ?? '—'}
+              ${hab.precioPorNoche?.toLocaleString('es-CL') ?? '—'}
             </span>
           </div>
 
@@ -153,18 +154,23 @@ function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactiv
           )}
 
           {isAdmin && (
-            <button
-              className="btn btn-sm btn-link text-danger p-0 mt-2 d-flex align-items-center gap-1"
-              style={{ fontSize: '0.75rem', textDecoration: 'none' }}
-              disabled={isDeactivating}
-              onClick={() => onDesactivar(hab)}
-            >
-              {isDeactivating
-                ? <span className="spinner-border spinner-border-sm" style={{ width: '0.65rem', height: '0.65rem' }} />
-                : <i className="bi bi-trash3" />
-              }
-              Desactivar
-            </button>
+            <div className="d-flex justify-content-between align-items-center mt-2">
+              <button className="btn btn-sm btn-outline-secondary" style={{ fontSize: '0.75rem' }} onClick={() => onFotos(hab)}>
+                <i className="bi bi-images me-1" aria-hidden="true" />Fotos
+              </button>
+              <button
+                className="btn btn-sm btn-link text-danger p-0 d-flex align-items-center gap-1"
+                style={{ fontSize: '0.75rem', textDecoration: 'none' }}
+                disabled={isDeactivating}
+                onClick={() => onDesactivar(hab)}
+              >
+                {isDeactivating
+                  ? <span className="spinner-border spinner-border-sm" style={{ width: '0.65rem', height: '0.65rem' }} />
+                  : <i className="bi bi-trash3" />
+                }
+                Desactivar
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -372,6 +378,7 @@ export default function HabitacionesRecepcion() {
   const [creating,    setCreating]    = useState(false);
   const [createError, setCreateError] = useState('');
   const [deactivating, setDeactivating] = useState(null);
+  const [fotosDe,      setFotosDe]      = useState(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -559,9 +566,18 @@ export default function HabitacionesRecepcion() {
               isAdmin={isAdmin}
               onDesactivar={handleDesactivar}
               deactivating={deactivating}
+              onFotos={setFotosDe}
             />
           ))}
         </div>
+      )}
+
+      {fotosDe && (
+        <ModalFotosHabitacion
+          habitacion={fotosDe}
+          onClose={() => setFotosDe(null)}
+          onChange={(h) => setHabitaciones(prev => prev.map(x => x.id === h.id ? h : x))}
+        />
       )}
     </div>
   );

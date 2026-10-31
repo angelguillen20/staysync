@@ -6,13 +6,16 @@ import com.staysync.bff.client.UsuariosClient;
 import com.staysync.bff.dto.reserva.ReservaDetalleResponse;
 import com.staysync.bff.security.AccesoHuesped;
 import com.staysync.bff.security.JwtService;
+import com.staysync.bff.service.CuentaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -39,6 +42,7 @@ public class ReservaBffController {
     private final UsuariosClient             usuariosClient;
     private final JwtService                 jwtService;
     private final AccesoHuesped              accesoHuesped;
+    private final CuentaService              cuentaService;
 
     @Operation(summary = "Listar todas las reservas")
     @GetMapping
@@ -124,13 +128,62 @@ public class ReservaBffController {
     }
 
     @Operation(summary = "Cambiar estado de reserva (checkin, checkout, etc.)",
-               description = "Las notificaciones salen de los eventos que publica reservas-service")
+               description = "Las notificaciones salen de los eventos que publica reservas-service. "
+                       + "El check-out exige la cuenta saldada.")
     @PatchMapping("/{id}/estado")
     public ResponseEntity<Object> cambiarEstado(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable Long id,
-            @RequestBody Object body) {
+            @RequestBody Map<String, Object> body) {
+        if ("CHECKOUT".equals(body.get(ESTADO))) {
+            BigDecimal saldo = cuentaService.saldo(authHeader, id);
+            if (saldo.signum() > 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Antes del check-out cobra el saldo de la cuenta: $"
+                        + String.format(java.util.Locale.forLanguageTag("es-CL"), "%,.0f", saldo));
+            }
+        }
         return reservasClient.cambiarEstado(authHeader, id, body);
+    }
+
+    @Operation(summary = "Cambiar fechas y/o habitación (reserva pendiente o confirmada)")
+    @PatchMapping("/{id}/modificar")
+    public ResponseEntity<Object> modificar(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id,
+            @RequestBody Object body) {
+        return reservasClient.reenviar(authHeader, HttpMethod.PATCH, "/api/v1/reservas/" + id + "/modificar", body);
+    }
+
+    @Operation(summary = "Reservas que ocupan algún día del rango: calendario de ocupación y reportes")
+    @GetMapping("/rango")
+    public ResponseEntity<Object> rango(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam String desde,
+            @RequestParam String hasta) {
+        try {  // valida antes de armar la URL
+            LocalDate.parse(desde);
+            LocalDate.parse(hasta);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Las fechas van en formato AAAA-MM-DD.");
+        }
+        return reservasClient.reenviar(authHeader, HttpMethod.GET,
+                "/api/v1/reservas/rango?desde=" + desde + "&hasta=" + hasta, null);
+    }
+
+    @Operation(summary = "Cuenta del huésped: estadía, consumos, pagos y saldo")
+    @GetMapping("/{id}/cuenta")
+    public Map<String, Object> cuenta(@RequestHeader("Authorization") String authHeader, @PathVariable Long id) {
+        accesoHuesped.verificarReservaPropia(authHeader, id);
+        return cuentaService.cuenta(authHeader, id);
+    }
+
+    @Operation(summary = "Cobrar en recepción el saldo de la cuenta", description = "Body: { metodoPago }")
+    @PostMapping("/{id}/cuenta/pago")
+    public ResponseEntity<Object> pagarSaldo(@RequestHeader("Authorization") String authHeader,
+                                             @PathVariable Long id,
+                                             @RequestBody Map<String, Object> body) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(cuentaService.pagarSaldo(authHeader, id, body.get("metodoPago")));
     }
 
     @Operation(summary = "Cancelar reserva")

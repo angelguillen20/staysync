@@ -48,6 +48,10 @@ public class Servicio {
     @Builder.Default
     private Boolean requiereReserva = false;
 
+    /** Foto del servicio: "/media/..." (subida al bucket) o un enlace https. */
+    @Column(name = "imagen_url", length = 500)
+    private String imagenUrl;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

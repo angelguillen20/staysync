@@ -3,6 +3,8 @@ import { getReservasHoy, cambiarEstadoReserva } from '../../services/reservasSer
 import { getHabitaciones } from '../../services/habitacionesService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
+import Placa          from '../../components/common/Placa';
+import ModalCuenta    from '../../components/recepcion/ModalCuenta';
 import { fmtFecha, nochesEntre, diasHasta } from '../../utils/fechas';
 
 const FMT_CORTO = { day: '2-digit', month: 'short', year: 'numeric' };
@@ -30,14 +32,7 @@ function ReservaRow({ r, onAction, updating, accion, nuevoEstado, btnVariant }) 
         <div className="fw-semibold">{r.huespedNombre || '—'}</div>
         {r.huespedEmail && <div className="text-muted">{r.huespedEmail}</div>}
       </td>
-      <td>
-        <span
-          className="fw-bold px-2 py-1 rounded"
-          style={{ background: 'rgba(239,193,67,0.15)', color: 'var(--ss-dark)', fontSize: '0.9rem' }}
-        >
-          Hab. {r.habitacionNumero}
-        </span>
-      </td>
+      <td><Placa numero={r.habitacionNumero} /></td>
       <td className="small">{fmtFecha(r.fechaEntrada, FMT_CORTO)}</td>
       <td className="small">{fmtFecha(r.fechaSalida, FMT_CORTO)}</td>
       <td className="text-center small">{r.numHuespedes ?? '—'}</td>
@@ -113,7 +108,19 @@ export default function CheckinRecepcion() {
     );
   };
 
+  // El check-out pasa por la cuenta: primero se cobra el saldo (el BFF no deja salir con deuda)
+  const [cuenta, setCuenta] = useState(null);
+  const hacerCheckout = async (r) => {
+    await cambiarEstadoReserva(r.id, { estado: 'CHECKOUT' });
+    setPendientesCheckout(prev => prev.filter(x => x.id !== r.id));
+    setSuccess(`Check-out completado para la reserva ${r.codigo ?? `#${r.id}`}.`);
+  };
+
   const ejecutar = async (id, nuevoEstado, accion) => {
+    if (nuevoEstado === 'CHECKOUT') {
+      setCuenta(pendientesCheckout.find(r => r.id === id));
+      return;
+    }
     setUpdating(id); setError(''); setSuccess('');
     try {
       await cambiarEstadoReserva(id, { estado: nuevoEstado });
@@ -270,6 +277,8 @@ export default function CheckinRecepcion() {
           </div>
         </div>
       )}
+
+      {cuenta && <ModalCuenta reserva={cuenta} onClose={() => setCuenta(null)} onCheckout={() => hacerCheckout(cuenta)} />}
     </div>
   );
 }

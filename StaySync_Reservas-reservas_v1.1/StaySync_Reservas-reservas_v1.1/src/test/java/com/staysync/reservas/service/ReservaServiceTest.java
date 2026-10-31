@@ -508,6 +508,67 @@ class ReservaServiceTest {
         assertThat(checkins).isEmpty();
     }
 
+    // ── MODIFICAR Y RANGO ─────────────────────────────────────────────────────
+
+    private static com.staysync.reservas.dto.request.ModificarReservaRequest cambio(LocalDate e, LocalDate s, Long hab) {
+        var r = new com.staysync.reservas.dto.request.ModificarReservaRequest();
+        r.setFechaEntrada(e);
+        r.setFechaSalida(s);
+        r.setHabitacionId(hab);
+        return r;
+    }
+
+    @Test
+    @DisplayName("modificar() - recalcula el precio y vuelve a bloquear las noches en la otra habitación")
+    void modificaFechasYHabitacion() {
+        reservaBase.setEstado(EstadoReserva.CONFIRMADA);
+        when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
+        when(reservaRepository.existeConflictoExcluyendo(eq(2L), any(), any(), eq(1L))).thenReturn(false);
+        habitacionDisponible(); // 100 por noche
+        when(reservaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ReservaResponse r = reservaService.modificar(1L, cambio(HOY.plusDays(10), HOY.plusDays(13), 2L));
+
+        assertThat(r.getHabitacionId()).isEqualTo(2L);
+        assertThat(r.getPrecioTotal()).isEqualByComparingTo("300");
+        verify(nocheRepository).liberarNoches(1L);
+        ArgumentCaptor<List<com.staysync.reservas.model.ReservaNoche>> noches = ArgumentCaptor.forClass(List.class);
+        verify(nocheRepository).saveAllAndFlush(noches.capture());
+        assertThat(noches.getValue()).hasSize(3).allMatch(n -> n.getHabitacionId().equals(2L));
+    }
+
+    @Test
+    @DisplayName("modificar() - una reserva ya iniciada (CHECKIN) no se modifica")
+    void noModificaReservaIniciada() {
+        reservaBase.setEstado(EstadoReserva.CHECKIN);
+        when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
+
+        assertThatThrownBy(() -> reservaService.modificar(1L, cambio(HOY.plusDays(1), HOY.plusDays(2), null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("CHECKIN");
+        verifyNoInteractions(nocheRepository);
+    }
+
+    @Test
+    @DisplayName("modificar() - si las nuevas fechas chocan con otra reserva no se toca nada")
+    void noModificaConConflicto() {
+        when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
+        when(reservaRepository.existeConflictoExcluyendo(anyLong(), any(), any(), eq(1L))).thenReturn(true);
+
+        assertThatThrownBy(() -> reservaService.modificar(1L, cambio(HOY.plusDays(1), HOY.plusDays(2), null)))
+                .isInstanceOf(HabitacionNoDisponibleException.class);
+        verify(nocheRepository, never()).liberarNoches(any());
+        verify(reservaRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("listarEnRango() - rechaza rangos vacíos o de más de 400 días")
+    void rangoValido() {
+        assertThatThrownBy(() -> reservaService.listarEnRango(HOY, HOY)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> reservaService.listarEnRango(HOY, HOY.plusDays(401))).isInstanceOf(IllegalArgumentException.class);
+        when(reservaRepository.findEnRango(HOY, HOY.plusDays(30))).thenReturn(List.of(reservaBase));
+        assertThat(reservaService.listarEnRango(HOY, HOY.plusDays(30))).hasSize(1);
+    }
+
     // ── HELPERS ───────────────────────────────────────────────────────────────
 
     private void habitacionDisponible() {

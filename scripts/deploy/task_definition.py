@@ -7,7 +7,7 @@ alumno, que sí puede leerlos, así que este script los pasa como variables de e
 variable -> secreto queda en dockerLabels (solo ARNs) para volver a leerlos en cada deploy: la
 clave de RDS rota cada 7 días y basta con volver a desplegar para tomar la nueva.
 
-Uso: python3 task_definition.py <servicio> <imagen> <salida.json>
+Uso: python3 task_definition.py <servicio> <imagen> <salida.json> [VARIABLE=valor ...]
 """
 import json
 import os
@@ -40,16 +40,20 @@ def lector_de_secretos():
     return leer
 
 
-def nueva_revision(td, imagen, leer):
-    """Devuelve la task definition lista para registrar y los valores secretos (para enmascararlos)."""
+def nueva_revision(td, imagen, leer, extras=None):
+    """
+    Devuelve la task definition lista para registrar y los valores secretos (para enmascararlos).
+    extras: variables de entorno que fija el CI (p. ej. MEDIA_BUCKET), pisan a las existentes.
+    """
     contenedor = td['containerDefinitions'][0]
     etiquetas = contenedor.setdefault('dockerLabels', {})
     for s in contenedor.pop('secrets', []):  # primer deploy: los secrets pasan a etiquetas
         etiquetas[PREFIJO + s['name']] = s['valueFrom']
     secretos = {k[len(PREFIJO):]: leer(v) for k, v in etiquetas.items() if k.startswith(PREFIJO)}
+    nuevas = {**(extras or {}), **secretos}
     contenedor['environment'] = (
-        [e for e in contenedor.get('environment', []) if e['name'] not in secretos]
-        + [{'name': n, 'value': v} for n, v in secretos.items()])
+        [e for e in contenedor.get('environment', []) if e['name'] not in nuevas]
+        + [{'name': n, 'value': v} for n, v in nuevas.items()])
     contenedor['image'] = imagen
     for campo in SOLO_LECTURA:
         td.pop(campo, None)
@@ -57,10 +61,10 @@ def nueva_revision(td, imagen, leer):
 
 
 def main():
-    servicio, imagen, salida = sys.argv[1:4]
+    servicio, imagen, salida, *extras = sys.argv[1:]
     td = aws('ecs', 'describe-task-definition', '--task-definition', f'staysync-{servicio}',
              '--query', 'taskDefinition')
-    td, valores = nueva_revision(td, imagen, lector_de_secretos())
+    td, valores = nueva_revision(td, imagen, lector_de_secretos(), dict(e.split('=', 1) for e in extras))
     if os.environ.get('GITHUB_ACTIONS'):
         for linea in (l for v in valores for l in str(v).splitlines() if l):
             print(f'::add-mask::{linea}')
