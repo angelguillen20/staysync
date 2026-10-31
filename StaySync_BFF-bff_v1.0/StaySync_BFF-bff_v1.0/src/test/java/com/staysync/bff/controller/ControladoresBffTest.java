@@ -338,6 +338,40 @@ class ControladoresBffTest {
     }
 
     @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    @DisplayName("Plataforma: ve las habitaciones de todos los hoteles, cada consulta con el hotel que pide")
+    void habitacionesDeTodosLosHoteles() throws Exception {
+        when(jwtService.extractRol("token")).thenReturn("SUPER_ADMIN");
+        when(usuariosClient.listarHoteles(AUTH)).thenReturn(ok(List.of(
+                Map.of("tenantId", "staysync-demo", "nombre", "StaySync Demo"),
+                Map.of("tenantId", "hotel-andes", "nombre", "Hotel Andes"))));
+        // La respuesta anota con qué hotel salió la llamada: tiene que ser el consultado, no el del JWT
+        when(habitacionesClient.reenviar(AUTH, org.springframework.http.HttpMethod.GET, "/api/v1/habitaciones", null))
+                .thenAnswer(inv -> ok(List.of(Map.of("numero", "101",
+                        "vista", com.staysync.bff.security.HotelVista.actual().orElse("jwt")))));
+
+        mockMvc.perform(get("/bff/habitaciones").param("hotel", "todos").header("Authorization", AUTH))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].vista").value("staysync-demo"))
+                .andExpect(jsonPath("$[1].vista").value("hotel-andes"))
+                .andExpect(jsonPath("$[1].hotelNombre").value("Hotel Andes"));
+        org.assertj.core.api.Assertions.assertThat(com.staysync.bff.security.HotelVista.actual()).isEmpty();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Un ADMIN de hotel no ve las habitaciones de otros hoteles")
+    void adminNoVeOtrosHoteles() throws Exception {
+        when(jwtService.extractRol("token")).thenReturn("ADMIN");
+
+        mockMvc.perform(get("/bff/habitaciones").param("hotel", "hotel-andes").header("Authorization", AUTH))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(habitacionesClient);
+        verify(usuariosClient, never()).listarHoteles(any());
+    }
+
+    @Test
     @WithMockUser(roles = "RECEPCIONISTA")
     @DisplayName("Calendario: fechas mal escritas son 400, no 500")
     void rangoFechaInvalida() throws Exception {

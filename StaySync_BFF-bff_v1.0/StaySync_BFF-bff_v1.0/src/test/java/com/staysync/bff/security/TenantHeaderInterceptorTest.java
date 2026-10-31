@@ -45,6 +45,23 @@ class TenantHeaderInterceptorTest {
     }
 
     @Test
+    @DisplayName("Vista de plataforma: dentro de HotelVista.con sale el hotel consultado, fuera vuelve el del JWT")
+    void vistaDePlataformaReemplazaAlJwt() {
+        autenticarCon("staysync-demo");
+        server.expect(requestTo("http://reservas:8083/api/v1/reservas"))
+                .andExpect(header(TenantDetails.HEADER, "hotel-andes"))
+                .andRespond(withSuccess());
+        server.expect(requestTo("http://reservas:8083/api/v1/reservas"))
+                .andExpect(header(TenantDetails.HEADER, "staysync-demo"))
+                .andRespond(withSuccess());
+
+        HotelVista.con("hotel-andes", () -> restTemplate.getForEntity("http://reservas:8083/api/v1/reservas", String.class));
+        restTemplate.getForEntity("http://reservas:8083/api/v1/reservas", String.class);
+
+        server.verify();
+    }
+
+    @Test
     @DisplayName("Servicio interno recibe X-Tenant-Id del JWT")
     void servicioInternoRecibeHeader() {
         autenticarCon("hotel-andes");

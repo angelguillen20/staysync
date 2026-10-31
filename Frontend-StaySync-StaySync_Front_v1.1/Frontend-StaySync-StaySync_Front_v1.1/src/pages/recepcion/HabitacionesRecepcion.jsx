@@ -4,6 +4,7 @@ import {
   getTiposHabitacion, getAmenidades, desactivarHabitacion,
 } from '../../services/habitacionesService';
 import { useAuth } from '../../context/AuthContext';
+import { getHoteles } from '../../services/usuariosService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
 import ModalBackdrop  from '../../components/common/ModalBackdrop';
@@ -61,9 +62,10 @@ function OcupacionBar({ conteo, total }) {
   );
 }
 
-function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactivar, deactivating, onFotos }) {
+/* soloLectura: habitación de otro hotel (vista de plataforma); sus cambios se hacen desde ese hotel */
+function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactivar, deactivating, onFotos, soloLectura }) {
   const meta      = ESTADO_META[hab.estado] ?? { label: hab.estado, badge: 'bg-secondary', icon: 'bi-question', color: '#6c757d', bg: '#f8f9fa' };
-  const next      = TRANSICIONES[hab.estado] ?? [];
+  const next      = soloLectura ? [] : TRANSICIONES[hab.estado] ?? [];
   const isUpdating = updating === hab.id;
   const flashOk   = success === hab.id;
   const isDeactivating = deactivating === hab.id;
@@ -87,7 +89,9 @@ function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactiv
           className="d-flex align-items-center justify-content-between px-3 py-2"
           style={{ background: meta.bg, borderBottom: `3px solid ${meta.color}` }}
         >
-          <span className="small text-muted">{(hab.imagenes?.length ?? 0) === 1 ? '1 foto' : `${hab.imagenes?.length ?? 0} fotos`}</span>
+          <span className="small text-muted text-truncate">
+            {hab.hotelNombre ?? ((hab.imagenes?.length ?? 0) === 1 ? '1 foto' : `${hab.imagenes?.length ?? 0} fotos`)}
+          </span>
           <span className={`badge ${meta.badge} d-flex align-items-center gap-1`} style={{ fontSize: '0.7rem' }}>
             <i className={`bi ${meta.icon}`} />{meta.label}
           </span>
@@ -119,7 +123,7 @@ function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactiv
             </span>
           </div>
 
-          {next.length > 0 ? (
+          {soloLectura ? null : next.length > 0 ? (
             <div className="d-flex flex-column gap-1">
               <small className="text-muted mb-1">Cambiar a:</small>
               {next.map(estado => {
@@ -153,7 +157,7 @@ function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactiv
             </div>
           )}
 
-          {isAdmin && (
+          {isAdmin && !soloLectura && (
             <div className="d-flex justify-content-between align-items-center mt-2">
               <button className="btn btn-sm btn-outline-secondary" style={{ fontSize: '0.75rem' }} onClick={() => onFotos(hab)}>
                 <i className="bi bi-images me-1" aria-hidden="true" />Fotos
@@ -362,6 +366,9 @@ function ModalNuevaHabitacion({ tipos, amenidades, onClose, onCreate, saving, er
 export default function HabitacionesRecepcion() {
   const { hasRole } = useAuth();
   const isAdmin = hasRole('ADMIN');
+  const esPlataforma = hasRole('SUPER_ADMIN');
+  const [hotelVista, setHotelVista] = useState(''); // '' = este hotel, 'todos' o un tenantId
+  const [hoteles,    setHoteles]    = useState([]);
 
   const [habitaciones, setHabitaciones] = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -383,16 +390,20 @@ export default function HabitacionesRecepcion() {
   const cargar = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getHabitaciones();
+      const data = await getHabitaciones(hotelVista ? { hotel: hotelVista } : undefined);
       setHabitaciones(Array.isArray(data) ? data : data.content ?? []);
-    } catch {
-      setError('Error al cargar habitaciones.');
+    } catch (err) {
+      setError(err.response?.data?.message ?? 'Error al cargar habitaciones.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hotelVista]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    if (esPlataforma) getHoteles().then(setHoteles).catch(() => setHoteles([]));
+  }, [esPlataforma]);
 
   const handleCambiarEstado = async (id, nuevoEstado) => {
     setUpdating(id);
@@ -461,7 +472,8 @@ export default function HabitacionesRecepcion() {
     .filter(h => {
       if (!busqueda.trim()) return true;
       const q = busqueda.toLowerCase();
-      return String(h.numero).includes(q) || (h.tipoNombre ?? '').toLowerCase().includes(q);
+      return String(h.numero).includes(q) || (h.tipoNombre ?? '').toLowerCase().includes(q)
+        || (h.hotelNombre ?? '').toLowerCase().includes(q);
     });
 
   return (
@@ -474,14 +486,23 @@ export default function HabitacionesRecepcion() {
             <i className="bi bi-building me-2" style={{ color: 'var(--ss-gold)' }} />Habitaciones
           </h2>
           <small className="text-muted">
-            {habitaciones.length} habitaciones en total · {conteo.DISPONIBLE ?? 0} disponibles
+            {habitaciones.length} habitaciones en total, {conteo.DISPONIBLE ?? 0} disponibles
+            {hotelVista && ' (solo lectura: los cambios se hacen desde cada hotel)'}
           </small>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex flex-wrap gap-2">
+          {esPlataforma && (
+            <select className="form-select form-select-sm w-auto" aria-label="Hotel" value={hotelVista}
+                    onChange={e => setHotelVista(e.target.value)}>
+              <option value="">Este hotel</option>
+              <option value="todos">Todos los hoteles</option>
+              {hoteles.map(h => <option key={h.tenantId} value={h.tenantId}>{h.nombre}</option>)}
+            </select>
+          )}
           <button className="btn btn-outline-secondary btn-sm" onClick={cargar} disabled={loading}>
             <i className="bi bi-arrow-clockwise me-1" />Actualizar
           </button>
-          {isAdmin && (
+          {isAdmin && !hotelVista && (
             <button className="btn btn-ss-dark btn-sm" onClick={handleAbrirNueva}>
               <i className="bi bi-plus-lg me-1" />Nueva habitación
             </button>
@@ -558,8 +579,9 @@ export default function HabitacionesRecepcion() {
         <div className="row g-3">
           {habsFiltradas.map(h => (
             <HabitacionCard
-              key={h.id}
+              key={`${h.hotelId ?? ''}-${h.id}`}
               hab={h}
+              soloLectura={!!hotelVista}
               onCambiar={handleCambiarEstado}
               updating={updating}
               success={successId}

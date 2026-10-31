@@ -530,6 +530,7 @@ class ReservaServiceTest {
         ReservaResponse r = reservaService.modificar(1L, cambio(HOY.plusDays(10), HOY.plusDays(13), 2L));
 
         assertThat(r.getHabitacionId()).isEqualTo(2L);
+        assertThat(r.getHabitacionNumero()).isEqualTo("201"); // el huésped ve el número, no el id
         assertThat(r.getPrecioTotal()).isEqualByComparingTo("300");
         verify(nocheRepository).liberarNoches(1L);
         ArgumentCaptor<List<com.staysync.reservas.model.ReservaNoche>> noches = ArgumentCaptor.forClass(List.class);
@@ -573,7 +574,7 @@ class ReservaServiceTest {
 
     private void habitacionDisponible() {
         when(restTemplate.getForObject(anyString(), eq(Map.class)))
-                .thenReturn(Map.of("precioPorNoche", 100.0, "capacidad", 4));
+                .thenReturn(Map.of("precioPorNoche", 100.0, "capacidad", 4, "numero", "201"));
     }
 
     private CrearReservaRequest buildRequest(int numHuespedes) {

@@ -80,7 +80,7 @@ public class ReservaService {
             throw new HabitacionNoDisponibleException(request.getHabitacionId());
         }
 
-        java.math.BigDecimal precioTotal = precioDeEstadia(request.getHabitacionId(),
+        Cotizacion cotizacion = cotizar(request.getHabitacionId(),
                 request.getFechaEntrada(), request.getFechaSalida(), request.getNumHuespedes());
 
         Reserva reserva = Reserva.builder()
@@ -90,7 +90,8 @@ public class ReservaService {
                 .fechaEntrada(request.getFechaEntrada())
                 .fechaSalida(request.getFechaSalida())
                 .numHuespedes(request.getNumHuespedes())
-                .precioTotal(precioTotal)
+                .precioTotal(cotizacion.total())
+                .habitacionNumero(cotizacion.numero())
                 .notas(request.getNotas())
                 .huespedEmail(request.getHuespedEmail())
                 .huespedNombre(request.getHuespedNombre())
@@ -139,8 +140,10 @@ public class ReservaService {
                 habitacionId, request.getFechaEntrada(), request.getFechaSalida(), id)) {
             throw new HabitacionNoDisponibleException(habitacionId);
         }
-        reserva.setPrecioTotal(precioDeEstadia(habitacionId,
-                request.getFechaEntrada(), request.getFechaSalida(), reserva.getNumHuespedes()));
+        Cotizacion cotizacion = cotizar(habitacionId,
+                request.getFechaEntrada(), request.getFechaSalida(), reserva.getNumHuespedes());
+        reserva.setPrecioTotal(cotizacion.total());
+        reserva.setHabitacionNumero(cotizacion.numero());
         reserva.setHabitacionId(habitacionId);
         reserva.setFechaEntrada(request.getFechaEntrada());
         reserva.setFechaSalida(request.getFechaSalida());
@@ -170,8 +173,11 @@ public class ReservaService {
         }
     }
 
+    /** Precio y número de puerta de la habitación (el huésped no puede consultar habitaciones). */
+    private record Cotizacion(java.math.BigDecimal total, String numero) {}
+
     /** Precio real de la estadía según habitaciones-service, validando la capacidad. */
-    private java.math.BigDecimal precioDeEstadia(Long habitacionId, LocalDate entrada, LocalDate salida, int huespedes) {
+    private Cotizacion cotizar(Long habitacionId, LocalDate entrada, LocalDate salida, int huespedes) {
         Map<String, Object> habitacion = obtenerDatosHabitacion(habitacionId);
         // Sin la habitación no hay precio ni capacidad: mejor rechazar que cobrar un precio inventado
         if (habitacion == null || habitacion.get("precioPorNoche") == null) {
@@ -181,8 +187,9 @@ public class ReservaService {
             throw new IllegalArgumentException(
                 "La habitación tiene capacidad máxima de " + cap.intValue() + " huéspedes. Solicitados: " + huespedes);
         }
-        return new java.math.BigDecimal(habitacion.get("precioPorNoche").toString())
+        java.math.BigDecimal total = new java.math.BigDecimal(habitacion.get("precioPorNoche").toString())
                 .multiply(java.math.BigDecimal.valueOf(ChronoUnit.DAYS.between(entrada, salida)));
+        return new Cotizacion(total, Objects.toString(habitacion.get("numero"), null));
     }
 
     private void bloquearNoches(Reserva reserva) {
@@ -426,7 +433,7 @@ public class ReservaService {
 
         return ReservaResponse.builder()
                 .id(r.getId()).codigo(r.getCodigo())
-                .usuarioId(r.getUsuarioId()).habitacionId(r.getHabitacionId())
+                .usuarioId(r.getUsuarioId()).habitacionId(r.getHabitacionId()).habitacionNumero(r.getHabitacionNumero())
                 .fechaEntrada(r.getFechaEntrada()).fechaSalida(r.getFechaSalida())
                 .numHuespedes(r.getNumHuespedes()).estado(r.getEstado())
                 .precioTotal(r.getPrecioTotal()).notas(r.getNotas())

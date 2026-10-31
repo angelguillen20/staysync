@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 /**
  * Agrega X-Tenant-Id a cada llamada BFF -> microservicio interno. Prioridad:
  * <ol>
+ *   <li>Vista de plataforma ({@link HotelVista}): el hotel que consulta el SUPER_ADMIN.</li>
  *   <li>Usuario autenticado: el hotel de su JWT, siempre (reemplaza cualquier otro valor).</li>
  *   <li>Sin sesión: el que haya puesto explícitamente el código del BFF (p. ej. el hotel
  *       del usuario recién registrado, tomado de la respuesta de usuarios-service).</li>
@@ -45,7 +46,7 @@ public class TenantHeaderInterceptor implements ClientHttpRequestInterceptor {
             request.getHeaders().remove(TenantDetails.HEADER);
             return execution.execute(request, body);
         }
-        Optional<String> delJwt = TenantDetails.actual();
+        Optional<String> delJwt = HotelVista.actual().or(TenantDetails::actual);
         if (delJwt.isPresent()) {
             request.getHeaders().set(TenantDetails.HEADER, delJwt.get());
         } else if (!request.getHeaders().containsKey(TenantDetails.HEADER)) {

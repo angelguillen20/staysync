@@ -1,6 +1,16 @@
 package com.staysync.bff.controller;
 
 import com.staysync.bff.client.HabitacionesClient;
+import com.staysync.bff.client.UsuariosClient;
+import com.staysync.bff.exception.AccesoDenegadoException;
+import com.staysync.bff.security.HotelVista;
+import com.staysync.bff.security.JwtService;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +27,8 @@ import org.springframework.web.bind.annotation.*;
 public class HabitacionBffController {
 
     private final HabitacionesClient habitacionesClient;
+    private final UsuariosClient usuariosClient;
+    private final JwtService jwtService;
 
     @Operation(summary = "Listar habitaciones disponibles con filtros opcionales",
                description = "Pública: sin sesión se usa el hotel del portal (header X-Hotel)")
@@ -32,12 +44,45 @@ public class HabitacionBffController {
         return habitacionesClient.buscarDisponibles(authHeader, capacidad, amenidad, sort);
     }
 
-    @Operation(summary = "Listar todas las habitaciones")
+    @Operation(summary = "Listar todas las habitaciones",
+               description = "SUPER_ADMIN: ?hotel=todos o ?hotel=<tenantId> lista las de otros hoteles, "
+                       + "con hotelId y hotelNombre en cada una")
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPCIONISTA')")
     public ResponseEntity<Object> listarTodas(
-            @RequestHeader("Authorization") String authHeader) {
-        return habitacionesClient.listarTodas(authHeader);
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) String hotel) {
+        if (hotel == null || hotel.isBlank()) {
+            return habitacionesClient.listarTodas(authHeader);
+        }
+        String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+        if (!"SUPER_ADMIN".equals(jwtService.extractRol(token))) {
+            throw new AccesoDenegadoException("Solo la plataforma ve las habitaciones de otros hoteles.");
+        }
+        List<Map<String, Object>> hoteles = lista(usuariosClient.listarHoteles(authHeader).getBody()).stream()
+                .filter(h -> "todos".equals(hotel) || hotel.equals(h.get("tenantId")))
+                .toList();
+        if (hoteles.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe el hotel " + hotel + ".");
+        }
+        List<Map<String, Object>> todas = new ArrayList<>();
+        for (Map<String, Object> h : hoteles) {
+            String tenantId = String.valueOf(h.get("tenantId"));
+            Object habitaciones = HotelVista.con(tenantId, () ->
+                    habitacionesClient.reenviar(authHeader, HttpMethod.GET, "/api/v1/habitaciones", null).getBody());
+            for (Map<String, Object> hab : lista(habitaciones)) {
+                Map<String, Object> conHotel = new LinkedHashMap<>(hab);
+                conHotel.put("hotelId", tenantId);
+                conHotel.put("hotelNombre", h.get("nombre"));
+                todas.add(conHotel);
+            }
+        }
+        return ResponseEntity.ok(todas);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> lista(Object body) {
+        return body instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
     }
 
     @Operation(summary = "Listar tipos de habitación (para el formulario de creación)")
