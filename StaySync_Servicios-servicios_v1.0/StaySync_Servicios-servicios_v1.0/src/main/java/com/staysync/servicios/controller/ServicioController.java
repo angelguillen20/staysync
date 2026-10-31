@@ -1,6 +1,8 @@
 package com.staysync.servicios.controller;
 
+import com.staysync.servicios.dto.request.ServicioRequest;
 import com.staysync.servicios.dto.request.SolicitudServicioRequest;
+import com.staysync.servicios.model.CategoriaServicio;
 import com.staysync.servicios.dto.response.ServicioResponse;
 import com.staysync.servicios.dto.response.SolicitudServicioResponse;
 import com.staysync.servicios.model.SolicitudServicio.EstadoSolicitud;
@@ -27,6 +29,31 @@ public class ServicioController {
     @Operation(summary = "Listar servicios disponibles")
     public ResponseEntity<List<ServicioResponse>> listar() {
         return ResponseEntity.ok(servicioService.listarDisponibles());
+    }
+
+    @GetMapping("/servicios/catalogo")
+    @Operation(summary = "Catálogo completo del hotel, incluidos los no disponibles (admin)")
+    public ResponseEntity<List<ServicioResponse>> catalogo() {
+        return ResponseEntity.ok(servicioService.listarCatalogo());
+    }
+
+    @GetMapping("/servicios/categorias")
+    @Operation(summary = "Categorías de servicios")
+    public ResponseEntity<List<CategoriaServicio>> categorias() {
+        return ResponseEntity.ok(servicioService.listarCategorias());
+    }
+
+    @PostMapping("/servicios")
+    @Operation(summary = "Agregar un servicio al catálogo del hotel")
+    public ResponseEntity<ServicioResponse> crearServicio(@Valid @RequestBody ServicioRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(servicioService.crear(request));
+    }
+
+    @PutMapping("/servicios/{id}")
+    @Operation(summary = "Editar un servicio (disponible=false lo retira del catálogo del huésped)")
+    public ResponseEntity<ServicioResponse> actualizarServicio(@PathVariable Long id,
+                                                               @Valid @RequestBody ServicioRequest request) {
+        return ResponseEntity.ok(servicioService.actualizar(id, request));
     }
 
     @GetMapping("/servicios/{id}")

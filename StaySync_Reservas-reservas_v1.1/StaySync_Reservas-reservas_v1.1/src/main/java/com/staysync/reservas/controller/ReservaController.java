@@ -1,6 +1,7 @@
 package com.staysync.reservas.controller;
 
 import com.staysync.reservas.dto.request.CrearReservaRequest;
+import com.staysync.reservas.dto.request.ModificarReservaRequest;
 import com.staysync.reservas.dto.response.ReservaResponse;
 import com.staysync.reservas.model.Reserva.EstadoReserva;
 import com.staysync.reservas.service.ReservaService;
@@ -37,6 +38,21 @@ public class ReservaController {
             @RequestParam(defaultValue = "10")          int size,
             @RequestParam(defaultValue = "createdAt")   String sort) {
         return ResponseEntity.ok(reservaService.listar(PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, sort))));
+    }
+
+    @GetMapping("/rango")
+    @Operation(summary = "Reservas que ocupan algún día de [desde, hasta): calendario de ocupación y reportes")
+    public ResponseEntity<java.util.List<ReservaResponse>> listarEnRango(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return ResponseEntity.ok(reservaService.listarEnRango(desde, hasta));
+    }
+
+    @PatchMapping("/{id}/modificar")
+    @Operation(summary = "Cambiar fechas y/o habitación de una reserva pendiente o confirmada")
+    public ResponseEntity<ReservaResponse> modificar(@PathVariable Long id,
+                                                     @Valid @RequestBody ModificarReservaRequest request) {
+        return ResponseEntity.ok(reservaService.modificar(id, request));
     }
 
     @GetMapping("/{id}")

@@ -2,6 +2,8 @@ package com.staysync.habitaciones.service;
 
 import com.staysync.habitaciones.client.OtaClient;
 import com.staysync.habitaciones.dto.request.CrearHabitacionRequest;
+import com.staysync.habitaciones.dto.request.ImagenRequest;
+import com.staysync.habitaciones.model.ImagenHabitacion;
 import com.staysync.habitaciones.dto.response.AmenidadResponse;
 import com.staysync.habitaciones.dto.response.HabitacionResponse;
 import com.staysync.habitaciones.dto.response.TipoHabitacionResponse;
@@ -30,6 +32,8 @@ import java.util.stream.Stream;
 @Slf4j
 @Transactional(readOnly = true)
 public class HabitacionService {
+
+    private static final int MAX_IMAGENES = 10;
 
     private final HabitacionRepository habitacionRepository;
     private final TipoHabitacionRepository tipoRepository;
@@ -152,6 +156,36 @@ public class HabitacionService {
         habitacionRepository.save(habitacion);
     }
 
+    /** La primera foto, o la marcada como principal, pasa a ser la portada de la habitación. */
+    @Transactional
+    public HabitacionResponse agregarImagen(Long id, ImagenRequest request) {
+        Habitacion habitacion = findActivaOrThrow(id);
+        if (habitacion.getImagenes().size() >= MAX_IMAGENES) {
+            throw new IllegalArgumentException("Una habitación admite hasta " + MAX_IMAGENES + " fotos");
+        }
+        boolean principal = request.isEsPrincipal() || habitacion.getImagenes().isEmpty();
+        if (principal) {
+            habitacion.getImagenes().forEach(i -> i.setEsPrincipal(false));
+        }
+        habitacion.getImagenes().add(ImagenHabitacion.builder()
+                .habitacion(habitacion).url(request.getUrl()).esPrincipal(principal).build());
+        return toResponse(habitacionRepository.save(habitacion));
+    }
+
+    @Transactional
+    public HabitacionResponse eliminarImagen(Long id, Long imagenId) {
+        Habitacion habitacion = findActivaOrThrow(id);
+        ImagenHabitacion imagen = habitacion.getImagenes().stream()
+                .filter(i -> i.getId().equals(imagenId)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("La foto " + imagenId + " no es de esta habitación"));
+        habitacion.getImagenes().remove(imagen);
+        // Si se borró la portada, la siguiente foto toma su lugar
+        if (imagen.getEsPrincipal() && !habitacion.getImagenes().isEmpty()) {
+            habitacion.getImagenes().get(0).setEsPrincipal(true);
+        }
+        return toResponse(habitacionRepository.save(habitacion));
+    }
+
     private Habitacion findActivaOrThrow(Long id) {
         return habitacionRepository.findByIdAndActivaTrue(id)
                 .orElseThrow(() -> new HabitacionNotFoundException(id));
@@ -170,6 +204,11 @@ public class HabitacionService {
                 .activa(h.getActiva())
                 .createdAt(h.getCreatedAt())
                 .updatedAt(h.getUpdatedAt())
+                .imagenPrincipal(h.getImagenes().stream().filter(ImagenHabitacion::getEsPrincipal)
+                        .map(ImagenHabitacion::getUrl).findFirst().orElse(null))
+                .imagenes(h.getImagenes().stream()
+                        .map(i -> new HabitacionResponse.Imagen(i.getId(), i.getUrl(), i.getEsPrincipal()))
+                        .collect(Collectors.toList()))
                 .build();
     }
 }

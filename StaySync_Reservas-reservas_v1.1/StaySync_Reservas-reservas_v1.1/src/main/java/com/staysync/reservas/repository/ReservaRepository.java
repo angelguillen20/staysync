@@ -28,6 +28,20 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     """)
     boolean existeConflicto(Long habitacionId, LocalDate fechaEntrada, LocalDate fechaSalida);
 
+    /** Igual que existeConflicto, sin contar la propia reserva (para modificarla). */
+    @Query("""
+        SELECT COUNT(r) > 0 FROM Reserva r
+        WHERE r.habitacionId = :habitacionId
+          AND r.id <> :reservaId
+          AND r.estado IN ('PENDIENTE', 'CONFIRMADA', 'CHECKIN')
+          AND r.fechaEntrada < :fechaSalida
+          AND r.fechaSalida > :fechaEntrada
+    """)
+    boolean existeConflictoExcluyendo(Long habitacionId, LocalDate fechaEntrada, LocalDate fechaSalida, Long reservaId);
+
+    @Query("SELECT r FROM Reserva r WHERE r.fechaEntrada < :hasta AND r.fechaSalida > :desde ORDER BY r.fechaEntrada")
+    List<Reserva> findEnRango(LocalDate desde, LocalDate hasta);
+
     /** Sin pagar y ya sin sentido retenerlas: creadas antes del límite o con la llegada pasada. */
     @Query("""
         SELECT r FROM Reserva r

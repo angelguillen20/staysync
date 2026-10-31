@@ -212,4 +212,45 @@ class HabitacionServiceTest {
         assertThat(result.get(0).getPrecioPorNoche()).isEqualTo(BigDecimal.valueOf(500));
         assertThat(result.get(1).getPrecioPorNoche()).isEqualTo(BigDecimal.valueOf(100));
     }
+
+    // ── FOTOS ─────────────────────────────────────────────────────────────────
+
+    private static com.staysync.habitaciones.dto.request.ImagenRequest foto(String url, boolean principal) {
+        var r = new com.staysync.habitaciones.dto.request.ImagenRequest();
+        r.setUrl(url);
+        r.setEsPrincipal(principal);
+        return r;
+    }
+
+    @Test
+    @DisplayName("agregarImagen() - la primera foto es la portada; marcar otra como principal la reemplaza")
+    void fotosYPortada() {
+        when(habitacionRepository.findByIdAndActivaTrue(1L)).thenReturn(Optional.of(habitacion));
+        when(habitacionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        HabitacionResponse r1 = habitacionService.agregarImagen(1L, foto("/media/a.webp", false));
+        assertThat(r1.getImagenPrincipal()).isEqualTo("/media/a.webp");
+
+        HabitacionResponse r2 = habitacionService.agregarImagen(1L, foto("/media/b.webp", true));
+        assertThat(r2.getImagenPrincipal()).isEqualTo("/media/b.webp");
+        assertThat(r2.getImagenes()).hasSize(2).filteredOn(HabitacionResponse.Imagen::esPrincipal).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("eliminarImagen() - si se borra la portada, la siguiente foto toma su lugar")
+    void borrarPortada() {
+        habitacion.getImagenes().add(com.staysync.habitaciones.model.ImagenHabitacion.builder()
+                .id(1L).habitacion(habitacion).url("/media/a.webp").esPrincipal(true).build());
+        habitacion.getImagenes().add(com.staysync.habitaciones.model.ImagenHabitacion.builder()
+                .id(2L).habitacion(habitacion).url("/media/b.webp").esPrincipal(false).build());
+        when(habitacionRepository.findByIdAndActivaTrue(1L)).thenReturn(Optional.of(habitacion));
+        when(habitacionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        HabitacionResponse r = habitacionService.eliminarImagen(1L, 1L);
+
+        assertThat(r.getImagenes()).hasSize(1);
+        assertThat(r.getImagenPrincipal()).isEqualTo("/media/b.webp");
+        assertThatThrownBy(() -> habitacionService.eliminarImagen(1L, 99L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

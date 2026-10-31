@@ -138,6 +138,23 @@ class ReservaIntegrationTest {
     }
 
     @Test
+    @DisplayName("Modificar: correr la estadía un día reusa sus propias noches y libera la que dejó")
+    void modificarReBloqueaNoches() {
+        ReservaResponse r = reservaService.crear(buildRequest(1L, 21L, HOY.plusDays(10), HOY.plusDays(12), 1));
+        var cambio = new com.staysync.reservas.dto.request.ModificarReservaRequest();
+        cambio.setFechaEntrada(HOY.plusDays(11));
+        cambio.setFechaSalida(HOY.plusDays(13));
+
+        ReservaResponse modificada = reservaService.modificar(r.getId(), cambio);
+
+        assertThat(modificada.getFechaEntrada()).isEqualTo(HOY.plusDays(11));
+        assertThat(nocheRepository.count()).isEqualTo(2);
+        // La noche que dejó libre ya se puede reservar
+        assertThat(reservaService.crear(buildRequest(2L, 21L, HOY.plusDays(10), HOY.plusDays(11), 1)).getId()).isNotNull();
+        assertThat(reservaService.listarEnRango(HOY.plusDays(10), HOY.plusDays(11))).hasSize(1);
+    }
+
+    @Test
     @DisplayName("Anti-overbooking: 10 reservas simultáneas de la misma habitación → solo 1 se crea")
     void antiOverbookingConcurrente() throws Exception {
         LocalDate entrada = LocalDate.now().plusDays(20);
