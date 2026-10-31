@@ -4,6 +4,7 @@ import com.staysync.bff.client.HabitacionesClient;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -91,5 +92,22 @@ public class HabitacionBffController {
             @PathVariable Long id) {
         habitacionesClient.desactivar(authHeader, id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Agregar una foto (body: { url, esPrincipal }); la primera queda de portada")
+    @PostMapping("/{id}/imagenes")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Object> agregarImagen(@RequestHeader("Authorization") String authHeader,
+                                                @PathVariable Long id, @RequestBody Object body) {
+        return habitacionesClient.reenviar(authHeader, HttpMethod.POST, "/api/v1/habitaciones/" + id + "/imagenes", body);
+    }
+
+    @Operation(summary = "Quitar una foto de la habitación")
+    @DeleteMapping("/{id}/imagenes/{imagenId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Object> eliminarImagen(@RequestHeader("Authorization") String authHeader,
+                                                 @PathVariable Long id, @PathVariable Long imagenId) {
+        return habitacionesClient.reenviar(authHeader, HttpMethod.DELETE,
+                "/api/v1/habitaciones/" + id + "/imagenes/" + imagenId, null);
     }
 }

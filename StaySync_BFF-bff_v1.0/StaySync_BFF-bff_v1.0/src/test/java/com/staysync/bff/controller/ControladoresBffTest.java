@@ -24,7 +24,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = {ReservaBffController.class, HabitacionBffController.class, PagoBffController.class,
         ServicioBffController.class, UsuarioBffController.class, ClimaBffController.class})
-@Import({SecurityConfig.class, JwtAuthFilter.class, com.staysync.bff.security.AccesoHuesped.class})
+@Import({SecurityConfig.class, JwtAuthFilter.class, com.staysync.bff.security.AccesoHuesped.class,
+        com.staysync.bff.service.CuentaService.class})
 @DisplayName("Controladores del BFF")
 class ControladoresBffTest {
 
@@ -259,6 +260,126 @@ class ControladoresBffTest {
                     .andExpect(jsonPath("$.habitacion.tipo").value("Doble"))
                     .andExpect(jsonPath("$.noches").value(2));
         }
+    }
+
+    @Nested
+    @DisplayName("Cuenta del huésped")
+    class Cuenta {
+
+        private static final org.springframework.http.HttpMethod GET = org.springframework.http.HttpMethod.GET;
+
+        /** Estadía 100.000 + consumo 20.000 (el cancelado no cuenta) − pago 100.000 (el reembolsado no cuenta) */
+        @BeforeEach
+        void cuentaConSaldo() {
+            when(reservasClient.reenviar(AUTH, GET, "/api/v1/reservas/5", null)).thenReturn(ok(Map.of(
+                    "id", 5, "codigo", "RES-1", "estado", "CHECKIN", "usuarioId", 7, "precioTotal", 100000)));
+            when(serviciosClient.reenviar(AUTH, GET, "/api/v1/solicitudes/reserva/5", null)).thenReturn(ok(List.of(
+                    Map.of("estado", "COMPLETADO", "precioTotal", 20000),
+                    Map.of("estado", "CANCELADO", "precioTotal", 99999))));
+            when(pagosClient.reenviar(AUTH, GET, "/api/v1/pagos/reserva/5", null)).thenReturn(ok(List.of(
+                    Map.of("estado", "COMPLETADO", "monto", 100000),
+                    Map.of("estado", "REEMBOLSADO", "monto", 5000))));
+        }
+
+        @Test
+        @WithMockUser(roles = "RECEPCIONISTA")
+        @DisplayName("Suma estadía y consumos, resta lo pagado")
+        void calculaSaldo() throws Exception {
+            mockMvc.perform(get("/bff/reservas/5/cuenta").header("Authorization", AUTH))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalConsumos").value(20000))
+                    .andExpect(jsonPath("$.totalPagado").value(100000))
+                    .andExpect(jsonPath("$.saldo").value(20000));
+        }
+
+        @Test
+        @WithMockUser(roles = "RECEPCIONISTA")
+        @DisplayName("No hay check-out con saldo pendiente")
+        void checkoutConSaldoBloqueado() throws Exception {
+            mockMvc.perform(patch("/bff/reservas/5/estado").header("Authorization", AUTH)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"estado\":\"CHECKOUT\"}"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("20.000")));
+            verify(reservasClient, never()).cambiarEstado(any(), any(), any());
+        }
+
+        @Test
+        @WithMockUser(roles = "RECEPCIONISTA")
+        @DisplayName("Cobrar el saldo manda a pagos exactamente lo que falta, a nombre del huésped")
+        @SuppressWarnings("unchecked")
+        void pagaSaldo() throws Exception {
+            when(pagosClient.reenviar(eq(AUTH), eq(org.springframework.http.HttpMethod.POST), eq("/api/v1/pagos"), any()))
+                    .thenReturn(ok(Map.of("id", 9)));
+
+            mockMvc.perform(post("/bff/reservas/5/cuenta/pago").header("Authorization", AUTH)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"metodoPago\":\"EFECTIVO\"}"))
+                    .andExpect(status().isCreated());
+
+            verify(pagosClient).reenviar(eq(AUTH), eq(org.springframework.http.HttpMethod.POST), eq("/api/v1/pagos"),
+                    argThat(b -> {
+                        Map<String, Object> p = (Map<String, Object>) b;
+                        return new java.math.BigDecimal("20000").compareTo((java.math.BigDecimal) p.get("monto")) == 0
+                                && Integer.valueOf(7).equals(p.get("usuarioId")) && "EFECTIVO".equals(p.get("metodoPago"));
+                    }));
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("Un huésped no ve la cuenta de otra reserva ni cobra saldos")
+        void huespedSoloLoSuyo() throws Exception {
+            when(jwtService.extractRol("token")).thenReturn("HUESPED");
+            when(jwtService.extractClaim(eq("token"), any())).thenReturn(8L);
+            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "usuarioId", 7)));
+
+            mockMvc.perform(get("/bff/reservas/5/cuenta").header("Authorization", AUTH)).andExpect(status().isForbidden());
+            mockMvc.perform(post("/bff/reservas/5/cuenta/pago").header("Authorization", AUTH)
+                    .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    @WithMockUser(roles = "RECEPCIONISTA")
+    @DisplayName("Calendario: fechas mal escritas son 400, no 500")
+    void rangoFechaInvalida() throws Exception {
+        mockMvc.perform(get("/bff/reservas/rango").param("desde", "31-10-2026").param("hasta", "2026-11-30")
+                .header("Authorization", AUTH)).andExpect(status().isBadRequest());
+        verifyNoInteractions(reservasClient);
+    }
+
+    @Test
+    @WithMockUser(roles = "RECEPCIONISTA")
+    @DisplayName("Walk-in: se registra en el portal del hotel de recepción con una contraseña temporal válida")
+    @SuppressWarnings("unchecked")
+    void registraHuespedWalkIn() throws Exception {
+        when(jwtService.extractTenantId("token")).thenReturn("hotel-andes");
+        when(usuariosClient.listarHotelesPublicos()).thenReturn(ok(List.of(
+                Map.of("tenantId", "staysync-demo", "slug", "staysync-demo"),
+                Map.of("tenantId", "hotel-andes", "slug", "andes"))));
+        when(usuariosClient.reenviar(eq(AUTH), eq(org.springframework.http.HttpMethod.POST), eq("/api/v1/auth/registro"), any()))
+                .thenReturn(ok(Map.of("id", 50)));
+
+        mockMvc.perform(post("/bff/usuarios/huespedes").header("Authorization", AUTH).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"Ana\",\"apellido\":\"Rojas\",\"email\":\"ana@correo.cl\",\"rol\":\"ADMIN\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.usuario.id").value(50))
+                .andExpect(jsonPath("$.passwordTemporal").value(
+                        org.hamcrest.Matchers.matchesPattern("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&]).{12}$")));
+
+        verify(usuariosClient).reenviar(eq(AUTH), any(), any(), argThat(b -> {
+            Map<String, Object> r = (Map<String, Object>) b;
+            return "andes".equals(r.get("hotelSlug")) && !r.containsKey("rol"); // el body no elige rol
+        }));
+    }
+
+    @Test
+    @WithMockUser(roles = "RECEPCIONISTA")
+    @DisplayName("El catálogo y las fotos de habitaciones solo los administra el ADMIN")
+    void catalogoSoloAdmin() throws Exception {
+        mockMvc.perform(post("/bff/servicios").header("Authorization", AUTH)
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isForbidden());
+        mockMvc.perform(post("/bff/habitaciones/3/imagenes").header("Authorization", AUTH)
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isForbidden());
+        verifyNoInteractions(serviciosClient, habitacionesClient);
     }
 
     @Test

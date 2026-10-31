@@ -151,4 +151,24 @@ public class HabitacionesClient {
         log.error("habitaciones-service no disponible: {}", ex.getMessage());
         throw new DownstreamServiceException("El servicio de habitaciones no está disponible.");
     }
+
+    /**
+     * Llamada directa a habitaciones-service para los endpoints que el BFF solo reenvía. A diferencia
+     * de los demás métodos, un 4xx llega tal cual al frontend (con su mensaje) y una caída responde
+     * 503: nunca una lista vacía, que en la cuenta del huésped se leería como "sin pagos".
+     */
+    @CircuitBreaker(name = "habitacionesCB", fallbackMethod = "reenviarFallback")
+    public ResponseEntity<Object> reenviar(String authHeader, HttpMethod metodo, String ruta, Object body) {
+        return restTemplate.exchange(baseUrl + ruta, metodo,
+                new HttpEntity<>(body, UsuariosClient.buildHeaders(authHeader)), Object.class);
+    }
+
+    public ResponseEntity<Object> reenviarFallback(String authHeader, HttpMethod metodo, String ruta, Object body,
+                                                   Exception ex) {
+        if (ex instanceof org.springframework.web.client.HttpClientErrorException e) {
+            throw e;
+        }
+        log.error("habitaciones-service no disponible ({} {}): {}", metodo, ruta, ex.getMessage());
+        throw new DownstreamServiceException("El servicio de habitaciones no está disponible.");
+    }
 }

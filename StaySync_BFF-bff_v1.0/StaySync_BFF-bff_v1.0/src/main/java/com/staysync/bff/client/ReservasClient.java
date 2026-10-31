@@ -25,8 +25,10 @@ public class ReservasClient {
 
     @CircuitBreaker(name = "reservasCB", fallbackMethod = "listarFallback")
     public ResponseEntity<Object> listar(String authHeader) {
+        // Sin size, reservas-service pagina de a 10 y recepción solo veía las 10 más recientes.
+        // shortcut: tope de 500 por hotel; paginar en el panel si un hotel pasa de eso.
         return restTemplate.exchange(
-                baseUrl + "/api/v1/reservas",
+                baseUrl + "/api/v1/reservas?size=500",
                 HttpMethod.GET,
                 new HttpEntity<>(UsuariosClient.buildHeaders(authHeader)),
                 Object.class);
@@ -125,6 +127,26 @@ public class ReservasClient {
     @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> mutarFallback(String authHeader, Long id, Exception ex) {
         log.error(LOG_NO_DISPONIBLE, ex.getMessage());
+        throw new DownstreamServiceException("El servicio de reservas no está disponible.");
+    }
+
+    /**
+     * Llamada directa a reservas-service para los endpoints que el BFF solo reenvía. A diferencia
+     * de los demás métodos, un 4xx llega tal cual al frontend (con su mensaje) y una caída responde
+     * 503: nunca una lista vacía, que en la cuenta del huésped se leería como "sin pagos".
+     */
+    @CircuitBreaker(name = "reservasCB", fallbackMethod = "reenviarFallback")
+    public ResponseEntity<Object> reenviar(String authHeader, HttpMethod metodo, String ruta, Object body) {
+        return restTemplate.exchange(baseUrl + ruta, metodo,
+                new HttpEntity<>(body, UsuariosClient.buildHeaders(authHeader)), Object.class);
+    }
+
+    public ResponseEntity<Object> reenviarFallback(String authHeader, HttpMethod metodo, String ruta, Object body,
+                                                   Exception ex) {
+        if (ex instanceof org.springframework.web.client.HttpClientErrorException e) {
+            throw e;
+        }
+        log.error("reservas-service no disponible ({} {}): {}", metodo, ruta, ex.getMessage());
         throw new DownstreamServiceException("El servicio de reservas no está disponible.");
     }
 }

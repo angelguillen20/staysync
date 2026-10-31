@@ -39,7 +39,8 @@ try {
 Write-Ok "Build generado en dist/"
 
 Write-Step "Sincronizando con S3 ($S3Bucket)..."
-aws s3 sync (Join-Path $FrontendPath 'dist') "s3://$S3Bucket" --delete
+# media/ son las fotos que suben los hoteles: --delete las borraría
+aws s3 sync (Join-Path $FrontendPath 'dist') "s3://$S3Bucket" --delete --exclude "media/*"
 if ($LASTEXITCODE -ne 0) {
     Write-Fail "Falló el sync a S3."
     exit 1

@@ -81,7 +81,12 @@ public class SecurityConfig {
                         // ajenas. Lo suyo (mis reservas, cancelar, pagar) lo controla AccesoHuesped.
                         .requestMatchers(HttpMethod.GET, "/bff/reservas", "/bff/reservas/hoy", "/bff/reservas/*/detalle")
                                 .hasAnyRole(ADMIN, RECEPCIONISTA)
-                        .requestMatchers(HttpMethod.PATCH, "/bff/reservas/*/estado").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers(HttpMethod.PATCH, "/bff/reservas/*/estado", "/bff/reservas/*/modificar")
+                                .hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers(HttpMethod.GET, "/bff/reservas/rango").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        .requestMatchers(HttpMethod.POST, "/bff/reservas/*/cuenta/pago").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        // Fotos: solo quien administra el hotel
+                        .requestMatchers(HttpMethod.POST, "/bff/media").hasRole(ADMIN)
                         .requestMatchers(HttpMethod.GET, "/bff/pagos/**").hasAnyRole(ADMIN, RECEPCIONISTA)
                         .requestMatchers(HttpMethod.POST, "/bff/pagos/*/reembolso").hasAnyRole(ADMIN, RECEPCIONISTA)
                         // Pago en recepción (efectivo, POS): queda COMPLETADO al instante. El huésped paga con Stripe.

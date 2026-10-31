@@ -4,6 +4,21 @@ server:
 spring:
   application:
     name: bff-service
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+
+# Fotos subidas (logo, habitaciones, servicios). Se guardan en media/ del bucket del frontend,
+# que API Gateway ya sirve en /{proxy+}; el CI lo pasa como MEDIA_BUCKET. Vacío = sin subida
+# (el panel deja pegar un enlace https).
+staysync:
+  media:
+    bucket: ${MEDIA_BUCKET:}
 
 notificaciones:
   enabled: ${NOTIFICACIONES_ENABLED:true}

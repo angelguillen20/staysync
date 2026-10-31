@@ -42,6 +42,15 @@ class NuevaRevision(unittest.TestCase):
         self.assertEqual([e['value'] for e in env if e['name'] == 'SPRING_DATASOURCE_PASSWORD'], ['clave-2'])
         self.assertEqual(len(env), 3)  # sin duplicados
 
+    def test_variables_del_ci_se_agregan_y_reemplazan(self):
+        td, _ = nueva_revision(copy.deepcopy(TD_ACTUAL), 'v2', {ORIGEN_JWT: 'jwt', ORIGEN_DB: 'c'}.__getitem__,
+                               {'MEDIA_BUCKET': 'staysync-front-1', 'SERVER_PORT': '9090'})
+
+        env = {e['name']: e['value'] for e in td['containerDefinitions'][0]['environment']}
+        self.assertEqual(env['MEDIA_BUCKET'], 'staysync-front-1')
+        self.assertEqual(env['SERVER_PORT'], '9090')
+        self.assertEqual(len(td['containerDefinitions'][0]['environment']), 4)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -156,7 +156,9 @@ jobs:
         run: |
           # LabRole ya no puede leer Secrets Manager (SCP de AWS Academy): el script los lee con
           # estas credenciales y los pasa como variables de entorno, enmascarados en el log
-          python3 scripts/deploy/task_definition.py "$SVC" "$IMAGE" td.json
+          # El BFF guarda las fotos en media/ del bucket del frontend
+          BUCKET=${S3_BUCKET:-staysync-front-$(aws sts get-caller-identity --query Account --output text)}
+          python3 scripts/deploy/task_definition.py "$SVC" "$IMAGE" td.json MEDIA_BUCKET="$BUCKET"
           ARN=$(aws ecs register-task-definition --cli-input-json file://td.json \
                   --query taskDefinition.taskDefinitionArn --output text)
           rm td.json
@@ -205,4 +207,5 @@ jobs:
       - name: Publicar en S3
         run: |
           BUCKET=${S3_BUCKET:-staysync-front-$(aws sts get-caller-identity --query Account --output text)}
-          aws s3 sync dist s3://$BUCKET --delete
+          # media/ son las fotos que suben los hoteles: --delete las borraría en cada deploy
+          aws s3 sync dist s3://$BUCKET --delete --exclude "media/*"

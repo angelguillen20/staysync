@@ -75,6 +75,17 @@ public class GlobalExceptionHandler {
         return build(status, ex.getReason() != null ? ex.getReason() : status.getReasonPhrase());
     }
 
+    // Spring corta la subida antes de llegar al controlador si supera spring.servlet.multipart
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleArchivoGrande(Exception ex) {
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "La foto debe pesar hasta 5 MB.");
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<Map<String, Object>> handleSinArchivo(Exception ex) {
+        return build(HttpStatus.BAD_REQUEST, "Falta el archivo de la foto.");
+    }
+
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AuthorizationDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, "No tienes permisos para esta operación.");
