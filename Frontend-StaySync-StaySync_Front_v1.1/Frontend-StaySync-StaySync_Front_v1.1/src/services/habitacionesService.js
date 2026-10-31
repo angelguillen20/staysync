@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 
-export const getHabitaciones = () => apiClient.get('/habitaciones').then(r => r.data);
+// params.hotel (solo SUPER_ADMIN): 'todos' o el tenantId de otro hotel; cada habitación trae hotelNombre
+export const getHabitaciones = (params) => apiClient.get('/habitaciones', { params }).then(r => r.data);
 
 // params: { capacidad?: number, amenidad?: string, sort?: 'precio_asc'|'precio_desc' }
 export const getDisponibles = (params = {}) =>

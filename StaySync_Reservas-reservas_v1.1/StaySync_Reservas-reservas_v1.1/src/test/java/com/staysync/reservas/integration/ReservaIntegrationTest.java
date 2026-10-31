@@ -69,6 +69,7 @@ class ReservaIntegrationTest {
         // Simular respuesta de habitaciones-service con habitación de capacidad 3
         Map<String, Object> habitacionData = Map.of(
                 "id", 1,
+                "numero", "101",
                 "precioPorNoche", 100.00,
                 "capacidad", 3
         );
@@ -105,6 +106,7 @@ class ReservaIntegrationTest {
         assertThat(response.getCodigo()).matches("RES-[A-Z0-9]{8}");
         assertThat(response.getPrecioTotal()).isEqualByComparingTo(BigDecimal.valueOf(200)); // 100 * 2 noches
         assertThat(response.getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
+        assertThat(response.getHabitacionNumero()).isEqualTo("101");
 
         Optional<Reserva> enBd = reservaRepository.findById(response.getId());
         assertThat(enBd).isPresent();

@@ -101,19 +101,26 @@ h5 { font-size: 1.05rem; }
 /* --- Sidebar --- */
 .sidebar {
   background-color: var(--ss-dark);
-  min-height: calc(100vh - 66px);
+  /* Alto fijo con scroll propio: sin esto el grupo Administración quedaba fuera de la pantalla */
+  height: calc(100vh - 66px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(239,193,67,0.45) transparent;
   width: 240px;
   position: fixed;
   top: 66px;
   left: 0;
-  padding-top: 1rem;
+  padding: 0.5rem 0 1.5rem;
   z-index: 100;
   transition: width 0.3s;
   overflow-x: hidden;
 }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(239,193,67,0.45); }
 .sidebar .nav-link {
   color: rgba(255,255,255,0.75);
-  padding: 0.75rem 1.25rem;
+  padding: 0.5rem 1.25rem;
   border-radius: 0;
   display: flex;
   align-items: center;
@@ -132,7 +139,7 @@ h5 { font-size: 1.05rem; }
   color: rgba(255,255,255,0.5);
   font-size: 0.78rem;
   font-weight: 500;
-  padding: 1rem 1.25rem 0.35rem;
+  padding: 0.85rem 1.25rem 0.25rem;
 }
 
 /* --- Main content with sidebar --- */
@@ -356,6 +363,24 @@ h5 { font-size: 1.05rem; }
 .estadia-CHECKIN    { background: var(--ss-dark); color: var(--ss-gold) !important; }
 .estadia-CHECKOUT   { background: var(--ss-ink-soft); }
 .estadia-NO_SHOW    { background: #a33a2e; }
+
+/* Portal del huésped: su estadía es lo primero que ve */
+.hero-estadia {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  background: var(--ss-dark); color: rgba(255,255,255,0.92);
+  border-radius: var(--ss-radius-lg); overflow: hidden;
+}
+.hero-estadia .foto { aspect-ratio: auto; height: 100%; min-height: 240px; border-radius: 0; }
+.hero-estadia h2 { color: #fff; }
+.hero-estadia .cifra { color: var(--ss-gold); font-size: clamp(2.2rem, 5vw, 3.4rem); }
+.hero-estadia .suave { color: rgba(255,255,255,0.68); }
+.hero-estadia .btn-outline-light { border-color: rgba(255,255,255,0.4); }
+.hero-sin-estadia { grid-template-columns: 1fr; }
+@media (max-width: 768px) {
+  .hero-estadia { grid-template-columns: 1fr; }
+  .hero-estadia .foto { min-height: 180px; }
+}
+.aviso-pago { border-left: 4px solid var(--ss-gold) !important; }
 
 /* Cuenta del huésped: líneas tipo boleta */
 .cuenta-linea { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0; border-bottom: 1px dashed var(--ss-line); font-variant-numeric: tabular-nums; }

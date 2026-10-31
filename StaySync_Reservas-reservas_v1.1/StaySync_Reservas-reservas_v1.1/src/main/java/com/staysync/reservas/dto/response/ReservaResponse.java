@@ -18,6 +18,7 @@ public class ReservaResponse {
     private String codigo;
     private Long usuarioId;
     private Long habitacionId;
+    private String habitacionNumero;
     private LocalDate fechaEntrada;
     private LocalDate fechaSalida;
     private Integer numHuespedes;

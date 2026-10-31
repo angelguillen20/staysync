@@ -42,6 +42,10 @@ public class Reserva {
     @Column(name = "habitacion_id", nullable = false)
     private Long habitacionId;
 
+    /** Número de puerta al reservar: el huésped lo ve sin poder consultar habitaciones. */
+    @Column(name = "habitacion_numero", length = 20)
+    private String habitacionNumero;
+
     @Column(name = "fecha_entrada", nullable = false)
     private LocalDate fechaEntrada;
 
