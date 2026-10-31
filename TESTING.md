@@ -175,10 +175,11 @@ ReservaServiceTest
  │    ├── debeLanzarExcepcionSiYaCancelada             → estado CANCELADA → TransicionInválida
  │    └── debeLanzarExcepcionSiYaCheckout              → estado CHECKOUT → TransicionInválida
  │
- ├── autoTransicionarACheckin()  (scheduler)
- │    ├── debeAutoTransicionarReservasConfirmadasDeHoy → cambia estado + publica evento por cada una
- │    ├── noDebeHacerNadaSinReservasParaHoy            → lista vacía → save() nunca llamado
- │    └── debeProcessarMultiplesReservasEnAutoCheckin  → 2 reservas → 2 saves + 2 eventos
+ ├── cerrarReservasVencidas()  (scheduler, cada hora)
+ │    ├── marcaNoShow                                  → confirmada que no llegó → NO_SHOW, libera noches, sin evento
+ │    ├── cancelaPendienteSinPago                      → pendiente vencida → CANCELADA + ReservaCancelada
+ │    ├── noHaceCheckinAutomatico                      → nada vencido → save() nunca llamado
+ │    └── graciaNoShow                                 → el límite es el check-out (12:00) del día siguiente
  │
  └── getReservasHoy()
       ├── debeRetornarReservasDelDia                   → separa pendientesCheckin / pendientesCheckout

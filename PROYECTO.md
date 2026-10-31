@@ -445,22 +445,34 @@ Gestión del ciclo de vida completo de una reserva hotelera.
 ### Máquina de estados de una reserva
 
 ```
-                      PENDIENTE
-                     /         \
-           pago ok /             \ cancelar (> 24h)
-                  ▼               ▼
+                      PENDIENTE ──── sin pago 24 h / llegada pasada ──┐
+                     /         \                                       │
+           pago ok /             \ cancelar (> 24h)                    ▼
+                  ▼               ▼                                CANCELADA
             CONFIRMADA        CANCELADA
            /          \
-  check-in/             \ cancelar (< 24h → error)
-          ▼               
-        CHECKIN    
+  check-in/            \ no llegó (12:00 del día siguiente)
+ (desde el día          ▼
+  de llegada)         NO_SHOW
+          ▼
+        CHECKIN
           |
   checkout|
           ▼
         CHECKOUT
 ```
 
-**Regla de cancelación:** Solo se puede cancelar con **más de 24 horas** de anticipación al check-in. Intentar cancelar con menos de 24h lanza `CancelacionRestringidaException` (HTTP 422).
+**Reglas de negocio:**
+
+| Regla | Dónde |
+|---|---|
+| La fecha de entrada no puede ser pasada **según el día del hotel** (America/Santiago), no el del servidor (UTC). | `ReservaService.crear` |
+| El precio sale siempre de habitaciones-service. Si no responde, la reserva se rechaza (503) en vez de cobrar un precio inventado. | `ReservaService.crear` |
+| Una reserva PENDIENTE ya bloquea sus noches; si no se paga en **24 h** (o llega su fecha sin pagar) se cancela y las libera. | `cerrarReservasVencidas` |
+| El check-in lo hace recepción cuando llega el huésped, y solo **desde el día de llegada**. | `ReservaService.cambiarEstado` |
+| Si el huésped confirmado no llega, a las **12:00 del día siguiente** pasa a `NO_SHOW` y se liberan las noches. No se reembolsa. | `cerrarReservasVencidas` |
+| Solo se puede cancelar con **más de 24 horas** de anticipación al check-in (15:00). Si no, `CancelacionRestringidaException` (HTTP 422). | `ReservaService.cancelar` |
+| El monto de un pago es siempre el `precioTotal` de la reserva y solo se cobra una reserva PENDIENTE (lo fija el BFF). | `AccesoHuesped.reservaPorPagar` |
 
 **Transiciones inválidas** lanzan `TransicionEstadoInvalidaException` (HTTP 400). Ejemplo: CHECKOUT → CHECKIN.
 
@@ -499,7 +511,7 @@ Gestión del ciclo de vida completo de una reserva hotelera.
 {
   "fecha": "2026-12-01",
   "pendientesCheckin": [
-    { ...ReservaResponse con estado CONFIRMADA y fechaEntrada = hoy... }
+    { ...ReservaResponse CONFIRMADA con fechaEntrada <= hoy (llegadas de hoy y atrasadas)... }
   ],
   "pendientesCheckout": [
     { ...ReservaResponse con estado CHECKIN... }
@@ -509,7 +521,12 @@ Gestión del ciclo de vida completo de una reserva hotelera.
 
 ### Scheduler (tareas automáticas)
 
-`autoTransicionarACheckin()` — se ejecuta automáticamente (cron) y cambia a `CHECKIN` todas las reservas `CONFIRMADA` cuya `fechaEntrada` sea hoy.
+`cerrarReservasVencidas()` — cada hora y al arrancar, en modo sistema (todos los hoteles):
+
+- `CONFIRMADA` cuyo huésped no llegó → `NO_SHOW` (libera noches, sin evento: Pagos no reembolsa).
+- `PENDIENTE` sin pagar tras 24 h, o con la llegada ya pasada → `CANCELADA` (libera noches y publica `ReservaCancelada`).
+
+Ya **no** hay check-in automático: antes el cron de medianoche pasaba a `CHECKIN` todas las confirmadas del día, así que la lista de llegadas de recepción siempre estaba vacía y un huésped que no venía figuraba alojado.
 
 ### Llamadas HTTP externas
 
@@ -586,7 +603,7 @@ Procesamiento de pagos con soporte para pagos directos y checkout via Stripe.
 | reserva_id | BIGINT | Reserva asociada |
 | usuario_id | BIGINT | Usuario que paga |
 | monto | DECIMAL(10,2) | Monto pagado |
-| moneda | VARCHAR(3) | `USD`, `CLP`, etc. |
+| moneda | VARCHAR(3) | `CLP` por defecto |
 | metodoPago | ENUM | `TARJETA_CREDITO`, `TARJETA_DEBITO`, `TRANSFERENCIA`, `EFECTIVO`, `PAYPAL`, `MERCADO_PAGO`, `STRIPE` |
 | estado | ENUM | `PENDIENTE`, `PROCESANDO`, `COMPLETADO`, `FALLIDO`, `REEMBOLSADO`, `PARCIALMENTE_REEMBOLSADO` |
 | gatewayId | VARCHAR(255) | ID en Stripe (ej: `cs_test_ABC123`) |
@@ -598,7 +615,7 @@ Procesamiento de pagos con soporte para pagos directos y checkout via Stripe.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| POST | `/` | Procesar pago directo |
+| POST | `/` | Registrar pago recibido en recepción (efectivo, transferencia, POS): queda `COMPLETADO` y confirma la reserva. En el BFF solo ADMIN/RECEPCIONISTA |
 | GET | `/{id}` | Por ID |
 | GET | `/referencia/{referencia}` | Por referencia |
 | GET | `/reserva/{reservaId}` | Lista por reserva |
@@ -612,7 +629,7 @@ Procesamiento de pagos con soporte para pagos directos y checkout via Stripe.
 | POST | `/confirmar` | Confirmar pago tras redirect de Stripe |
 
 **Flujo Stripe Checkout:**
-1. Frontend llama `POST /api/pagos/stripe/checkout` → recibe `{checkoutUrl, sessionId}`
+1. Frontend llama `POST /bff/pagos/stripe/checkout` (con sesión) → el BFF fija el monto con el `precioTotal` de la reserva PENDIENTE del huésped → recibe `{checkoutUrl, sessionId}`
 2. Frontend redirige al usuario a `checkoutUrl` (página de pago de Stripe)
 3. Stripe redirige al usuario a `successUrl` o `cancelUrl`
 4. Frontend llama `POST /api/pagos/stripe/confirmar` con `{sessionId}` → registra el pago
