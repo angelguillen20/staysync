@@ -5,6 +5,7 @@ import { getMisReservas, cancelarReserva } from '../../services/reservasService'
 import LoadingSpinner    from '../../components/common/LoadingSpinner';
 import AlertMessage      from '../../components/common/AlertMessage';
 import ModalConfirmarCancelacion from '../../components/common/ModalConfirmarCancelacion';
+import { fmtFecha } from '../../utils/fechas';
 
 // ── Política de cancelación ────────────────────────────────────────────────
 // El hotel Chile opera en America/Santiago, que usa DST:
@@ -176,8 +177,8 @@ export default function ReservasHuesped() {
                 <tr key={r.id}>
                   <td className="text-muted small">#{r.id}</td>
                   <td className="fw-medium">Hab. {r.habitacionNumero ?? r.habitacionId}</td>
-                  <td>{r.fechaEntrada ? new Date(r.fechaEntrada).toLocaleDateString('es-CO') : '—'}</td>
-                  <td>{r.fechaSalida  ? new Date(r.fechaSalida).toLocaleDateString('es-CO')  : '—'}</td>
+                  <td>{fmtFecha(r.fechaEntrada)}</td>
+                  <td>{fmtFecha(r.fechaSalida)}</td>
                   <td>{r.numHuespedes ?? '—'}</td>
                   <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString()}` : '—'}</td>
                   <td>

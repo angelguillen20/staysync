@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/bff/reservas")
@@ -77,7 +78,7 @@ public class ReservaBffController {
                         .id(habitacionId)
                         .numero(String.valueOf(hab.get("numero")))
                         .tipo(extraerNombreTipo(hab))
-                        .precioPorNoche(new BigDecimal(String.valueOf(hab.getOrDefault("precio", "0"))))
+                        .precioPorNoche(new BigDecimal(String.valueOf(hab.getOrDefault("precioPorNoche", "0"))))
                         .estado(String.valueOf(hab.get(ESTADO)))
                         .build();
             }
@@ -89,7 +90,7 @@ public class ReservaBffController {
 
         ReservaDetalleResponse detalle = ReservaDetalleResponse.builder()
                 .id(toLong(reserva.get("id")))
-                .codigoReserva(String.valueOf(reserva.getOrDefault("codigoReserva", "")))
+                .codigoReserva(String.valueOf(reserva.getOrDefault("codigo", "")))
                 .estado(String.valueOf(reserva.getOrDefault(ESTADO, "")))
                 .fuente(String.valueOf(reserva.getOrDefault("fuente", "")))
                 .fechaEntrada(String.valueOf(reserva.getOrDefault(FECHA_ENTRADA, "")))
@@ -97,7 +98,7 @@ public class ReservaBffController {
                 .habitacionId(habitacionId)
                 .usuarioId(toLong(reserva.get(USUARIO_ID)))
                 .precioTotal(new BigDecimal(String.valueOf(reserva.getOrDefault("precioTotal", "0"))))
-                .notas(String.valueOf(reserva.getOrDefault("notas", "")))
+                .notas(Objects.toString(reserva.get("notas"), ""))
                 .habitacion(habitacionInfo)
                 .noches(noches)
                 .build();

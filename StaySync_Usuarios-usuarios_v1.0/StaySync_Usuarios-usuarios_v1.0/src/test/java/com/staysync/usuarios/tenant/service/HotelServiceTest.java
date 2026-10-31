@@ -40,6 +40,37 @@ class HotelServiceTest {
     }
 
     @Nested
+    @DisplayName("crear()")
+    class CrearTests {
+
+        @Test
+        @DisplayName("Crea el hotel con el slug como tenantId y la paleta de StaySync si no trae colores")
+        void creaConPaletaPorDefecto() {
+            when(hotelRepository.existsBySlug("hotel-pacifico")).thenReturn(false);
+            when(hotelRepository.existsById("hotel-pacifico")).thenReturn(false);
+            when(hotelRepository.save(any(Hotel.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            HotelResponse creado = hotelService.crear("Hotel Pacífico ", "Hotel-Pacifico", "", null);
+
+            assertThat(creado.getTenantId()).isEqualTo("hotel-pacifico");
+            assertThat(creado.getSlug()).isEqualTo("hotel-pacifico");
+            assertThat(creado.getNombre()).isEqualTo("Hotel Pacífico");
+            assertThat(creado.getLogoUrl()).isNull();
+            assertThat(creado.getTheme()).containsEntry("primary", "#222016");
+        }
+
+        @Test
+        @DisplayName("Rechaza un portal que ya existe")
+        void rechazaSlugRepetido() {
+            when(hotelRepository.existsBySlug("hotel-andes")).thenReturn(true);
+
+            assertThatThrownBy(() -> hotelService.crear("Otro", "hotel-andes", null, null))
+                    .isInstanceOf(com.staysync.usuarios.tenant.exception.HotelDuplicadoException.class);
+            verify(hotelRepository, never()).save(any());
+        }
+    }
+
+    @Nested
     @DisplayName("resolverTenantId()")
     class ResolverTenantIdTests {
 

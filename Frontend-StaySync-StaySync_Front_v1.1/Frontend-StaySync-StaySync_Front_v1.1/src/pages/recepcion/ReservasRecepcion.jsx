@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getReservas, cambiarEstadoReserva } from '../../services/reservasService';
+import { getHabitaciones } from '../../services/habitacionesService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
 import ModalReserva   from '../../components/recepcion/ModalReserva';
+import { fmtFecha, diasHasta } from '../../utils/fechas';
 
 const ESTADO_BADGE = {
   PENDIENTE:  'bg-warning text-dark',
@@ -24,10 +26,17 @@ const ESTADO_LABEL = {
 
 const TRANSICION_LABEL = {
   CONFIRMADA: 'Confirmar',
-  CHECKIN:    'Activar',
-  CHECKOUT:   'Finalizar',
+  CHECKIN:    'Check-in',
+  CHECKOUT:   'Check-out',
   CANCELADA:  'Cancelar',
 };
+
+/* Estados cerrados: ya no admiten acciones y no se listan aquí */
+const CERRADAS = ['CANCELADA', 'CHECKOUT', 'NO_SHOW'];
+
+/* El check-in solo existe desde el día de llegada (el backend también lo exige) */
+const accionesPara = (r) =>
+  (TRANSICIONES[r.estado] ?? []).filter(e => e !== 'CHECKIN' || diasHasta(r.fechaEntrada) <= 0);
 
 const TRANSICIONES = {
   PENDIENTE:  ['CONFIRMADA', 'CANCELADA'],
@@ -56,8 +65,11 @@ export default function ReservasRecepcion() {
   const cargar = async () => {
     setLoading(true);
     try {
-      const data = await getReservas();
-      setReservas(Array.isArray(data) ? data : data.content ?? []);
+      // La reserva solo trae habitacionId: el número de la puerta sale de habitaciones
+      const [data, habitaciones] = await Promise.all([getReservas(), getHabitaciones().catch(() => [])]);
+      const numero = Object.fromEntries(habitaciones.map(h => [h.id, h.numero]));
+      setReservas((Array.isArray(data) ? data : data.content ?? [])
+        .map(r => ({ ...r, habitacionNumero: numero[r.habitacionId] ?? r.habitacionId })));
     } catch {
       setError('Error al cargar reservas.');
     } finally {
@@ -80,8 +92,8 @@ export default function ReservasRecepcion() {
     try {
       await cambiarEstadoReserva(id, { estado });
       setReservas(prev => prev.map(r => r.id === id ? { ...r, estado } : r));
-    } catch {
-      setError('No se pudo actualizar el estado.');
+    } catch (err) {
+      setError(err.response?.data?.message ?? 'No se pudo actualizar el estado.');
     } finally {
       setUpdating(null);
     }
@@ -89,12 +101,13 @@ export default function ReservasRecepcion() {
 
   const filtradas = useMemo(() => {
     let result = reservas.filter(r => {
-      if (r.estado === 'CANCELADA' || r.estado === 'CHECKOUT') return false;
+      if (CERRADAS.includes(r.estado)) return false;
       if (!busqueda) return true;
       const q = busqueda.toLowerCase();
       return (
         String(r.id).includes(q) ||
         r.codigo?.toLowerCase().includes(q) ||
+        r.huespedNombre?.toLowerCase().includes(q) ||
         String(r.usuarioId).includes(q) ||
         String(r.habitacionNumero ?? r.habitacionId).includes(q)
       );
@@ -197,19 +210,19 @@ export default function ReservasRecepcion() {
             </thead>
             <tbody>
               {filtradas.map(r => {
-                const next = TRANSICIONES[r.estado] ?? [];
+                const next = accionesPara(r);
                 return (
                   <tr key={r.id}>
                     <td className="text-muted small">#{r.id}</td>
                     <td>
                       <div className="fw-medium small">{r.codigo ?? '—'}</div>
-                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>Usr. #{r.usuarioId}</div>
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>{r.huespedNombre || `Usr. #${r.usuarioId}`}</div>
                     </td>
-                    <td className="fw-medium">Hab. {r.habitacionNumero ?? r.habitacionId}</td>
-                    <td>{r.fechaEntrada ? new Date(r.fechaEntrada).toLocaleDateString('es-CO') : '—'}</td>
-                    <td>{r.fechaSalida  ? new Date(r.fechaSalida).toLocaleDateString('es-CO')  : '—'}</td>
+                    <td className="fw-medium">Hab. {r.habitacionNumero}</td>
+                    <td>{fmtFecha(r.fechaEntrada)}</td>
+                    <td>{fmtFecha(r.fechaSalida)}</td>
                     <td>{r.numHuespedes ?? '—'}</td>
-                    <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString()}` : '—'}</td>
+                    <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString('es-CL')}` : '—'}</td>
                     <td>
                       <span className={`badge ${ESTADO_BADGE[r.estado] ?? 'bg-secondary'}`}>
                         {ESTADO_LABEL[r.estado] ?? r.estado}

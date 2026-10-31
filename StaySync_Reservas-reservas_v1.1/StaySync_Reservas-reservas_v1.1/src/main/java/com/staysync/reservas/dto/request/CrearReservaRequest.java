@@ -19,13 +19,13 @@ public class CrearReservaRequest {
     @NotNull(message = "El ID de habitación es obligatorio")
     private Long habitacionId;
 
+    // Que no sea pasada lo valida ReservaService con la fecha del hotel: @FutureOrPresent usa
+    // la del servidor (UTC) y rechazaba reservar para hoy desde las 21:00 de Chile.
     @NotNull(message = "La fecha de entrada es obligatoria")
-    @FutureOrPresent(message = "La fecha de entrada no puede ser en el pasado")
     @Schema(example = "2025-03-01")
     private LocalDate fechaEntrada;
 
     @NotNull(message = "La fecha de salida es obligatoria")
-    @Future(message = "La fecha de salida debe ser futura")
     @Schema(example = "2025-03-05")
     private LocalDate fechaSalida;
 

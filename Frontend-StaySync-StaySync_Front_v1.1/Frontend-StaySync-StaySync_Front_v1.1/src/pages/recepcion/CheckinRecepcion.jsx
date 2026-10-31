@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getReservasHoy, cambiarEstadoReserva } from '../../services/reservasService';
+import { getHabitaciones } from '../../services/habitacionesService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
+import { fmtFecha, nochesEntre, diasHasta } from '../../utils/fechas';
 
-const fmt = (d) => d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-const noches = (e, s) => {
-  const n = Math.round((new Date(s) - new Date(e)) / 86400000);
-  return Number.isNaN(n) ? '—' : String(Math.max(1, n));
-};
+const FMT_CORTO = { day: '2-digit', month: 'short', year: 'numeric' };
 
+/* El huésped que no llega puede hacer check-in hasta las 12:00 del día siguiente; luego es no-show. */
 const URGENCY = (fechaEntrada) => {
-  const diff = Math.round((new Date(fechaEntrada) - Date.now()) / 86400000);
+  const diff = diasHasta(fechaEntrada);
   if (diff < 0)  return { label: 'Atrasado', cls: 'bg-danger text-white' };
   if (diff === 0) return { label: 'Hoy',      cls: 'bg-warning text-dark' };
   return { label: `En ${diff}d`,              cls: 'bg-light text-muted' };
@@ -22,26 +21,30 @@ function ReservaRow({ r, onAction, updating, accion, nuevoEstado, btnVariant }) 
   return (
     <tr className={isUpdating ? 'table-active' : ''}>
       <td>
-        <span className="fw-semibold text-muted small">#{r.id}</span>
+        <span className="fw-semibold text-muted small">{r.codigo ?? `#${r.id}`}</span>
         {accion === 'Check-in' && (
           <span className={`badge ms-1 small ${u.cls}`}>{u.label}</span>
         )}
+      </td>
+      <td className="small">
+        <div className="fw-semibold">{r.huespedNombre || '—'}</div>
+        {r.huespedEmail && <div className="text-muted">{r.huespedEmail}</div>}
       </td>
       <td>
         <span
           className="fw-bold px-2 py-1 rounded"
           style={{ background: 'rgba(239,193,67,0.15)', color: 'var(--ss-dark)', fontSize: '0.9rem' }}
         >
-          Hab. {r.habitacionNumero ?? r.habitacionId ?? '—'}
+          Hab. {r.habitacionNumero}
         </span>
       </td>
-      <td className="small">{fmt(r.fechaEntrada)}</td>
-      <td className="small">{fmt(r.fechaSalida)}</td>
+      <td className="small">{fmtFecha(r.fechaEntrada, FMT_CORTO)}</td>
+      <td className="small">{fmtFecha(r.fechaSalida, FMT_CORTO)}</td>
       <td className="text-center small">{r.numHuespedes ?? '—'}</td>
       <td className="small fw-semibold">
-        {r.precioTotal ? `$${Number(r.precioTotal).toLocaleString('es-CO')}` : '—'}
+        {r.precioTotal ? `$${Number(r.precioTotal).toLocaleString('es-CL')}` : '—'}
         {r.fechaEntrada && r.fechaSalida && (
-          <div className="text-muted fw-normal">{noches(r.fechaEntrada, r.fechaSalida)}n</div>
+          <div className="text-muted fw-normal">{nochesEntre(r.fechaEntrada, r.fechaSalida)}n</div>
         )}
       </td>
       <td>
@@ -87,10 +90,13 @@ export default function CheckinRecepcion() {
   const [busqueda,  setBusqueda]  = useState('');
 
   useEffect(() => {
-    getReservasHoy()
-      .then(data => {
-        setPendientesCheckin(data.pendientesCheckin ?? []);
-        setPendientesCheckout(data.pendientesCheckout ?? []);
+    // La reserva solo trae habitacionId: el número de la puerta sale de habitaciones
+    Promise.all([getReservasHoy(), getHabitaciones().catch(() => [])])
+      .then(([data, habitaciones]) => {
+        const numero = Object.fromEntries((habitaciones ?? []).map(h => [h.id, h.numero]));
+        const conNumero = (lista) => (lista ?? []).map(r => ({ ...r, habitacionNumero: numero[r.habitacionId] ?? r.habitacionId }));
+        setPendientesCheckin(conNumero(data.pendientesCheckin));
+        setPendientesCheckout(conNumero(data.pendientesCheckout));
       })
       .catch(() => setError('Error al cargar las reservas del día.'))
       .finally(() => setLoading(false));
@@ -101,8 +107,9 @@ export default function CheckinRecepcion() {
     const q = busqueda.toLowerCase();
     return lista.filter(r =>
       String(r.id).includes(q) ||
-      String(r.habitacionNumero ?? r.habitacionId ?? '').includes(q) ||
-      (r.nombreContacto ?? r.nombre ?? '').toLowerCase().includes(q)
+      (r.codigo ?? '').toLowerCase().includes(q) ||
+      String(r.habitacionNumero ?? '').includes(q) ||
+      (r.huespedNombre ?? '').toLowerCase().includes(q)
     );
   };
 
@@ -120,7 +127,7 @@ export default function CheckinRecepcion() {
       } else if (nuevoEstado === 'CHECKOUT') {
         setPendientesCheckout(prev => prev.filter(r => r.id !== id));
       }
-      setSuccess(`${accion} completado para la reserva #${id}.`);
+      setSuccess(`${accion} completado para la reserva ${listaActual.find(r => r.id === id)?.codigo ?? `#${id}`}.`);
     } catch (err) {
       setError(err?.response?.data?.message ?? `No se pudo realizar el ${accion.toLowerCase()}.`);
     } finally {
@@ -216,7 +223,8 @@ export default function CheckinRecepcion() {
           <input
             className="form-control border-start-0"
             style={{ fontSize: '0.9rem' }}
-            placeholder="Buscar por hab., huésped, #"
+            placeholder="Buscar por hab., huésped, código"
+            aria-label="Buscar reserva"
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
           />
@@ -233,6 +241,7 @@ export default function CheckinRecepcion() {
               <thead style={{ background: 'var(--ss-cream)' }}>
                 <tr>
                   <th className="ps-3 small text-muted fw-semibold">Reserva</th>
+                  <th className="small text-muted fw-semibold">Huésped</th>
                   <th className="small text-muted fw-semibold">Hab.</th>
                   <th className="small text-muted fw-semibold">Entrada</th>
                   <th className="small text-muted fw-semibold">Salida</th>

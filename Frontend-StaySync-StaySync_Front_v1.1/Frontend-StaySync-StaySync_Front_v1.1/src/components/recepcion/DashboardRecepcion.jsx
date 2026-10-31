@@ -5,6 +5,7 @@ import LoadingSpinner                     from '../common/LoadingSpinner';
 import AlertMessage                       from '../common/AlertMessage';
 import WidgetClima                        from '../common/WidgetClima';
 import ModalReserva                       from './ModalReserva';
+import { fmtFecha } from '../../utils/fechas';
 
 const ESTADO_META = {
   DISPONIBLE:       { label: 'Disponible',        badge: 'bg-success',           icon: 'bi-check-circle-fill',  color: '#198754' },
@@ -244,8 +245,8 @@ export default function DashboardRecepcion() {
                     <tr key={res.id ?? i}>
                       <td className="ps-3 text-muted">#{res.id}</td>
                       <td className="fw-semibold">Hab. {res.habitacionNumero ?? res.habitacionId ?? '—'}</td>
-                      <td>{res.fechaEntrada ? new Date(res.fechaEntrada).toLocaleDateString('es-CO') : '—'}</td>
-                      <td>{res.fechaSalida  ? new Date(res.fechaSalida).toLocaleDateString('es-CO')  : '—'}</td>
+                      <td>{fmtFecha(res.fechaEntrada)}</td>
+                      <td>{fmtFecha(res.fechaSalida)}</td>
                       <td>{res.precioTotal ? `$${Number(res.precioTotal).toLocaleString('es-CO')}` : '—'}</td>
                       <td><span className={`badge ${em.badge}`}>{em.label}</span></td>
                     </tr>

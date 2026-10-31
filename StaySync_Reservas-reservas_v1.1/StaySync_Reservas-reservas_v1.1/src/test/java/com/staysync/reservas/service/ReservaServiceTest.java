@@ -38,6 +38,8 @@ class ReservaServiceTest {
 
     @InjectMocks private ReservaService reservaService;
 
+    private static final LocalDate HOY = LocalDate.now(ReservaService.ZONA_HOTEL);
+
     private Reserva reservaBase;
 
     @BeforeEach
@@ -84,20 +86,30 @@ class ReservaServiceTest {
     }
 
     @Test
-    @DisplayName("crear() - debe usar precio por defecto cuando habitaciones-service no responde")
-    void debeCrearReservaConPrecioPorDefecto() {
+    @DisplayName("crear() - sin habitaciones-service no reserva: no hay precio real que cobrar")
+    void rechazaSinPrecioDeHabitacion() {
         CrearReservaRequest request = buildRequest(2);
 
         when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
-        when(reservaRepository.existsByCodigo(anyString())).thenReturn(false);
         when(restTemplate.getForObject(anyString(), eq(Map.class)))
                 .thenThrow(new RuntimeException("Connection refused"));
-        when(reservaRepository.save(any())).thenReturn(reservaBase);
 
-        ReservaResponse response = reservaService.crear(request);
+        assertThatThrownBy(() -> reservaService.crear(request))
+                .isInstanceOf(ServicioNoDisponibleException.class);
+        verify(reservaRepository, never()).save(any());
+    }
 
-        assertThat(response).isNotNull();
-        verify(reservaRepository).save(any(Reserva.class));
+    @Test
+    @DisplayName("crear() - rechaza una fecha de entrada pasada según el día del hotel")
+    void rechazaEntradaPasada() {
+        CrearReservaRequest request = buildRequest(1);
+        request.setFechaEntrada(HOY.minusDays(1));
+        request.setFechaSalida(HOY.plusDays(1));
+
+        assertThatThrownBy(() -> reservaService.crear(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pasado");
+        verifyNoInteractions(restTemplate);
     }
 
     @Test
@@ -150,7 +162,7 @@ class ReservaServiceTest {
 
         when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
         when(reservaRepository.existsByCodigo(anyString())).thenReturn(false);
-        when(restTemplate.getForObject(anyString(), eq(Map.class))).thenReturn(null);
+        habitacionDisponible();
         when(reservaRepository.save(any())).thenReturn(reservaBase)
                                            .thenReturn(reservaConHuespedes);
 
@@ -243,6 +255,7 @@ class ReservaServiceTest {
     @DisplayName("cambiarEstado() - CONFIRMADA → CHECKIN publica ReservaCheckin (Habitaciones la marca OCUPADA)")
     void debeCambiarEstadoConfirmadaACheckin() {
         reservaBase.setEstado(EstadoReserva.CONFIRMADA);
+        reservaBase.setFechaEntrada(HOY);
         when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
         when(reservaRepository.save(any())).thenReturn(reservaBase);
 
@@ -251,6 +264,18 @@ class ReservaServiceTest {
         assertThat(reservaBase.getEstado()).isEqualTo(EstadoReserva.CHECKIN);
         verify(outbox).registrar(eq(TiposEvento.RESERVA_CHECKIN), any(), anyMap());
         verifyNoInteractions(restTemplate);
+    }
+
+    @Test
+    @DisplayName("cambiarEstado() - no hay check-in antes del día de llegada")
+    void rechazaCheckinAnticipado() {
+        reservaBase.setEstado(EstadoReserva.CONFIRMADA); // llega en 5 días
+        when(reservaRepository.findById(1L)).thenReturn(Optional.of(reservaBase));
+
+        assertThatThrownBy(() -> reservaService.cambiarEstado(1L, EstadoReserva.CHECKIN))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("día de llegada");
+        verify(reservaRepository, never()).save(any());
     }
 
     @Test
@@ -318,51 +343,59 @@ class ReservaServiceTest {
     // ── SCHEDULER ─────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("autoTransicionarACheckin() - debe cambiar a CHECKIN las reservas CONFIRMADAS de hoy")
-    void debeAutoTransicionarReservasConfirmadasDeHoy() {
-        Reserva reservaConfirmada = reservaBase.toBuilder()
-                .estado(EstadoReserva.CONFIRMADA)
-                .fechaEntrada(LocalDate.now())
-                .build();
+    @DisplayName("cerrarReservasVencidas() - el confirmado que no llegó pasa a NO_SHOW, libera noches y no se reembolsa")
+    void marcaNoShow() {
+        Reserva noLlego = reservaBase.toBuilder().estado(EstadoReserva.CONFIRMADA)
+                .fechaEntrada(HOY.minusDays(2)).build();
+        when(reservaRepository.findByEstadoAndFechaEntradaBefore(eq(EstadoReserva.CONFIRMADA), any()))
+                .thenReturn(List.of(noLlego));
+        when(reservaRepository.findPendientesVencidas(any(), any())).thenReturn(List.of());
 
-        when(reservaRepository.findConfirmadasParaAutoCheckin(LocalDate.now()))
-                .thenReturn(List.of(reservaConfirmada));
-        when(reservaRepository.save(any())).thenReturn(reservaConfirmada);
+        reservaService.cerrarReservasVencidas();
 
-        reservaService.autoTransicionarACheckin();
-
-        assertThat(reservaConfirmada.getEstado()).isEqualTo(EstadoReserva.CHECKIN);
-        verify(reservaRepository).save(reservaConfirmada);
-        verify(outbox).registrar(eq(TiposEvento.RESERVA_CHECKIN), any(), anyMap());
+        assertThat(noLlego.getEstado()).isEqualTo(EstadoReserva.NO_SHOW);
+        verify(nocheRepository).liberarNoches(noLlego.getId());
+        verifyNoInteractions(outbox); // sin ReservaCancelada: Pagos no reembolsa un no-show
     }
 
     @Test
-    @DisplayName("autoTransicionarACheckin() - no debe hacer nada si no hay reservas para hoy")
-    void noDebeHacerNadaSinReservasParaHoy() {
-        when(reservaRepository.findConfirmadasParaAutoCheckin(LocalDate.now()))
-                .thenReturn(Collections.emptyList());
+    @DisplayName("cerrarReservasVencidas() - la pendiente sin pago se cancela y publica ReservaCancelada")
+    void cancelaPendienteSinPago() {
+        when(reservaRepository.findByEstadoAndFechaEntradaBefore(eq(EstadoReserva.CONFIRMADA), any()))
+                .thenReturn(List.of());
+        when(reservaRepository.findPendientesVencidas(any(), eq(HOY))).thenReturn(List.of(reservaBase));
 
-        reservaService.autoTransicionarACheckin();
+        reservaService.cerrarReservasVencidas();
+
+        assertThat(reservaBase.getEstado()).isEqualTo(EstadoReserva.CANCELADA);
+        verify(nocheRepository).liberarNoches(1L);
+        verify(outbox).registrar(eq(TiposEvento.RESERVA_CANCELADA), any(), anyMap());
+    }
+
+    @Test
+    @DisplayName("cerrarReservasVencidas() - nunca hace check-in: eso lo hace recepción")
+    void noHaceCheckinAutomatico() {
+        when(reservaRepository.findByEstadoAndFechaEntradaBefore(any(), any())).thenReturn(List.of());
+        when(reservaRepository.findPendientesVencidas(any(), any())).thenReturn(List.of());
+
+        reservaService.cerrarReservasVencidas();
 
         verify(reservaRepository, never()).save(any());
         verifyNoInteractions(outbox);
     }
 
     @Test
-    @DisplayName("autoTransicionarACheckin() - debe procesar múltiples reservas y publicar evento por cada una")
-    void debeProcessarMultiplesReservasEnAutoCheckin() {
-        Reserva r1 = reservaBase.toBuilder().id(1L).estado(EstadoReserva.CONFIRMADA).build();
-        Reserva r2 = reservaBase.toBuilder().id(2L).estado(EstadoReserva.CONFIRMADA)
-                .codigo("RES-XYZ99999").build();
+    @DisplayName("cerrarReservasVencidas() - el no-show espera hasta el check-out (12:00) del día siguiente")
+    void graciaNoShow() {
+        when(reservaRepository.findByEstadoAndFechaEntradaBefore(any(), any())).thenReturn(List.of());
+        when(reservaRepository.findPendientesVencidas(any(), any())).thenReturn(List.of());
 
-        when(reservaRepository.findConfirmadasParaAutoCheckin(LocalDate.now()))
-                .thenReturn(List.of(r1, r2));
-        when(reservaRepository.save(any())).thenReturn(r1).thenReturn(r2);
+        reservaService.cerrarReservasVencidas();
 
-        reservaService.autoTransicionarACheckin();
-
-        verify(reservaRepository, times(2)).save(any());
-        verify(outbox, times(2)).registrar(eq(TiposEvento.RESERVA_CHECKIN), any(), anyMap());
+        ArgumentCaptor<LocalDate> limite = ArgumentCaptor.forClass(LocalDate.class);
+        verify(reservaRepository).findByEstadoAndFechaEntradaBefore(eq(EstadoReserva.CONFIRMADA), limite.capture());
+        assertThat(limite.getValue()).isEqualTo(
+                java.time.ZonedDateTime.now(ReservaService.ZONA_HOTEL).minusHours(12).toLocalDate());
     }
 
     // ── ANTI-OVERBOOKING Y EVENTOS ────────────────────────────────────────────
@@ -370,6 +403,7 @@ class ReservaServiceTest {
     @Test
     @DisplayName("crear() - bloquea una noche por día de estadía y publica ReservaCreada")
     void crearBloqueaNochesYPublica() {
+        habitacionDisponible();
         when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
         when(reservaRepository.existsByCodigo(anyString())).thenReturn(false);
         when(reservaRepository.save(any())).thenReturn(reservaBase);
@@ -385,6 +419,7 @@ class ReservaServiceTest {
     @Test
     @DisplayName("crear() - si otra reserva tomó la noche a la vez, responde habitación no disponible")
     void crearConcurrenteRechazado() {
+        habitacionDisponible();
         when(reservaRepository.existeConflicto(anyLong(), any(), any())).thenReturn(false);
         when(reservaRepository.existsByCodigo(anyString())).thenReturn(false);
         when(reservaRepository.save(any())).thenReturn(reservaBase);
@@ -441,7 +476,8 @@ class ReservaServiceTest {
                 .estado(EstadoReserva.CHECKIN)
                 .build();
 
-        when(reservaRepository.findByEstadoAndFechaEntrada(EstadoReserva.CONFIRMADA, LocalDate.now()))
+        // Llegadas de hoy y atrasadas: fechaEntrada < mañana
+        when(reservaRepository.findByEstadoAndFechaEntradaBefore(EstadoReserva.CONFIRMADA, HOY.plusDays(1)))
                 .thenReturn(List.of(checkinPendiente));
         when(reservaRepository.findByEstado(EstadoReserva.CHECKIN))
                 .thenReturn(List.of(checkoutActivo));
@@ -460,7 +496,7 @@ class ReservaServiceTest {
     @Test
     @DisplayName("getReservasHoy() - debe retornar listas vacías si no hay reservas")
     void debeRetornarListasVaciasConSinReservas() {
-        when(reservaRepository.findByEstadoAndFechaEntrada(any(), any()))
+        when(reservaRepository.findByEstadoAndFechaEntradaBefore(any(), any()))
                 .thenReturn(Collections.emptyList());
         when(reservaRepository.findByEstado(any()))
                 .thenReturn(Collections.emptyList());
@@ -473,6 +509,11 @@ class ReservaServiceTest {
     }
 
     // ── HELPERS ───────────────────────────────────────────────────────────────
+
+    private void habitacionDisponible() {
+        when(restTemplate.getForObject(anyString(), eq(Map.class)))
+                .thenReturn(Map.of("precioPorNoche", 100.0, "capacidad", 4));
+    }
 
     private CrearReservaRequest buildRequest(int numHuespedes) {
         CrearReservaRequest req = new CrearReservaRequest();

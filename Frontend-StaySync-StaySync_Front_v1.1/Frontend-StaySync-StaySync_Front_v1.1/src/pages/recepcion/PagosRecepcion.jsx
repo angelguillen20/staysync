@@ -5,6 +5,8 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 const METODOS = ['TARJETA_CREDITO', 'TARJETA_DEBITO', 'EFECTIVO', 'TRANSFERENCIA'];
 
+const clp = (monto) => `$${Number(monto ?? 0).toLocaleString('es-CL')}`;
+
 const ESTADO_BADGE = {
   PENDIENTE:  'bg-warning text-dark',
   COMPLETADO: 'bg-success',
@@ -22,7 +24,7 @@ export default function PagosRecepcion() {
 
   /* ── Nuevo pago ── */
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ reservaId: '', monto: '', metodoPago: 'TARJETA_CREDITO', descripcion: '' });
+  const [form, setForm] = useState({ reservaId: '', metodoPago: 'TARJETA_CREDITO', descripcion: '' });
   const [saving, setSaving] = useState(false);
 
   const buscarPagos = async () => {
@@ -42,10 +44,10 @@ export default function PagosRecepcion() {
     e.preventDefault();
     setSaving(true); setError('');
     try {
-      await procesarPago({ ...form, reservaId: Number(form.reservaId), monto: Number(form.monto) });
-      setSuccess('Pago procesado correctamente.');
+      const pago = await procesarPago({ ...form, reservaId: Number(form.reservaId) });
+      setSuccess(`Pago ${pago.referencia} registrado por ${clp(pago.monto)}. La reserva #${pago.reservaId} queda confirmada.`);
       setShowForm(false);
-      setForm({ reservaId: '', monto: '', metodoPago: 'TARJETA_CREDITO', descripcion: '' });
+      setForm({ reservaId: '', metodoPago: 'TARJETA_CREDITO', descripcion: '' });
       if (form.reservaId === reservaId) buscarPagos();
     } catch (err) {
       setError(err.response?.data?.message ?? 'Error al procesar el pago.');
@@ -73,7 +75,7 @@ export default function PagosRecepcion() {
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
             <i className="bi bi-credit-card me-2" style={{ color: 'var(--ss-gold)' }} />Pagos
           </h2>
-          <small className="text-muted">Procesamiento de pagos — pagos-service</small>
+          <small className="text-muted">Pagos recibidos en recepción y reembolsos</small>
         </div>
         <button className="btn btn-ss-dark" onClick={() => setShowForm(p => !p)}>
           <i className="bi bi-plus-lg me-2" />Nuevo pago
@@ -87,12 +89,16 @@ export default function PagosRecepcion() {
       {showForm && (
         <div className="card border-0 shadow-sm mb-4">
           <div className="card-header fw-semibold" style={{ background: 'var(--ss-cream)', borderBottom: '2px solid var(--ss-gold)' }}>
-            <i className="bi bi-cash-coin me-2" style={{ color: 'var(--ss-gold)' }} />Procesar pago
+            <i className="bi bi-cash-coin me-2" style={{ color: 'var(--ss-gold)' }} />Registrar pago en recepción
           </div>
           <div className="card-body">
+            <p className="small text-muted">
+              <i className="bi bi-info-circle me-1" />
+              Se cobra el total de la reserva y la reserva queda confirmada. Solo reservas pendientes de pago.
+            </p>
             <form onSubmit={handleProcesar} noValidate>
               <div className="row g-3">
-                <div className="col-md-4">
+                <div className="col-md-6">
                   <label htmlFor="pago-reserva" className="form-label fw-medium small">ID de Reserva</label>
                   <input
                     id="pago-reserva"
@@ -104,21 +110,7 @@ export default function PagosRecepcion() {
                     required
                   />
                 </div>
-                <div className="col-md-4">
-                  <label htmlFor="pago-monto" className="form-label fw-medium small">Monto ($)</label>
-                  <input
-                    id="pago-monto"
-                    type="number"
-                    className="form-control"
-                    placeholder="0.00"
-                    step="0.01"
-                    min="0"
-                    value={form.monto}
-                    onChange={e => setForm(p => ({ ...p, monto: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="col-md-4">
+                <div className="col-md-6">
                   <label htmlFor="pago-metodo" className="form-label fw-medium small">Método de pago</label>
                   <select
                     id="pago-metodo"
@@ -201,7 +193,7 @@ export default function PagosRecepcion() {
                   {pagos.map(p => (
                     <tr key={p.id}>
                       <td className="text-muted small">#{p.id}</td>
-                      <td className="fw-bold">${Number(p.monto ?? 0).toLocaleString()}</td>
+                      <td className="fw-bold">{clp(p.monto)}</td>
                       <td className="text-muted small">{p.metodoPago?.replaceAll('_', ' ')}</td>
                       <td>
                         <span className={`badge ${ESTADO_BADGE[p.estado] ?? 'bg-secondary'}`}>
@@ -209,7 +201,7 @@ export default function PagosRecepcion() {
                         </span>
                       </td>
                       <td className="text-muted small">
-                        {p.fechaPago ? new Date(p.fechaPago).toLocaleString('es-CO') : '—'}
+                        {p.createdAt ? new Date(p.createdAt).toLocaleString('es-CL') : '—'}
                       </td>
                       <td>
                         {p.estado === 'COMPLETADO' && (

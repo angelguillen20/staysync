@@ -24,6 +24,8 @@ public class ReservaResponse {
     private EstadoReserva estado;
     private BigDecimal precioTotal;
     private String notas;
+    private String huespedNombre;
+    private String huespedEmail;
     private FuenteReserva fuente;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -21,17 +21,16 @@ public class PagoBffController {
     private final PagosClient pagosClient;
     private final AccesoHuesped accesoHuesped;
 
-    @Operation(summary = "Procesar pago de una reserva")
+    @Operation(summary = "Registrar un pago recibido en recepción",
+               description = "Solo personal del hotel. Cobra el total de la reserva a nombre de su huésped")
     @PostMapping
     public ResponseEntity<Object> procesarPago(
             @RequestHeader("Authorization") String authHeader,
             @RequestBody Map<String, Object> body) {
         Map<String, Object> pago = new HashMap<>(body);
-        // Un huésped solo paga sus propias reservas
-        if (accesoHuesped.esHuesped(authHeader)) {
-            accesoHuesped.verificarReservaPropia(authHeader, pago.get("reservaId"));
-            pago.put("usuarioId", accesoHuesped.usuarioId(authHeader));
-        }
+        Map<String, Object> reserva = accesoHuesped.reservaPorPagar(authHeader, pago.get("reservaId"));
+        pago.put("monto", reserva.get("precioTotal"));
+        pago.put("usuarioId", reserva.get("usuarioId"));
         var response = pagosClient.procesarPago(authHeader, pago);
         return ResponseEntity.status(HttpStatus.CREATED).body(response.getBody());
     }
@@ -62,10 +61,15 @@ public class PagoBffController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response.getBody());
     }
 
-    @Operation(summary = "Crear sesión de pago en Stripe Checkout")
+    @Operation(summary = "Crear sesión de pago en Stripe Checkout",
+               description = "El monto es el total de la reserva, aunque el body traiga otro")
     @PostMapping("/stripe/checkout")
-    public ResponseEntity<Object> crearCheckoutStripe(@RequestBody Object body) {
-        var response = pagosClient.crearCheckoutStripe(body);
+    public ResponseEntity<Object> crearCheckoutStripe(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody Map<String, Object> body) {
+        Map<String, Object> checkout = new HashMap<>(body);
+        checkout.put("monto", accesoHuesped.reservaPorPagar(authHeader, checkout.get("reservaId")).get("precioTotal"));
+        var response = pagosClient.crearCheckoutStripe(checkout);
         return ResponseEntity.status(HttpStatus.CREATED).body(response.getBody());
     }
 

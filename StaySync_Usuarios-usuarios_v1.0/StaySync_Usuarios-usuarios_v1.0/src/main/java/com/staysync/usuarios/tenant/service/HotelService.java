@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.staysync.usuarios.tenant.dto.ActualizarMarcaRequest;
 import com.staysync.usuarios.tenant.dto.HotelResponse;
+import com.staysync.usuarios.tenant.exception.HotelDuplicadoException;
 import com.staysync.usuarios.tenant.exception.HotelNotFoundException;
 import com.staysync.usuarios.tenant.model.Hotel;
 import com.staysync.usuarios.tenant.repository.HotelRepository;
@@ -84,6 +85,37 @@ public class HotelService {
         return hotelRepository.findByTenantIdAndActivoTrue(tenantId.trim())
                 .map(Hotel::getTenantId)
                 .orElseThrow(() -> new HotelNotFoundException(tenantId));
+    }
+
+    /** Paleta de StaySync para un hotel creado sin colores propios. */
+    private static final Map<String, String> THEME_STAYSYNC = Map.of(
+            "primary", "#222016", "secondary", "#EFC143", "background", "#FEF8E1", "text", "#212529");
+
+    /**
+     * Crea un hotel activo. El slug se usa también como tenantId, igual que en los hoteles
+     * del seed; no se puede repetir ni cambiar después.
+     */
+    @Transactional
+    public HotelResponse crear(String nombre, String slug, String logoUrl, Map<String, String> theme) {
+        String id = slug.trim().toLowerCase();
+        if (hotelRepository.existsBySlug(id) || hotelRepository.existsById(id)) {
+            throw new HotelDuplicadoException(id);
+        }
+        Hotel hotel;
+        try {
+            hotel = Hotel.builder()
+                    .tenantId(id)
+                    .slug(id)
+                    .nombre(nombre.trim())
+                    .logoUrl(logoUrl == null || logoUrl.isBlank() ? null : logoUrl.trim())
+                    .theme(objectMapper.writeValueAsString(theme == null || theme.isEmpty() ? THEME_STAYSYNC : theme))
+                    .activo(true)
+                    .build();
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Colores inválidos", e);
+        }
+        log.info("Hotel creado: {}", id);
+        return toResponse(hotelRepository.save(hotel));
     }
 
     /**

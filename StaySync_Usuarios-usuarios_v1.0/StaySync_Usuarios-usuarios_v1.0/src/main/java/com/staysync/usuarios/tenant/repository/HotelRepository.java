@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface HotelRepository extends JpaRepository<Hotel, String> {
     Optional<Hotel> findBySlugAndActivoTrue(String slug);
+    boolean existsBySlug(String slug);
     Optional<Hotel> findByTenantIdAndActivoTrue(String tenantId);
     List<Hotel> findAllByActivoTrueOrderByNombreAsc();
 }

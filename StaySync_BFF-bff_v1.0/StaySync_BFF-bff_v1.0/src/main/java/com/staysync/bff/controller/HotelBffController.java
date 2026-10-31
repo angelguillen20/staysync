@@ -51,6 +51,15 @@ public class HotelBffController {
         return usuariosClient.actualizarMarca(authHeader, tenantId, body);
     }
 
+    @Operation(summary = "Crear un hotel con su administrador inicial (solo SUPER_ADMIN)")
+    @PostMapping("/hoteles")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Object> crear(@RequestHeader("Authorization") String authHeader,
+                                        @RequestBody Object body) {
+        ResponseEntity<Object> response = usuariosClient.crearHotel(authHeader, body);
+        return ResponseEntity.status(response.getStatusCode()).body(response.getBody());
+    }
+
     @Operation(summary = "Listar hoteles activos (solo SUPER_ADMIN)")
     @GetMapping("/hoteles")
     @PreAuthorize("hasRole('SUPER_ADMIN')")

@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = {HotelBffController.class, UsuarioBffController.class})
@@ -56,6 +57,28 @@ class SuperAdminAccesoTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"tenantId\":\"hotel-andes\"}"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(usuariosClient);
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    @DisplayName("SUPER_ADMIN crea un hotel")
+    void superAdminCreaHotel() throws Exception {
+        when(usuariosClient.crearHotel(anyString(), any()))
+                .thenReturn(ResponseEntity.status(201).body(Map.of("tenantId", "hotel-pacifico")));
+
+        mockMvc.perform(post("/bff/hoteles").header("Authorization", "Bearer t")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"nombre\":\"Hotel Pacifico\",\"slug\":\"hotel-pacifico\"}"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Un ADMIN de hotel no puede crear hoteles")
+    void adminNoCreaHotel() throws Exception {
+        mockMvc.perform(post("/bff/hoteles").header("Authorization", "Bearer t")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        verify(usuariosClient, never()).crearHotel(anyString(), any());
     }
 
     @Test

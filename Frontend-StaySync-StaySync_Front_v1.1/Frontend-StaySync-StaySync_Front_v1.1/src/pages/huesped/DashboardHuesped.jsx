@@ -5,6 +5,7 @@ import { getMisReservas } from '../../services/reservasService';
 import { getClima } from '../../services/dashboardService';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import WidgetClima from '../../components/common/WidgetClima';
+import { fmtFecha } from '../../utils/fechas';
 
 // Enum values match el backend exactamente: PENDIENTE, CONFIRMADA, CHECKIN, CHECKOUT, CANCELADA, NO_SHOW
 const ESTADO_BADGE = {
@@ -75,7 +76,7 @@ export default function DashboardHuesped() {
                       <strong>Habitación {activa.habitacionNumero ?? activa.habitacionId}</strong>
                     </p>
                     <p className="text-muted small mb-0">
-                      Check-out: {activa.fechaSalida ? new Date(activa.fechaSalida).toLocaleDateString('es-CO') : '—'}
+                      Check-out: {fmtFecha(activa.fechaSalida)}
                     </p>
                   </>
                 )
@@ -97,7 +98,7 @@ export default function DashboardHuesped() {
                 ? (
                   <>
                     <p className="mb-1">
-                      Check-in: <strong>{new Date(proxima.fechaEntrada).toLocaleDateString('es-CO')}</strong>
+                      Check-in: <strong>{fmtFecha(proxima.fechaEntrada)}</strong>
                     </p>
                     <p className="text-muted small mb-0">
                       Habitación {proxima.habitacionNumero ?? proxima.habitacionId}
@@ -145,8 +146,8 @@ export default function DashboardHuesped() {
               {reservas.slice(0, 5).map(r => (
                 <tr key={r.id}>
                   <td className="fw-medium">Hab. {r.habitacionNumero ?? r.habitacionId}</td>
-                  <td>{r.fechaEntrada ? new Date(r.fechaEntrada).toLocaleDateString('es-CO') : '—'}</td>
-                  <td>{r.fechaSalida  ? new Date(r.fechaSalida).toLocaleDateString('es-CO')  : '—'}</td>
+                  <td>{fmtFecha(r.fechaEntrada)}</td>
+                  <td>{fmtFecha(r.fechaSalida)}</td>
                   <td>
                     <span className={`badge ${ESTADO_BADGE[r.estado] ?? 'bg-secondary'}`}>
                       {ESTADO_LABEL[r.estado] ?? r.estado}
