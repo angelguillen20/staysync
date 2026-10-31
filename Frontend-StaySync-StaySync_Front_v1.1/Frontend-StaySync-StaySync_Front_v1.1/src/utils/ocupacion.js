@@ -78,3 +78,25 @@ export function metricasPeriodo(numHabitaciones, reservas, desde, hasta, dias) {
     porDia,
   };
 }
+
+/*
+ * Panel de plataforma: una fila por hotel con lo de hoy y el mes. habitaciones y reservas
+ * vienen de la vista "todos" del BFF (cada fila trae hotelId).
+ */
+export function resumenPorHotel(hoteles, habitaciones, reservas, desde, hasta, dias, hoy) {
+  return hoteles.map((hotel) => {
+    const habs = habitaciones.filter(h => h.hotelId === hotel.tenantId);
+    const res = reservas.filter(r => r.hotelId === hotel.tenantId);
+    const mes = metricasPeriodo(habs.length, res, desde, hasta, dias);
+    return {
+      hotel,
+      habitaciones: habs.length,
+      ocupadasHoy: habs.filter(h => h.estado === 'OCUPADA').length,
+      alojados: res.filter(r => r.estado === 'CHECKIN').length,
+      llegadasHoy: res.filter(r => r.estado === 'CONFIRMADA' && r.fechaEntrada === hoy).length,
+      sinPagar: res.filter(r => r.estado === 'PENDIENTE').length,
+      ocupacion: mes.ocupacion,
+      ingresos: mes.ingresos,
+    };
+  });
+}

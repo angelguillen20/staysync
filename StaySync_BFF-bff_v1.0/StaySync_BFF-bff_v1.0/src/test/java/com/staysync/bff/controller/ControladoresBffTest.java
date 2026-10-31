@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = {ReservaBffController.class, HabitacionBffController.class, PagoBffController.class,
         ServicioBffController.class, UsuarioBffController.class, ClimaBffController.class})
 @Import({SecurityConfig.class, JwtAuthFilter.class, com.staysync.bff.security.AccesoHuesped.class,
-        com.staysync.bff.service.CuentaService.class})
+        com.staysync.bff.service.CuentaService.class, com.staysync.bff.service.PlataformaService.class})
 @DisplayName("Controladores del BFF")
 class ControladoresBffTest {
 
@@ -357,6 +357,30 @@ class ControladoresBffTest {
                 .andExpect(jsonPath("$[1].vista").value("hotel-andes"))
                 .andExpect(jsonPath("$[1].hotelNombre").value("Hotel Andes"));
         org.assertj.core.api.Assertions.assertThat(com.staysync.bff.security.HotelVista.actual()).isEmpty();
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    @DisplayName("Plataforma: reservas de un hotel elegido y rango del calendario, con el nombre del hotel")
+    void reservasDeOtroHotel() throws Exception {
+        when(jwtService.extractRol("token")).thenReturn("SUPER_ADMIN");
+        when(usuariosClient.listarHoteles(AUTH)).thenReturn(ok(List.of(
+                Map.of("tenantId", "staysync-demo", "nombre", "StaySync Demo"),
+                Map.of("tenantId", "hotel-andes", "nombre", "Hotel Andes"))));
+        // reservas-service pagina: la respuesta trae { content: [...] }
+        when(reservasClient.reenviar(AUTH, org.springframework.http.HttpMethod.GET, "/api/v1/reservas?size=500", null))
+                .thenAnswer(inv -> ok(Map.of("content", List.of(Map.of("codigo", "RES-1",
+                        "vista", com.staysync.bff.security.HotelVista.actual().orElse("jwt"))))));
+        when(reservasClient.reenviar(AUTH, org.springframework.http.HttpMethod.GET,
+                "/api/v1/reservas/rango?desde=2026-11-01&hasta=2026-12-01", null)).thenReturn(ok(List.of(Map.of("id", 1))));
+
+        mockMvc.perform(get("/bff/reservas").param("hotel", "hotel-andes").header("Authorization", AUTH))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].vista").value("hotel-andes"))
+                .andExpect(jsonPath("$[0].hotelNombre").value("Hotel Andes"));
+        mockMvc.perform(get("/bff/reservas/rango").param("desde", "2026-11-01").param("hasta", "2026-12-01")
+                        .param("hotel", "todos").header("Authorization", AUTH))
+                .andExpect(jsonPath("$.length()").value(2));
     }
 
     @Test

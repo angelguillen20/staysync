@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getReservas, cambiarEstadoReserva } from '../../services/reservasService';
 import { getHabitaciones } from '../../services/habitacionesService';
+import { getHoteles } from '../../services/usuariosService';
+import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
 import ModalReserva   from '../../components/recepcion/ModalReserva';
@@ -68,16 +70,21 @@ export default function ReservasRecepcion() {
   const [busqueda,  setBusqueda]  = useState('');
   const [sortConfig, setSortConfig] = useState({ campo: 'fechaEntrada', dir: 'asc' });
   const [modificando, setModificando] = useState(null);
+  const esPlataforma = useAuth().hasRole('SUPER_ADMIN');
+  const [hotelVista, setHotelVista] = useState(''); // '' = este hotel; otro valor = solo lectura
+  const [hoteles,    setHoteles]    = useState([]);
   const [cuenta,      setCuenta]      = useState(null);
 
   const cargar = async () => {
     setLoading(true);
     try {
       // La reserva solo trae habitacionId: el número de la puerta sale de habitaciones
-      const [data, habitaciones] = await Promise.all([getReservas(), getHabitaciones().catch(() => [])]);
-      const numero = Object.fromEntries(habitaciones.map(h => [h.id, h.numero]));
+      // Con varios hoteles los ids de habitación se repiten: la clave lleva el hotel
+      const vista = hotelVista ? { hotel: hotelVista } : undefined;
+      const [data, habitaciones] = await Promise.all([getReservas(vista), getHabitaciones(vista).catch(() => [])]);
+      const numero = Object.fromEntries(habitaciones.map(h => [`${h.hotelId ?? ''}-${h.id}`, h.numero]));
       setReservas((Array.isArray(data) ? data : data.content ?? [])
-        .map(r => ({ ...r, habitacionNumero: numero[r.habitacionId] ?? r.habitacionId })));
+        .map(r => ({ ...r, habitacionNumero: numero[`${r.hotelId ?? ''}-${r.habitacionId}`] ?? r.habitacionNumero ?? r.habitacionId })));
     } catch {
       setError('Error al cargar reservas.');
     } finally {
@@ -85,7 +92,12 @@ export default function ReservasRecepcion() {
     }
   };
 
-  useEffect(() => { cargar(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { cargar(); }, [hotelVista]);
+
+  useEffect(() => {
+    if (esPlataforma) getHoteles().then(setHoteles).catch(() => setHoteles([]));
+  }, [esPlataforma]);
 
   const handleSort = (campo) => {
     setSortConfig(prev =>
@@ -175,11 +187,19 @@ export default function ReservasRecepcion() {
           </h2>
           <small className="text-muted">Gestión de reservas del hotel</small>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex flex-wrap gap-2">
+          {esPlataforma && (
+            <select className="form-select form-select-sm w-auto" aria-label="Hotel" value={hotelVista}
+                    onChange={e => setHotelVista(e.target.value)}>
+              <option value="">Este hotel</option>
+              <option value="todos">Todos los hoteles</option>
+              {hoteles.map(h => <option key={h.tenantId} value={h.tenantId}>{h.nombre}</option>)}
+            </select>
+          )}
           <button className="btn btn-outline-secondary btn-sm" onClick={cargar}>
             <i className="bi bi-arrow-clockwise" />
           </button>
-          <button className="btn btn-ss-dark" onClick={() => setModalOpen(true)}>
+          <button className="btn btn-ss-dark" onClick={() => setModalOpen(true)} disabled={!!hotelVista}>
             <i className="bi bi-calendar-plus me-2" />Nueva reserva
           </button>
         </div>
@@ -223,13 +243,13 @@ export default function ReservasRecepcion() {
             </thead>
             <tbody>
               {filtradas.map(r => {
-                const next = accionesPara(r);
+                const next = hotelVista ? [] : accionesPara(r);
                 return (
-                  <tr key={r.id}>
+                  <tr key={`${r.hotelId ?? ""}-${r.id}`}>
                     <td className="text-muted small">#{r.id}</td>
                     <td>
                       <div className="fw-medium small">{r.codigo ?? '—'}</div>
-                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>{r.huespedNombre || `Usr. #${r.usuarioId}`}</div>
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>{r.huespedNombre || `Usr. #${r.usuarioId}`}{r.hotelNombre ? `, ${r.hotelNombre}` : ''}</div>
                     </td>
                     <td><Placa numero={r.habitacionNumero} tamano="sm" /></td>
                     <td>{fmtFecha(r.fechaEntrada)}</td>
@@ -257,14 +277,16 @@ export default function ReservasRecepcion() {
                             }
                           </button>
                         ))}
-                        {MODIFICABLES.includes(r.estado) && (
+                        {!hotelVista && MODIFICABLES.includes(r.estado) && (
                           <button className="btn btn-sm btn-outline-secondary" style={{ fontSize: '0.72rem' }} onClick={() => setModificando(r)}>
                             Modificar
                           </button>
                         )}
-                        <button className="btn btn-sm btn-outline-secondary" style={{ fontSize: '0.72rem' }} onClick={() => setCuenta(r)}>
-                          Cuenta
-                        </button>
+                        {!hotelVista && (
+                          <button className="btn btn-sm btn-outline-secondary" style={{ fontSize: '0.72rem' }} onClick={() => setCuenta(r)}>
+                            Cuenta
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

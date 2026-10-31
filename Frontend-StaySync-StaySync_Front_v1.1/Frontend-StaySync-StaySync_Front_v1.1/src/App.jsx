@@ -26,6 +26,7 @@ const HotelesAdmin          = lazy(() => import('./pages/recepcion/HotelesAdmin'
 const CalendarioRecepcion   = lazy(() => import('./pages/recepcion/CalendarioRecepcion'));
 const ReportesRecepcion     = lazy(() => import('./pages/recepcion/ReportesRecepcion'));
 const ServiciosAdmin        = lazy(() => import('./pages/recepcion/ServiciosAdmin'));
+const PlataformaAdmin       = lazy(() => import('./pages/recepcion/PlataformaAdmin'));
 
 /* Huésped */
 const DashboardHuesped   = lazy(() => import('./pages/huesped/DashboardHuesped'));
@@ -75,6 +76,7 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
           <Route element={<Layout />}>
             <Route path="/recepcion/hoteles" element={<HotelesAdmin />} />
+            <Route path="/recepcion/plataforma" element={<PlataformaAdmin />} />
           </Route>
         </Route>
 

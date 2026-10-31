@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filasCalendario, metricasPeriodo, nochesEnRango } from '../utils/ocupacion';
+import { filasCalendario, metricasPeriodo, nochesEnRango, resumenPorHotel } from '../utils/ocupacion';
 import { listaDias } from '../utils/fechas';
 
 const dias = listaDias('2026-11-01', 7); // 1 al 7 de noviembre
@@ -27,6 +27,22 @@ describe('calendario de ocupación', () => {
   it('suma siempre los días de la ventana aunque dos estadías se pisen', () => {
     const [fila] = filasCalendario(hab, [r(1, 1, '2026-11-01', '2026-11-04'), r(2, 1, '2026-11-03', '2026-11-06')], dias);
     expect(fila.celdas.reduce((n, c) => n + (c.span ?? 1), 0)).toBe(7);
+  });
+});
+
+describe('panel de plataforma', () => {
+  it('separa por hotel: cada uno solo cuenta sus habitaciones y reservas', () => {
+    const hoteles = [{ tenantId: 'a', nombre: 'A' }, { tenantId: 'b', nombre: 'B' }];
+    const habs = [{ id: 1, hotelId: 'a', estado: 'OCUPADA' }, { id: 1, hotelId: 'b', estado: 'DISPONIBLE' }, { id: 2, hotelId: 'b', estado: 'DISPONIBLE' }];
+    const res = [
+      { ...r(1, 1, '2026-11-01', '2026-11-03', 'CHECKIN', 200000), hotelId: 'a' },
+      { ...r(2, 1, '2026-11-01', '2026-11-02', 'CONFIRMADA', 50000), hotelId: 'b' },
+      { ...r(3, 2, '2026-11-05', '2026-11-06', 'PENDIENTE', 1), hotelId: 'b' },
+    ];
+    const [a, b] = resumenPorHotel(hoteles, habs, res, '2026-11-01', '2026-11-08', dias, '2026-11-01');
+    expect([a.habitaciones, a.ocupadasHoy, a.alojados, a.ingresos]).toEqual([1, 1, 1, 200000]);
+    expect([b.habitaciones, b.llegadasHoy, b.sinPagar, b.ingresos]).toEqual([2, 1, 1, 50000]);
+    expect(b.ocupacion).toBeCloseTo(1 / 14);
   });
 });
 
