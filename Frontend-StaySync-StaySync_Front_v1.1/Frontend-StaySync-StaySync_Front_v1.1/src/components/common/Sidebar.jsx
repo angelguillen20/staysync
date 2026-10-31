@@ -30,6 +30,7 @@ const GRUPOS = [
     { to: '/recepcion/aseo',         icon: 'bi-stars',           label: 'Aseo',         roles: PERSONAL },
   ] },
   { titulo: 'Administración', links: [
+    { to: '/recepcion/plataforma', icon: 'bi-globe2',      label: 'Plataforma',      roles: ['SUPER_ADMIN'] },
     { to: '/recepcion/reportes', icon: 'bi-bar-chart',     label: 'Reportes',        roles: ADMIN },
     { to: '/recepcion/usuarios', icon: 'bi-person-badge',  label: 'Usuarios',        roles: ADMIN },
     { to: '/recepcion/marca',    icon: 'bi-palette',       label: 'Marca del hotel', roles: ADMIN },

@@ -43,10 +43,17 @@ public class ReservaBffController {
     private final JwtService                 jwtService;
     private final AccesoHuesped              accesoHuesped;
     private final CuentaService              cuentaService;
+    private final com.staysync.bff.service.PlataformaService plataforma;
 
-    @Operation(summary = "Listar todas las reservas")
+    @Operation(summary = "Listar todas las reservas",
+               description = "SUPER_ADMIN: ?hotel=todos o ?hotel=<tenantId> junta las de otros hoteles (con hotelNombre)")
     @GetMapping
-    public ResponseEntity<Object> listar(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<Object> listar(@RequestHeader("Authorization") String authHeader,
+                                         @RequestParam(required = false) String hotel) {
+        if (hotel != null && !hotel.isBlank()) {
+            return ResponseEntity.ok(plataforma.porHotel(authHeader, hotel, () ->
+                    reservasClient.reenviar(authHeader, HttpMethod.GET, "/api/v1/reservas?size=500", null).getBody()));
+        }
         return reservasClient.listar(authHeader);
     }
 
@@ -159,15 +166,20 @@ public class ReservaBffController {
     public ResponseEntity<Object> rango(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam String desde,
-            @RequestParam String hasta) {
+            @RequestParam String hasta,
+            @RequestParam(required = false) String hotel) {
         try {  // valida antes de armar la URL
             LocalDate.parse(desde);
             LocalDate.parse(hasta);
         } catch (java.time.format.DateTimeParseException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Las fechas van en formato AAAA-MM-DD.");
         }
-        return reservasClient.reenviar(authHeader, HttpMethod.GET,
-                "/api/v1/reservas/rango?desde=" + desde + "&hasta=" + hasta, null);
+        String ruta = "/api/v1/reservas/rango?desde=" + desde + "&hasta=" + hasta;
+        if (hotel != null && !hotel.isBlank()) {
+            return ResponseEntity.ok(plataforma.porHotel(authHeader, hotel, () ->
+                    reservasClient.reenviar(authHeader, HttpMethod.GET, ruta, null).getBody()));
+        }
+        return reservasClient.reenviar(authHeader, HttpMethod.GET, ruta, null);
     }
 
     @Operation(summary = "Cuenta del huésped: estadía, consumos, pagos y saldo")
