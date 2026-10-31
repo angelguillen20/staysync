@@ -52,6 +52,7 @@ class ReservaIntegrationTest {
 
     private static final String DEMO = "staysync-demo";
     private static final String ANDES = "hotel-andes";
+    private static final LocalDate HOY = LocalDate.now(ReservaService.ZONA_HOTEL);
 
     @Autowired private ReservaService reservaService;
     @Autowired private ReservaRepository reservaRepository;
@@ -174,8 +175,8 @@ class ReservaIntegrationTest {
     @Test
     @DisplayName("Transición completa PENDIENTE → CONFIRMADA → CHECKIN → CHECKOUT publica un evento por paso")
     void debePasarPorTodosLosEstados() {
-        ReservaResponse creada = reservaService.crear(
-                buildRequest(1L, 3L, LocalDate.now().plusDays(5), LocalDate.now().plusDays(7), 2));
+        // El check-in solo se permite desde el día de llegada
+        ReservaResponse creada = reservaService.crear(buildRequest(1L, 3L, HOY, HOY.plusDays(2), 2));
         Long id = creada.getId();
 
         reservaService.cambiarEstado(id, EstadoReserva.CONFIRMADA);
@@ -191,25 +192,32 @@ class ReservaIntegrationTest {
     }
 
     @Test
-    @DisplayName("autoTransicionarACheckin() en modo sistema procesa las reservas de todos los hoteles")
-    void debeAutoTransicionarEnBd() {
-        ReservaResponse demo = reservaService.crear(
-                buildRequest(1L, 4L, LocalDate.now(), LocalDate.now().plusDays(2), 1));
+    @DisplayName("cerrarReservasVencidas() en modo sistema: no-show en un hotel, pendiente sin pago en otro")
+    void debeCerrarVencidasEnBd() {
+        // Confirmada que debía llegar hace 2 días (fecha movida por SQL: el servicio no crea reservas pasadas)
+        ReservaResponse demo = reservaService.crear(buildRequest(1L, 4L, HOY, HOY.plusDays(4), 1));
         reservaService.cambiarEstado(demo.getId(), EstadoReserva.CONFIRMADA);
-        ReservaResponse andes = TenantContext.ejecutarCon(ANDES, () -> {
-            ReservaResponse r = reservaService.crear(buildRequest(1L, 4L, LocalDate.now(), LocalDate.now().plusDays(2), 1));
-            reservaService.cambiarEstado(r.getId(), EstadoReserva.CONFIRMADA);
-            return r;
-        });
+        jdbc.update("UPDATE reservas SET fecha_entrada = ? WHERE id = ?", HOY.minusDays(2), demo.getId());
+        // Pendiente creada hace 25 h y nunca pagada
+        ReservaResponse andes = TenantContext.ejecutarCon(ANDES, () ->
+                reservaService.crear(buildRequest(1L, 4L, HOY.plusDays(10), HOY.plusDays(12), 1)));
+        jdbc.update("UPDATE reservas SET created_at = ? WHERE id = ?",
+                java.time.LocalDateTime.now().minusHours(25), andes.getId());
+        // Pendiente recién creada: sigue reteniendo su habitación
+        ReservaResponse vigente = reservaService.crear(buildRequest(2L, 12L, HOY.plusDays(3), HOY.plusDays(4), 1));
+        jdbc.update("DELETE FROM outbox_eventos");
 
-        TenantContext.ejecutarComoSistema(reservaService::autoTransicionarACheckin);
+        TenantContext.ejecutarComoSistema(reservaService::cerrarReservasVencidas);
 
-        assertThat(reservaRepository.findById(demo.getId()).get().getEstado()).isEqualTo(EstadoReserva.CHECKIN);
+        assertThat(reservaRepository.findById(demo.getId()).get().getEstado()).isEqualTo(EstadoReserva.NO_SHOW);
         assertThat(TenantContext.ejecutarCon(ANDES, () -> reservaRepository.findById(andes.getId()).get().getEstado()))
-                .isEqualTo(EstadoReserva.CHECKIN);
-        // El evento de cada reserva lleva su propio hotel
+                .isEqualTo(EstadoReserva.CANCELADA);
+        assertThat(reservaRepository.findById(vigente.getId()).get().getEstado()).isEqualTo(EstadoReserva.PENDIENTE);
+        // Solo quedan las noches de la reserva vigente
+        assertThat(TenantContext.ejecutarComoSistema(() -> nocheRepository.count())).isEqualTo(1);
+        // Solo la cancelación avisa (Pagos reembolsaría); el no-show no se reembolsa
         assertThat(jdbc.queryForList("SELECT tenant_id FROM outbox_eventos WHERE tipo = ?", String.class,
-                TiposEvento.RESERVA_CHECKIN)).containsExactlyInAnyOrder(DEMO, ANDES);
+                TiposEvento.RESERVA_CANCELADA)).containsExactly(ANDES);
     }
 
     @Test
@@ -246,12 +254,10 @@ class ReservaIntegrationTest {
     @Test
     @DisplayName("getReservasHoy() debe separar correctamente los pendientes de check-in y check-out")
     void debeRetornarReservasDelDiaDesdeRealBd() {
-        ReservaResponse checkin = reservaService.crear(
-                buildRequest(1L, 5L, LocalDate.now(), LocalDate.now().plusDays(2), 1));
+        ReservaResponse checkin = reservaService.crear(buildRequest(1L, 5L, HOY, HOY.plusDays(2), 1));
         reservaService.cambiarEstado(checkin.getId(), EstadoReserva.CONFIRMADA);
 
-        ReservaResponse checkout = reservaService.crear(
-                buildRequest(2L, 6L, LocalDate.now().minusDays(1), LocalDate.now().plusDays(1), 1));
+        ReservaResponse checkout = reservaService.crear(buildRequest(2L, 6L, HOY, HOY.plusDays(1), 1));
         reservaService.cambiarEstado(checkout.getId(), EstadoReserva.CONFIRMADA);
         reservaService.cambiarEstado(checkout.getId(), EstadoReserva.CHECKIN);
 

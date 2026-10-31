@@ -23,6 +23,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -42,10 +43,15 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ReservaService {
 
-    // Zona horaria oficial del hotel (Chile — America/Santiago, con horario de verano DST)
-    private static final ZoneId     ZONA_HOTEL              = ZoneId.of("America/Santiago");
+    // Zona horaria oficial del hotel (Chile — America/Santiago, con horario de verano DST).
+    // "Hoy" siempre se calcula aquí: el servidor corre en UTC y a las 21:00 de Chile ya es mañana.
+    public static final ZoneId      ZONA_HOTEL              = ZoneId.of("America/Santiago");
     private static final LocalTime  HORA_CHECKIN            = LocalTime.of(15, 0);
     private static final long       HORAS_MIN_CANCELACION   = 24;
+    /** Tiempo que una reserva sin pagar retiene la habitación. */
+    private static final long       HORAS_RETENCION_SIN_PAGO = 24;
+    /** El huésped que no llega puede hacer check-in hasta el check-out (12:00) del día siguiente. */
+    private static final long       HORAS_GRACIA_NO_SHOW    = 12;
     private static final DateTimeFormatter FMT_LIMITE =
             DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm z");
 
@@ -66,6 +72,9 @@ public class ReservaService {
     public ReservaResponse crear(CrearReservaRequest request) {
         long noches = request.getFechaSalida().toEpochDay() - request.getFechaEntrada().toEpochDay();
         if (noches <= 0) throw new IllegalArgumentException("La fecha de salida debe ser posterior a la de entrada");
+        if (request.getFechaEntrada().isBefore(LocalDate.now(ZONA_HOTEL))) {
+            throw new IllegalArgumentException("La fecha de entrada no puede ser en el pasado");
+        }
 
         boolean conflicto = reservaRepository.existeConflicto(
                 request.getHabitacionId(), request.getFechaEntrada(), request.getFechaSalida());
@@ -74,16 +83,17 @@ public class ReservaService {
         }
 
         Map<String, Object> habitacion = obtenerDatosHabitacion(request.getHabitacionId());
+        // Sin la habitación no hay precio ni capacidad: mejor rechazar que cobrar un precio inventado
+        if (habitacion == null || habitacion.get("precioPorNoche") == null) {
+            throw new ServicioNoDisponibleException("habitaciones");
+        }
 
-        if (habitacion != null && habitacion.get("capacidad") instanceof Number cap
-                && request.getNumHuespedes() > cap.intValue()) {
+        if (habitacion.get("capacidad") instanceof Number cap && request.getNumHuespedes() > cap.intValue()) {
             throw new IllegalArgumentException(
                 "La habitación tiene capacidad máxima de " + cap.intValue() + " huéspedes. Solicitados: " + request.getNumHuespedes());
         }
 
-        java.math.BigDecimal precioPorNoche = (habitacion != null && habitacion.get("precioPorNoche") != null)
-                ? new java.math.BigDecimal(habitacion.get("precioPorNoche").toString())
-                : java.math.BigDecimal.valueOf(100.00);
+        java.math.BigDecimal precioPorNoche = new java.math.BigDecimal(habitacion.get("precioPorNoche").toString());
         java.math.BigDecimal precioTotal = precioPorNoche.multiply(java.math.BigDecimal.valueOf(noches));
 
         Reserva reserva = Reserva.builder()
@@ -141,10 +151,11 @@ public class ReservaService {
         }
     }
 
+    /** Llegadas de hoy (y las atrasadas que aún no son no-show) y huéspedes alojados. */
     public Map<String, Object> getReservasHoy() {
-        LocalDate hoy = LocalDate.now(ZoneId.systemDefault());
+        LocalDate hoy = LocalDate.now(ZONA_HOTEL);
         List<ReservaResponse> pendientesCheckin = reservaRepository
-                .findByEstadoAndFechaEntrada(EstadoReserva.CONFIRMADA, hoy)
+                .findByEstadoAndFechaEntradaBefore(EstadoReserva.CONFIRMADA, hoy.plusDays(1))
                 .stream().map(this::toResponse).collect(Collectors.toList());
         List<ReservaResponse> pendientesCheckout = reservaRepository
                 .findByEstado(EstadoReserva.CHECKIN)
@@ -157,20 +168,39 @@ public class ReservaService {
     }
 
     /**
-     * Pasa a CHECKIN las reservas confirmadas cuya fecha de entrada ya llegó. Recorre todos
-     * los hoteles: {@link ReservaScheduler} la llama en modo sistema.
+     * Cierra las reservas que ya no se van a usar y devuelve sus noches a la venta. Recorre
+     * todos los hoteles: {@link ReservaScheduler} la llama en modo sistema.
+     * <ul>
+     *   <li>CONFIRMADA cuyo huésped no llegó (pasó la gracia) → NO_SHOW. No se reembolsa.</li>
+     *   <li>PENDIENTE sin pagar tras la retención, o cuya llegada ya pasó → CANCELADA.</li>
+     * </ul>
+     * El check-in lo hace recepción cuando el huésped llega, nunca este proceso.
      */
     @Transactional
-    public void autoTransicionarACheckin() {
-        LocalDate hoy = LocalDate.now(ZoneId.systemDefault());
-        List<Reserva> confirmadas = reservaRepository.findConfirmadasParaAutoCheckin(hoy);
-        confirmadas.forEach(r -> {
-            r.setEstado(EstadoReserva.CHECKIN);
+    public void cerrarReservasVencidas() {
+        ZonedDateTime ahora = ZonedDateTime.now(ZONA_HOTEL);
+        LocalDate limiteNoShow = ahora.minusHours(HORAS_GRACIA_NO_SHOW).toLocalDate();
+        List<Reserva> noShows = reservaRepository.findByEstadoAndFechaEntradaBefore(EstadoReserva.CONFIRMADA, limiteNoShow);
+        noShows.forEach(r -> {
+            r.setEstado(EstadoReserva.NO_SHOW);
             reservaRepository.save(r);
-            publicar(TiposEvento.RESERVA_CHECKIN, r);
+            nocheRepository.liberarNoches(r.getId());
         });
-        if (!confirmadas.isEmpty()) {
-            log.info("Auto-checkin: {} reservas transicionadas a CHECKIN para {}", confirmadas.size(), hoy);
+
+        // shortcut: si el huésped paga justo cuando vence la retención, el pago llega a una reserva
+        // CANCELADA y queda COMPLETADO; recepción lo reembolsa a mano. Atar la expiración de la
+        // sesión de Stripe a la de la reserva si llega a pasar seguido.
+        List<Reserva> sinPago = reservaRepository.findPendientesVencidas(
+                LocalDateTime.now(ZoneId.systemDefault()).minusHours(HORAS_RETENCION_SIN_PAGO), ahora.toLocalDate());
+        sinPago.forEach(r -> {
+            r.setEstado(EstadoReserva.CANCELADA);
+            reservaRepository.save(r);
+            nocheRepository.liberarNoches(r.getId());
+            publicar(TiposEvento.RESERVA_CANCELADA, r);
+        });
+
+        if (!noShows.isEmpty() || !sinPago.isEmpty()) {
+            log.info("Reservas vencidas: {} no-show, {} sin pago canceladas", noShows.size(), sinPago.size());
         }
     }
 
@@ -195,6 +225,10 @@ public class ReservaService {
     public ReservaResponse cambiarEstado(Long id, EstadoReserva nuevoEstado) {
         Reserva reserva = findOrThrow(id);
         validarTransicion(reserva.getEstado(), nuevoEstado);
+        if (nuevoEstado == EstadoReserva.CHECKIN && LocalDate.now(ZONA_HOTEL).isBefore(reserva.getFechaEntrada())) {
+            throw new IllegalArgumentException("El check-in se habilita desde el día de llegada ("
+                    + reserva.getFechaEntrada().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ").");
+        }
         reserva.setEstado(nuevoEstado);
         Reserva guardada = reservaRepository.save(reserva);
         if (nuevoEstado == EstadoReserva.CANCELADA) {
@@ -344,6 +378,7 @@ public class ReservaService {
                 .fechaEntrada(r.getFechaEntrada()).fechaSalida(r.getFechaSalida())
                 .numHuespedes(r.getNumHuespedes()).estado(r.getEstado())
                 .precioTotal(r.getPrecioTotal()).notas(r.getNotas())
+                .huespedNombre(r.getHuespedNombre()).huespedEmail(r.getHuespedEmail())
                 .fuente(r.getFuente()).createdAt(r.getCreatedAt()).updatedAt(r.getUpdatedAt())
                 .huespedesAdicionales(huespedesResp)
                 .build();

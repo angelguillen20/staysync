@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,9 +16,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     Optional<Reserva> findByCodigo(String codigo);
     Page<Reserva> findByUsuarioId(Long usuarioId, Pageable pageable);
-    List<Reserva> findByHabitacionIdAndEstadoIn(Long habitacionId, List<EstadoReserva> estados);
     List<Reserva> findByEstado(EstadoReserva estado);
-    List<Reserva> findByEstadoAndFechaEntrada(EstadoReserva estado, LocalDate fechaEntrada);
+    List<Reserva> findByEstadoAndFechaEntradaBefore(EstadoReserva estado, LocalDate fecha);
 
     @Query("""
         SELECT COUNT(r) > 0 FROM Reserva r
@@ -28,8 +28,14 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     """)
     boolean existeConflicto(Long habitacionId, LocalDate fechaEntrada, LocalDate fechaSalida);
 
-    @Query("SELECT r FROM Reserva r WHERE r.estado = 'CONFIRMADA' AND r.fechaEntrada <= :hoy")
-    List<Reserva> findConfirmadasParaAutoCheckin(@Param("hoy") LocalDate hoy);
+    /** Sin pagar y ya sin sentido retenerlas: creadas antes del límite o con la llegada pasada. */
+    @Query("""
+        SELECT r FROM Reserva r
+        WHERE r.estado = 'PENDIENTE'
+          AND (r.createdAt < :creadaAntesDe OR r.fechaEntrada < :hoy)
+    """)
+    List<Reserva> findPendientesVencidas(@Param("creadaAntesDe") LocalDateTime creadaAntesDe,
+                                         @Param("hoy") LocalDate hoy);
 
     boolean existsByCodigo(String codigo);
 }

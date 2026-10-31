@@ -9,8 +9,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Auto check-in de todos los hoteles. Corre en modo sistema (sin filtro de hotel) y fuera
- * de la transacción del servicio, para que la sesión de Hibernate se abra ya en ese modo.
+ * Cierra no-shows y reservas sin pagar de todos los hoteles. Corre en modo sistema (sin filtro
+ * de hotel) y fuera de la transacción del servicio, para que la sesión de Hibernate se abra ya
+ * en ese modo.
  */
 @Component
 @RequiredArgsConstructor
@@ -19,19 +20,16 @@ public class ReservaScheduler {
 
     private final ReservaService reservaService;
 
-    /** Todos los días a medianoche. */
-    @Scheduled(cron = "0 0 0 * * *")
-    public void autoCheckinDiario() {
-        TenantContext.ejecutarComoSistema(reservaService::autoTransicionarACheckin);
+    /** Cada hora: la retención de 24 h sin pago no espera a la medianoche. */
+    @Scheduled(cron = "0 0 * * * *")
+    public void cerrarVencidas() {
+        TenantContext.ejecutarComoSistema(reservaService::cerrarReservasVencidas);
     }
 
-    /**
-     * Ejecuta la auto-transición al inicio para cubrir cualquier reserva
-     * que debió pasar a CHECKIN mientras el servicio estaba caído.
-     */
+    /** Al arrancar, cubre lo que venció mientras el servicio estaba caído. */
     @EventListener(ApplicationReadyEvent.class)
     public void ejecutarAlArranque() {
-        log.info("Ejecutando auto-checkin al arranque del servicio...");
-        TenantContext.ejecutarComoSistema(reservaService::autoTransicionarACheckin);
+        log.info("Cerrando reservas vencidas al arranque del servicio...");
+        TenantContext.ejecutarComoSistema(reservaService::cerrarReservasVencidas);
     }
 }
