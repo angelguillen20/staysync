@@ -17,7 +17,8 @@ const METODOS = [
  * Cuenta del huésped: estadía + servicios consumidos − pagos. Desde aquí se cobra el saldo y,
  * si se pasa onCheckout, se hace el check-out (el BFF no lo permite con saldo pendiente).
  */
-export default function ModalCuenta({ reserva, onClose, onCheckout }) {
+/* puedeCobrar=false: vista del huésped, que paga el saldo en recepción */
+export default function ModalCuenta({ reserva, onClose, onCheckout, puedeCobrar = true }) {
   const [cuenta,   setCuenta]   = useState(null);
   const [error,    setError]    = useState('');
   const [metodo,   setMetodo]   = useState('EFECTIVO');
@@ -98,7 +99,10 @@ export default function ModalCuenta({ reserva, onClose, onCheckout }) {
           </div>
           {saldo < 0 && <small className="text-muted">Devuélvelo desde Pagos con un reembolso.</small>}
 
-          {saldo > 0 && (
+          {saldo > 0 && !puedeCobrar && (
+            <p className="small text-muted mt-3 mb-0">Este saldo se paga en recepción al hacer el check-out.</p>
+          )}
+          {saldo > 0 && puedeCobrar && (
             <div className="d-flex flex-wrap gap-2 align-items-end mt-3 pt-3 border-top">
               <div className="flex-grow-1">
                 <label htmlFor="cuenta-metodo" className="form-label small fw-medium">Método de pago</label>

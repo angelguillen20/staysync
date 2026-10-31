@@ -5,6 +5,7 @@ import { getMisReservas, cancelarReserva } from '../../services/reservasService'
 import LoadingSpinner    from '../../components/common/LoadingSpinner';
 import AlertMessage      from '../../components/common/AlertMessage';
 import ModalConfirmarCancelacion from '../../components/common/ModalConfirmarCancelacion';
+import ModalCuenta from '../../components/recepcion/ModalCuenta';
 import { fmtFecha } from '../../utils/fechas';
 
 // ── Política de cancelación ────────────────────────────────────────────────
@@ -94,6 +95,7 @@ export default function ReservasHuesped() {
   const [error,          setError]          = useState('');
   const [canceling,      setCanceling]      = useState(null);
   const [modalReserva,   setModalReserva]   = useState(null); // reserva completa para el modal
+  const [cuenta,         setCuenta]         = useState(null);
 
   const handlePagar = (r) => {
     navigate('/huesped/pago', {
@@ -143,6 +145,7 @@ export default function ReservasHuesped() {
 
       <AlertMessage message={error} onClose={() => setError('')} />
 
+      {cuenta && <ModalCuenta reserva={cuenta} onClose={() => setCuenta(null)} puedeCobrar={false} />}
       <ModalConfirmarCancelacion
         show={modalReserva !== null}
         onClose={() => setModalReserva(null)}
@@ -180,7 +183,7 @@ export default function ReservasHuesped() {
                   <td>{fmtFecha(r.fechaEntrada)}</td>
                   <td>{fmtFecha(r.fechaSalida)}</td>
                   <td>{r.numHuespedes ?? '—'}</td>
-                  <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString()}` : '—'}</td>
+                  <td>{r.precioTotal ? `$${Number(r.precioTotal).toLocaleString('es-CL')}` : '—'}</td>
                   <td>
                     <span className={`badge ${ESTADO_BADGE[r.estado] ?? 'bg-secondary'}`}>
                       {ESTADO_LABEL[r.estado] ?? r.estado}
@@ -188,6 +191,11 @@ export default function ReservasHuesped() {
                   </td>
                   <td>
                     <div className="d-flex gap-2">
+                      {['CONFIRMADA', 'CHECKIN', 'CHECKOUT'].includes(r.estado) && (
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setCuenta(r)}>
+                          Ver cuenta
+                        </button>
+                      )}
                       {r.estado === 'PENDIENTE' && (
                         <button
                           className="btn btn-sm fw-semibold"
@@ -205,6 +213,7 @@ export default function ReservasHuesped() {
                             disabled={canceling === r.id}
                             onClick={() => setModalReserva(r)}
                             title="Cancelar reserva"
+                            aria-label="Cancelar reserva"
                           >
                             {canceling === r.id
                               ? <span className="spinner-border spinner-border-sm" />

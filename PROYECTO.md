@@ -243,6 +243,23 @@ El BFF (Backend For Frontend) es el único punto de entrada para el frontend. Va
 | `/bff/servicios` | CRUD de servicios y solicitudes (proxy a servicios-service) |
 | `/bff/pagos` | Procesamiento de pagos + Stripe (proxy a pagos-service) |
 
+#### Operación del hotel y plataforma
+
+| Método y ruta | Quién | Qué hace |
+|---|---|---|
+| `GET /bff/reservas/{id}/cuenta` | Personal o el huésped dueño | Estadía + consumos − pagos = saldo |
+| `POST /bff/reservas/{id}/cuenta/pago` | Personal | Cobra el saldo (`{ metodoPago }`). `PATCH .../estado` con CHECKOUT responde 409 si hay saldo |
+| `PATCH /bff/reservas/{id}/modificar` | Personal | Fechas y/o habitación de una PENDIENTE o CONFIRMADA; recalcula el precio |
+| `GET /bff/reservas/rango?desde&hasta` | Personal | Calendario de ocupación y reportes |
+| `POST /bff/usuarios/huespedes` | Personal | Huésped sin cuenta (walk-in); devuelve una contraseña temporal |
+| `GET /bff/servicios/catalogo` y `/categorias`, `POST /bff/servicios`, `PUT /bff/servicios/{id}` | ADMIN | Catálogo de servicios del hotel |
+| `POST/DELETE /bff/habitaciones/{id}/imagenes` | ADMIN | Fotos de la habitación (la primera es la portada) |
+| `POST /bff/media` (multipart) | ADMIN | Sube una foto a `media/<hotel>/` del bucket del frontend; valida tipo por bytes y 5 MB |
+| `GET /bff/habitaciones`, `/bff/reservas`, `/bff/reservas/rango` con `?hotel=todos\|<tenantId>` | SUPER_ADMIN | Vista de plataforma de otros hoteles (solo lectura), cada fila con `hotelNombre` |
+| `PUT /bff/hoteles/{tenantId}/marca` | ADMIN (su hotel) o SUPER_ADMIN (cualquiera) | Nombre, logo y colores |
+
+La vista de plataforma cambia el `X-Tenant-Id` con `HotelVista`, solo dentro de código que ya verificó el rol SUPER_ADMIN (`PlataformaService`). Las rutas nuevas de API Gateway apuntan a la integración del ALB (`gu10z3e`); el ALB no cambia porque los paths caen bajo los prefijos existentes.
+
 ### Clientes HTTP (RestTemplate con Circuit Breaker)
 
 ```

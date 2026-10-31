@@ -59,6 +59,8 @@ describe('pantallas', () => {
     ['reportes', '../pages/recepcion/ReportesRecepcion', 'Reportes'],
     ['check-in y check-out', '../pages/recepcion/CheckinRecepcion', 'Check-in / Check-out'],
     ['catálogo de servicios', '../pages/recepcion/ServiciosAdmin', 'Servicios del hotel'],
+    ['mis reservas del huésped (con Ver cuenta)', '../pages/huesped/ReservasHuesped', 'Ver cuenta'],
+    ['marca de cualquier hotel (plataforma)', '../pages/recepcion/MarcaHotelAdmin', 'Hotel que estás editando'],
   ])('%s se renderiza', async (_nombre, ruta, texto) => {
     const { default: Pantalla } = await import(ruta);
     montar(Pantalla);

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useMarca } from '../../context/ThemeContext';
 import { actualizarMarca } from '../../services/hotelesService';
+import { getHoteles } from '../../services/usuariosService';
 import { esColorValido, esLogoValido, problemasDeContraste, variablesDeTema } from '../../theme/hotelTheme';
 import AlertMessage from '../../components/common/AlertMessage';
 import SubirFoto from '../../components/common/SubirFoto';
@@ -17,11 +18,26 @@ const COLORES = [
 export default function MarcaHotelAdmin() {
   const { user } = useAuth();
   const { marca, setMarca } = useMarca();
-  const [form, setForm] = useState(() => ({
-    nombre: marca?.nombre ?? user?.hotelNombre ?? '',
-    logoUrl: marca?.logoUrl ?? '',
-    theme: Object.fromEntries(COLORES.map((c) => [c.clave, marca?.theme?.[c.clave] ?? c.defecto])),
-  }));
+  const aFormulario = (m, nombreDefecto = '') => ({
+    nombre: m?.nombre ?? nombreDefecto,
+    logoUrl: m?.logoUrl ?? '',
+    theme: Object.fromEntries(COLORES.map((c) => [c.clave, m?.theme?.[c.clave] ?? c.defecto])),
+  });
+  const [form, setForm] = useState(() => aFormulario(marca, user?.hotelNombre ?? ''));
+  // La plataforma puede editar la marca de cualquier hotel; el ADMIN, solo la del suyo
+  const esPlataforma = user?.rol === 'SUPER_ADMIN';
+  const [hoteles, setHoteles] = useState([]);
+  const [hotelEditado, setHotelEditado] = useState(user?.tenantId);
+
+  useEffect(() => {
+    if (esPlataforma) getHoteles().then(setHoteles).catch(() => setHoteles([]));
+  }, [esPlataforma]);
+
+  const elegirHotel = (tenantId) => {
+    setHotelEditado(tenantId);
+    setError(''); setExito('');
+    setForm(tenantId === user?.tenantId ? aFormulario(marca) : aFormulario(hoteles.find((h) => h.tenantId === tenantId)));
+  };
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [exito, setExito] = useState('');
@@ -43,13 +59,15 @@ export default function MarcaHotelAdmin() {
     setGuardando(true);
     setError('');
     try {
-      const guardada = await actualizarMarca(user.tenantId, {
+      const guardada = await actualizarMarca(hotelEditado, {
         nombre: form.nombre.trim(),
         logoUrl: form.logoUrl.trim() || null,
         theme: form.theme,
       });
-      setMarca(guardada);
-      setExito('Marca guardada. Los huéspedes la verán en su próximo ingreso.');
+      // Solo se aplica a la sesión si es la marca del propio hotel
+      if (hotelEditado === user.tenantId) setMarca(guardada);
+      else setHoteles((prev) => prev.map((h) => (h.tenantId === hotelEditado ? { ...h, ...guardada } : h)));
+      setExito(`Marca de ${guardada?.nombre ?? form.nombre} guardada. Los huéspedes la verán en su próximo ingreso.`);
       setTimeout(() => setExito(''), 4000);
     } catch (err) {
       setError(err.response?.data?.message ?? 'No se pudo guardar la marca.');
@@ -65,6 +83,14 @@ export default function MarcaHotelAdmin() {
           <i className="bi bi-palette me-2" style={{ color: 'var(--ss-gold)' }} />Marca del hotel
         </h2>
         <small className="text-muted">Nombre, logo y colores que ven tus huéspedes y tu equipo</small>
+        {esPlataforma && hoteles.length > 0 && (
+          <div className="mt-3" style={{ maxWidth: 360 }}>
+            <label htmlFor="marca-hotel" className="form-label fw-medium small">Hotel que estás editando</label>
+            <select id="marca-hotel" className="form-select" value={hotelEditado} onChange={(e) => elegirHotel(e.target.value)}>
+              {hoteles.map((h) => <option key={h.tenantId} value={h.tenantId}>{h.nombre}{h.tenantId === user?.tenantId ? ' (tu hotel)' : ''}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <AlertMessage message={error} onClose={() => setError('')} />
