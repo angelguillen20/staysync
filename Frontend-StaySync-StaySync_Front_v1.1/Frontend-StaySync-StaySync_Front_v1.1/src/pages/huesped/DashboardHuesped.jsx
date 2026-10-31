@@ -137,7 +137,7 @@ export default function DashboardHuesped() {
       {!loading && reservas.length > 0 && (
         <div className="row g-3">
           {reservas.slice(0, 4).map(r => (
-            <div key={r.id} className="col-sm-6 col-xl-3">
+            <div key={r.id} className="col-6 col-xl-3">
               <div className="card shadow-sm h-100" style={{ overflow: 'hidden' }}>
                 <Foto src={fotos[r.habitacionId]?.imagenPrincipal} alt="Habitación" numero={numero(r)} />
                 <div className="card-body">

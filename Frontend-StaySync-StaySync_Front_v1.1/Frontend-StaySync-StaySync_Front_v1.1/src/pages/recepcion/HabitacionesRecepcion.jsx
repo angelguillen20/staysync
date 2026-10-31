@@ -14,8 +14,8 @@ import ModalFotosHabitacion from '../../components/recepcion/ModalFotosHabitacio
 const ESTADO_META = {
   DISPONIBLE:      { label: 'Disponible',        badge: 'bg-success',           icon: 'bi-check-circle-fill',  color: '#198754', bg: '#f0fdf4' },
   OCUPADA:         { label: 'Ocupada',           badge: 'bg-danger',            icon: 'bi-person-fill',        color: '#dc3545', bg: '#fff5f5' },
-  EN_LIMPIEZA:     { label: '🧹 En limpieza',    badge: 'bg-warning text-dark', icon: 'bi-brush',              color: '#e6a817', bg: '#fffbeb' },
-  MANTENIMIENTO:   { label: '🔧 Mantenimiento',  badge: 'bg-secondary',         icon: 'bi-tools',              color: '#6c757d', bg: '#f8f9fa' },
+  EN_LIMPIEZA:     { label: 'En limpieza',    badge: 'bg-warning text-dark', icon: 'bi-brush',              color: '#e6a817', bg: '#fffbeb' },
+  MANTENIMIENTO:   { label: 'Mantenimiento',  badge: 'bg-secondary',         icon: 'bi-tools',              color: '#6c757d', bg: '#f8f9fa' },
   FUERA_DE_SERVICIO:{ label: 'Fuera de servicio',badge: 'bg-dark',              icon: 'bi-x-octagon-fill',     color: '#343a40', bg: '#f8f9fa' },
 };
 

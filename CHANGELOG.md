@@ -59,7 +59,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - Pagos: el pago en recepción queda COMPLETADO (sin pasarela simulada) y la moneda por defecto es CLP
 - El huésped paga en línea solo con Stripe; efectivo y transferencia se registran en recepción
 
+- Plataforma (SUPER_ADMIN): panel con todos los hoteles, habitaciones y reservas de cualquier hotel (solo lectura) y marca de cualquier hotel
+- Portal del huésped: inicio con su estadía primero, aviso para pagar y ver su cuenta desde Mis reservas
+- Reservas guardan el número de la habitación (el huésped veía el id interno)
+
 ### Corregido
+- El menú lateral no tenía scroll: Usuarios, Marca del hotel y Hoteles quedaban fuera de la pantalla
+- Estados de habitación con ícono duplicado (emoji + ícono)
 - Pagos: el monto lo fijaba el navegador; ahora el BFF usa el `precioTotal` de la reserva y solo cobra reservas PENDIENTE
 - Pagos: crédito, débito, transferencia y efectivo siempre fallaban (faltaba `gatewayToken`)
 - Reservas: si habitaciones-service no respondía se cobraba un precio inventado de 100 por noche
