@@ -36,7 +36,9 @@ public class SecurityConfig {
             "/bff/auth/google",
             "/bff/habitaciones/disponibles",
             "/bff/public/**",
-            "/bff/pagos/stripe/**",
+            // Vuelta desde Stripe: verifica la sesión contra Stripe, no confía en el navegador.
+            // El checkout no es público: necesita la sesión para saber qué reserva y monto cobrar.
+            "/bff/pagos/stripe/confirmar",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/api-docs/**",
@@ -82,6 +84,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/bff/reservas/*/estado").hasAnyRole(ADMIN, RECEPCIONISTA)
                         .requestMatchers(HttpMethod.GET, "/bff/pagos/**").hasAnyRole(ADMIN, RECEPCIONISTA)
                         .requestMatchers(HttpMethod.POST, "/bff/pagos/*/reembolso").hasAnyRole(ADMIN, RECEPCIONISTA)
+                        // Pago en recepción (efectivo, POS): queda COMPLETADO al instante. El huésped paga con Stripe.
+                        .requestMatchers(HttpMethod.POST, "/bff/pagos").hasAnyRole(ADMIN, RECEPCIONISTA)
                         .requestMatchers("/bff/servicios/solicitudes/todas", "/bff/servicios/aseo/**")
                                 .hasAnyRole(ADMIN, RECEPCIONISTA)
                         .requestMatchers(HttpMethod.PATCH, "/bff/servicios/solicitudes/*/estado")

@@ -23,14 +23,11 @@ public class ProcesarPagoRequest {
     private BigDecimal monto;
 
     @Size(min = 3, max = 3, message = "La moneda debe ser un código ISO de 3 letras")
-    @Schema(example = "USD")
-    private String moneda = "USD";
+    @Schema(example = "CLP")
+    private String moneda = "CLP";
 
     @NotNull(message = "El método de pago es obligatorio")
     private MetodoPago metodoPago;
-
-    @Schema(description = "Token o ID del gateway de pago externo")
-    private String gatewayToken;
 
     @Size(max = 255, message = "La descripción no puede superar 255 caracteres")
     private String descripcion;

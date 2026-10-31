@@ -45,28 +45,22 @@ class PagoServiceTest {
     }
 
     @Test
-    @DisplayName("procesar() - debe completar pago cuando gateway token es válido")
-    void debeProcesarPagoExitoso() {
+    @DisplayName("procesar() - el pago en recepción queda COMPLETADO, en CLP, y confirma la reserva")
+    void debeProcesarPagoEnRecepcion() {
         ProcesarPagoRequest request = new ProcesarPagoRequest();
         request.setReservaId(1L);
         request.setUsuarioId(1L);
         request.setMonto(BigDecimal.valueOf(200));
-        request.setMetodoPago(MetodoPago.TARJETA_CREDITO);
-        request.setGatewayToken("token-valido");
-
-        Pago pagoPendiente = Pago.builder()
-                .id(1L).referencia("PAY-TEST1234").reservaId(1L).usuarioId(1L)
-                .monto(BigDecimal.valueOf(200)).moneda("USD")
-                .metodoPago(MetodoPago.TARJETA_CREDITO)
-                .estado(EstadoPago.PROCESANDO)
-                .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+        request.setMoneda(null);
+        request.setMetodoPago(MetodoPago.EFECTIVO);
 
         when(pagoRepository.existsByReferencia(anyString())).thenReturn(false);
-        when(pagoRepository.save(any())).thenReturn(pagoPendiente).thenReturn(pagoBase);
+        when(pagoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         PagoResponse response = pagoService.procesar(request);
 
-        assertThat(response).isNotNull();
+        assertThat(response.getEstado()).isEqualTo(EstadoPago.COMPLETADO);
+        assertThat(response.getMoneda()).isEqualTo("CLP");
         verify(pagoEventos).pagoEfectuado(any(Pago.class));
     }
 
@@ -94,31 +88,6 @@ class PagoServiceTest {
 
         assertThat(pagoService.reembolsarPorCancelacion(1L)).isZero();
         verifyNoInteractions(pagoEventos);
-    }
-
-    @Test
-    @DisplayName("procesar() - debe lanzar PagoFallidoException cuando no hay token")
-    void debeLanzarExcepcionSinToken() {
-        ProcesarPagoRequest request = new ProcesarPagoRequest();
-        request.setReservaId(1L);
-        request.setUsuarioId(1L);
-        request.setMonto(BigDecimal.valueOf(100));
-        request.setMetodoPago(MetodoPago.TARJETA_CREDITO);
-        request.setGatewayToken(null);
-
-        Pago pagoPendiente = Pago.builder()
-                .id(2L).referencia("PAY-FAIL1234").reservaId(1L).usuarioId(1L)
-                .monto(BigDecimal.valueOf(100)).moneda("USD")
-                .metodoPago(MetodoPago.TARJETA_CREDITO)
-                .estado(EstadoPago.PROCESANDO)
-                .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
-
-        when(pagoRepository.existsByReferencia(anyString())).thenReturn(false);
-        when(pagoRepository.save(any())).thenReturn(pagoPendiente);
-
-        assertThatThrownBy(() -> pagoService.procesar(request))
-                .isInstanceOf(PagoFallidoException.class)
-                .hasMessageContaining("fallido");
     }
 
     @Test

@@ -25,40 +25,26 @@ public class PagoService {
     private final PagoRepository pagoRepository;
     private final PagoEventos pagoEventos;
 
+    /**
+     * Pago recibido en recepción (efectivo, transferencia o tarjeta en el POS del hotel): el
+     * dinero ya está en caja, así que queda COMPLETADO. El huésped paga en línea con Stripe; el
+     * BFF solo deja llegar aquí al personal y fija el monto desde la reserva.
+     */
     @Transactional
     public PagoResponse procesar(ProcesarPagoRequest request) {
-        String referencia = generarReferencia();
-
-        Pago pago = Pago.builder()
-                .referencia(referencia)
+        Pago pago = pagoRepository.save(Pago.builder()
+                .referencia(generarReferencia())
                 .reservaId(request.getReservaId())
                 .usuarioId(request.getUsuarioId())
                 .monto(request.getMonto())
-                .moneda(request.getMoneda() != null ? request.getMoneda() : "USD")
+                .moneda(request.getMoneda() != null ? request.getMoneda() : "CLP")
                 .metodoPago(request.getMetodoPago())
                 .descripcion(request.getDescripcion())
-                .estado(EstadoPago.PROCESANDO)
-                .build();
-
-        pago = pagoRepository.save(pago);
-
-        // Simular llamada al gateway de pago externo
-        boolean pagoExitoso = procesarConGateway(request.getGatewayToken());
-
-        if (pagoExitoso) {
-            pago.setEstado(EstadoPago.COMPLETADO);
-            pago.setGatewayId("GW-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase());
-            pagoRepository.save(pago);
-            // Reservas confirma la reserva al recibir PagoEfectuado
-            pagoEventos.pagoEfectuado(pago);
-            log.info("Pago completado: {}", pago.getReferencia());
-        } else {
-            pago.setEstado(EstadoPago.FALLIDO);
-            pagoRepository.save(pago);
-            log.warn("Pago rechazado por el gateway — reservaId={}", pago.getReservaId());
-            throw new PagoFallidoException("El gateway de pago rechazó la transacción");
-        }
-
+                .estado(EstadoPago.COMPLETADO)
+                .build());
+        // Reservas confirma la reserva al recibir PagoEfectuado
+        pagoEventos.pagoEfectuado(pago);
+        log.info("Pago en recepción registrado: {} — reservaId={}", pago.getReferencia(), pago.getReservaId());
         return toResponse(pago);
     }
 
@@ -108,11 +94,6 @@ public class PagoService {
             log.info("Reembolso automático de {} por cancelación de la reserva {}", p.getReferencia(), reservaId);
         });
         return completados.size();
-    }
-
-    private boolean procesarConGateway(String token) {
-        // Simulación local: aprueba cualquier pago que traiga token del gateway
-        return token != null && !token.isBlank();
     }
 
     private String generarReferencia() {

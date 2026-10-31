@@ -102,14 +102,53 @@ class ControladoresBffTest {
 
         @Test
         @WithMockUser(roles = "HUESPED")
-        @DisplayName("No paga la reserva de otro huésped")
-        void noPagaReservaAjena() throws Exception {
-            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "usuarioId", 99)));
-
+        @DisplayName("No registra pagos de recepción: quedarían COMPLETADOS sin cobrar nada")
+        void noRegistraPagoDeRecepcion() throws Exception {
             mockMvc.perform(post("/bff/pagos").header("Authorization", AUTH)
                             .contentType(MediaType.APPLICATION_JSON).content("{\"reservaId\":5,\"monto\":1000}"))
                     .andExpect(status().isForbidden());
             verify(pagosClient, never()).procesarPago(any(), any());
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("No paga con Stripe la reserva de otro huésped")
+        void noPagaReservaAjena() throws Exception {
+            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "usuarioId", 99, "estado", "PENDIENTE")));
+
+            mockMvc.perform(post("/bff/pagos/stripe/checkout").header("Authorization", AUTH)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"reservaId\":5}"))
+                    .andExpect(status().isForbidden());
+            verify(pagosClient, never()).crearCheckoutStripe(any());
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("Stripe cobra el total de la reserva aunque el navegador mande otro monto")
+        @SuppressWarnings("unchecked")
+        void stripeCobraElTotalDeLaReserva() throws Exception {
+            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "usuarioId", 7,
+                    "estado", "PENDIENTE", "precioTotal", 180000)));
+            when(pagosClient.crearCheckoutStripe(any())).thenReturn(ok(Map.of("checkoutUrl", "https://stripe")));
+
+            mockMvc.perform(post("/bff/pagos/stripe/checkout").header("Authorization", AUTH)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"reservaId\":5,\"monto\":1}"))
+                    .andExpect(status().isCreated());
+
+            verify(pagosClient).crearCheckoutStripe(argThat(b -> Integer.valueOf(180000).equals(((Map<String, Object>) b).get("monto"))));
+        }
+
+        @Test
+        @WithMockUser(roles = "HUESPED")
+        @DisplayName("Una reserva que ya no está PENDIENTE no se vuelve a cobrar")
+        void noCobraReservaNoPendiente() throws Exception {
+            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "usuarioId", 7, "estado", "CANCELADA")));
+
+            mockMvc.perform(post("/bff/pagos/stripe/checkout").header("Authorization", AUTH)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"reservaId\":5}"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("CANCELADA")));
+            verify(pagosClient, never()).crearCheckoutStripe(any());
         }
 
         @Test
@@ -206,13 +245,16 @@ class ControladoresBffTest {
         @WithMockUser(roles = "ADMIN")
         @DisplayName("El detalle junta la reserva con los datos de su habitación")
         void detalle() throws Exception {
-            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "habitacionId", 3,
+            when(reservasClient.getById(AUTH, 5L)).thenReturn(ok(Map.of("id", 5, "codigo", "RES-AB12CD34", "habitacionId", 3,
                     "fechaEntrada", "2026-11-18", "fechaSalida", "2026-11-20", "estado", "CONFIRMADA")));
-            when(habitacionesClient.getById(AUTH, 3L)).thenReturn(ok(Map.of("numero", "101",
+            when(habitacionesClient.getById(AUTH, 3L)).thenReturn(ok(Map.of("numero", "101", "precioPorNoche", 45000,
                     "tipo", Map.of("nombre", "Doble"), "estado", "DISPONIBLE")));
 
             mockMvc.perform(get("/bff/reservas/5/detalle").header("Authorization", AUTH))
                     .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.codigoReserva").value("RES-AB12CD34"))
+                    .andExpect(jsonPath("$.notas").value(""))
+                    .andExpect(jsonPath("$.habitacion.precioPorNoche").value(45000))
                     .andExpect(jsonPath("$.habitacion.numero").value("101"))
                     .andExpect(jsonPath("$.habitacion.tipo").value("Doble"))
                     .andExpect(jsonPath("$.noches").value(2));
@@ -250,9 +292,39 @@ class ControladoresBffTest {
     }
 
     @Test
+    @WithMockUser(roles = "RECEPCIONISTA")
+    @DisplayName("Pago en recepción: cobra el total de la reserva a nombre de su huésped")
+    @SuppressWarnings("unchecked")
+    void pagoEnRecepcionUsaLaReserva() throws Exception {
+        when(jwtService.extractRol("token")).thenReturn("RECEPCIONISTA");
+        when(reservasClient.getById(AUTH, 9L)).thenReturn(ok(Map.of("id", 9, "usuarioId", 7,
+                "estado", "PENDIENTE", "precioTotal", 150000)));
+        when(pagosClient.procesarPago(eq(AUTH), any())).thenReturn(ok(Map.of("id", 1)));
+
+        mockMvc.perform(post("/bff/pagos").header("Authorization", AUTH).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservaId\":9,\"monto\":10,\"metodoPago\":\"EFECTIVO\"}"))
+                .andExpect(status().isCreated());
+
+        verify(pagosClient).procesarPago(eq(AUTH), argThat(b -> {
+            Map<String, Object> pago = (Map<String, Object>) b;
+            return Integer.valueOf(150000).equals(pago.get("monto")) && Integer.valueOf(7).equals(pago.get("usuarioId"));
+        }));
+    }
+
+    @Test
+    @DisplayName("El checkout de Stripe exige sesión: sin ella no hay reserva ni monto que cobrar")
+    void checkoutSinSesion() throws Exception {
+        mockMvc.perform(post("/bff/pagos/stripe/checkout")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"reservaId\":5}")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(pagosClient);
+    }
+
+    @Test
     @WithMockUser(roles = "ADMIN")
     @DisplayName("Pagos: delegan en pagos-service")
     void pagos() throws Exception {
+        when(reservasClient.getById(AUTH, 9L)).thenReturn(ok(Map.of("id", 9, "usuarioId", 7,
+                "estado", "PENDIENTE", "precioTotal", 150000)));
         when(pagosClient.procesarPago(eq(AUTH), any())).thenReturn(ok(Map.of("id", 1)));
         when(pagosClient.getPagoById(AUTH, 1L)).thenReturn(ok(Map.of("id", 1)));
         when(pagosClient.getPagosPorReserva(AUTH, 9L)).thenReturn(ok(List.of()));
@@ -261,13 +333,13 @@ class ControladoresBffTest {
         when(pagosClient.confirmarCheckoutStripe(any())).thenReturn(ok(Map.of("estado", "COMPLETADO")));
 
         mockMvc.perform(post("/bff/pagos").header("Authorization", AUTH)
-                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().is2xxSuccessful());
+                .contentType(MediaType.APPLICATION_JSON).content("{\"reservaId\":9}")).andExpect(status().is2xxSuccessful());
         mockMvc.perform(get("/bff/pagos/1").header("Authorization", AUTH)).andExpect(status().isOk());
         mockMvc.perform(get("/bff/pagos/reserva/9").header("Authorization", AUTH)).andExpect(status().isOk());
         mockMvc.perform(post("/bff/pagos/1/reembolso").header("Authorization", AUTH)
                 .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().is2xxSuccessful());
-        mockMvc.perform(post("/bff/pagos/stripe/checkout")
-                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().is2xxSuccessful());
+        mockMvc.perform(post("/bff/pagos/stripe/checkout").header("Authorization", AUTH)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"reservaId\":9}")).andExpect(status().is2xxSuccessful());
         mockMvc.perform(post("/bff/pagos/stripe/confirmar")
                 .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().is2xxSuccessful());
     }
