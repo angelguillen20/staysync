@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getHoteles, getUsuarios } from '../../services/usuariosService';
+import { getUsuarios } from '../../services/usuariosService';
+import EtiquetaHotel, { useHotelesPlataforma } from '../../components/common/EtiquetaHotel';
 import { getHabitaciones } from '../../services/habitacionesService';
 import { getReservasRango } from '../../services/reservasService';
 import AlertMessage from '../../components/common/AlertMessage';
@@ -22,7 +23,7 @@ function mesActual() {
 
 /* Panel del SUPER_ADMIN: todos los hoteles de la plataforma de un vistazo. */
 export default function PlataformaAdmin() {
-  const [hoteles, setHoteles] = useState([]);
+  const hoteles = useHotelesPlataforma(true);
   const [habitaciones, setHabitaciones] = useState([]);
   const [reservas, setReservas] = useState([]);
   const [usuarios, setUsuarios] = useState({}); // tenantId → cantidad
@@ -34,17 +35,18 @@ export default function PlataformaAdmin() {
   const hoy = hoyHotel();
 
   useEffect(() => {
-    Promise.all([getHoteles(), getHabitaciones({ hotel: 'todos' }), getReservasRango(desde, hasta, 'todos')])
-      .then(async ([hs, habs, res]) => {
-        setHoteles(hs); setHabitaciones(habs); setReservas(res);
-        // Total de cuentas por hotel: la página de usuarios trae totalElements
-        const totales = await Promise.all(hs.map(h =>
-          getUsuarios({ tenantId: h.tenantId, size: 1 }).then(p => [h.tenantId, p.totalElements ?? 0]).catch(() => [h.tenantId, null])));
-        setUsuarios(Object.fromEntries(totales));
-      })
+    Promise.all([getHabitaciones({ hotel: 'todos' }), getReservasRango(desde, hasta, 'todos')])
+      .then(([habs, res]) => { setHabitaciones(habs); setReservas(res); })
       .catch(err => setError(err.response?.data?.message ?? 'No se pudo cargar la plataforma.'))
       .finally(() => setLoading(false));
   }, [desde, hasta]);
+
+  // Total de cuentas por hotel: la página de usuarios trae totalElements
+  useEffect(() => {
+    Promise.all(hoteles.map(h =>
+      getUsuarios({ tenantId: h.tenantId, size: 1 }).then(p => [h.tenantId, p.totalElements ?? 0]).catch(() => [h.tenantId, null])))
+      .then(t => setUsuarios(Object.fromEntries(t)));
+  }, [hoteles]);
 
   const filas = useMemo(() => resumenPorHotel(hoteles, habitaciones, reservas, desde, hasta, dias, hoy),
     [hoteles, habitaciones, reservas, desde, hasta, dias, hoy]);
@@ -65,8 +67,8 @@ export default function PlataformaAdmin() {
         <div className="d-flex flex-wrap gap-2">
           <Link to="/recepcion/hoteles" className="btn btn-ss-dark btn-sm">Crear hotel</Link>
           <Link to="/recepcion/usuarios" className="btn btn-outline-secondary btn-sm">Usuarios de todos los hoteles</Link>
-          <Link to="/recepcion/habitaciones" className="btn btn-outline-secondary btn-sm">Habitaciones</Link>
-          <Link to="/recepcion/reservas" className="btn btn-outline-secondary btn-sm">Reservas</Link>
+          <Link to="/recepcion/habitaciones?hotel=todos" className="btn btn-outline-secondary btn-sm">Habitaciones de todos</Link>
+          <Link to="/recepcion/reservas?hotel=todos" className="btn btn-outline-secondary btn-sm">Reservas de todos</Link>
         </div>
       </div>
 
@@ -110,8 +112,12 @@ export default function PlataformaAdmin() {
                   {filas.map(f => (
                     <tr key={f.hotel.tenantId}>
                       <td className="ps-3">
-                        <div className="fw-semibold">{f.hotel.nombre}</div>
-                        <small className="text-muted">/{f.hotel.slug}</small>
+                        <EtiquetaHotel tenantId={f.hotel.tenantId} nombre={f.hotel.nombre} />
+                        <div className="enlaces-hotel mt-1">
+                          <Link to={`/recepcion/reservas?hotel=${f.hotel.tenantId}`}>Reservas</Link>
+                          <Link to={`/recepcion/habitaciones?hotel=${f.hotel.tenantId}`}>Habitaciones</Link>
+                          <Link to={`/recepcion/usuarios?hotel=${f.hotel.tenantId}`}>Usuarios</Link>
+                        </div>
                       </td>
                       <td className="text-end">{f.habitaciones}</td>
                       <td className="text-end">{f.ocupadasHoy}</td>

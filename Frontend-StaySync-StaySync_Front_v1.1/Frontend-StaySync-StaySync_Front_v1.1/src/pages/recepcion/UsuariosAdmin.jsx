@@ -7,6 +7,8 @@ import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
 import ModalBackdrop  from '../../components/common/ModalBackdrop';
+import EtiquetaHotel, { useHotelesPlataforma } from '../../components/common/EtiquetaHotel';
+import { useSearchParams } from 'react-router-dom';
 
 const ROL_META = {
   SUPER_ADMIN:   { label: 'Super admin',   badge: 'bg-danger' },
@@ -216,7 +218,10 @@ export default function UsuariosAdmin() {
 
   const [q,          setQ]          = useState('');
   const [rolFiltro,  setRolFiltro]  = useState('TODOS');
-  const [hotelFiltro, setHotelFiltro] = useState(''); // solo SUPER_ADMIN; '' = todos los hoteles
+  // solo SUPER_ADMIN; '' = todos los hoteles. Plataforma enlaza con ?hotel=
+  const [params] = useSearchParams();
+  const [hotelFiltro, setHotelFiltro] = useState(esSuper ? params.get('hotel') ?? '' : '');
+  useHotelesPlataforma(esSuper); // colores de las etiquetas
   const [buscando,   setBuscando]   = useState(false); // true = resultados de /buscar (sin paginación)
 
   const [page,        setPage]        = useState(0);
@@ -457,7 +462,7 @@ export default function UsuariosAdmin() {
                     <td className="small text-muted">{u.email}</td>
                     <td className="small text-muted">{u.telefono ?? '—'}</td>
                     <td><RolBadge rol={u.rol} /></td>
-                    {esSuper && <td className="small text-muted">{nombreHotel(u.tenantId)}</td>}
+                    {esSuper && <td><EtiquetaHotel tenantId={u.tenantId} nombre={nombreHotel(u.tenantId)} /></td>}
                     <td>
                       <span className={`badge ${u.activo !== false ? 'bg-success' : 'bg-secondary'}`}>
                         {u.activo !== false ? 'Activo' : 'Inactivo'}

@@ -100,7 +100,10 @@ function MarcaHotel({ marca, tamano }) {
   if (marca?.logoUrl && esLogoValido(marca.logoUrl)) {
     return <img src={marca.logoUrl} alt={marca.nombre} style={{ maxHeight: tamano, maxWidth: '70%' }} />;
   }
-  return <span style={{ fontSize: tamano }}>🏨</span>;
+  // Sin logo: la placa de puerta con las iniciales del hotel, el mismo sello del resto del sistema
+  const iniciales = (marca?.nombre ?? 'StaySync').split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(p => p[0].toUpperCase()).join('');
+  return <span className="placa" style={{ fontSize: tamano * 0.55, padding: '0.2em 0.45em' }} aria-hidden="true">{iniciales}</span>;
 }
 function validPw(pw)   { return PW_RULES.every(r => r.test(pw)); }
 
@@ -266,14 +269,14 @@ export default function LoginPage() {
         <div className="brand-logo mb-4"><MarcaHotel marca={marca} tamano={72} /></div>
         <h1>{nombreMarca}</h1>
         <p className="text-center mt-2 px-4">
-          Sistema integral de gestión hotelera.<br />
-          Optimiza operaciones, maximiza la satisfacción de tus huéspedes.
+          Reserva, paga y pide lo que necesites durante tu estadía.<br />
+          El equipo del hotel entra con su cuenta de personal.
         </p>
         <div className="mt-5 d-flex flex-column gap-3 w-100" style={{ maxWidth: 280 }}>
           {[
-            { icon: 'bi-shield-check',   text: 'Seguridad JWT & RBAC' },
-            { icon: 'bi-graph-up-arrow', text: 'Dashboard en tiempo real' },
-            { icon: 'bi-bell',           text: 'Notificaciones automáticas' },
+            { icon: 'bi-credit-card',    text: 'Reserva y paga con tarjeta en línea' },
+            { icon: 'bi-bell',           text: 'Pide servicios a tu habitación' },
+            { icon: 'bi-receipt',        text: 'Revisa tu cuenta cuando quieras' },
           ].map(({ icon, text }) => (
             <div key={text} className="d-flex align-items-center gap-3">
               <i className={`bi ${icon} fs-5 text-warning`} />
