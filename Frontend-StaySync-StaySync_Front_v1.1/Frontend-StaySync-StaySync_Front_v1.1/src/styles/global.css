@@ -382,6 +382,25 @@ h5 { font-size: 1.05rem; }
 }
 .aviso-pago { border-left: 4px solid var(--ss-gold) !important; }
 
+/* Etiqueta de hotel (vistas de plataforma): el color identifica, el nombre siempre acompaña */
+.etiqueta-hotel {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.15rem 0.6rem 0.15rem 0.45rem; border-radius: 999px;
+  border: 1px solid var(--ss-line); background: var(--ss-surface);
+  font-size: 0.8rem; font-weight: 500; color: var(--ss-dark); white-space: nowrap; line-height: 1.5;
+}
+.etiqueta-punto { width: 0.6rem; height: 0.6rem; border-radius: 50%; flex-shrink: 0; }
+.etiqueta-filtro { cursor: pointer; }
+.etiqueta-filtro:hover { border-color: var(--ss-dark); }
+.etiqueta-filtro.activa { background: var(--ss-dark); color: #fff; border-color: var(--ss-dark); }
+.etiqueta-filtro.activa .etiqueta-punto { box-shadow: 0 0 0 2px #fff; }
+.filtros-hotel { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+
 /* Cuenta del huésped: líneas tipo boleta */
 .cuenta-linea { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0; border-bottom: 1px dashed var(--ss-line); font-variant-numeric: tabular-nums; }
 .cuenta-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 0.75rem; }
+
+/* Accesos por hotel en Plataforma: discretos hasta que se apuntan */
+.enlaces-hotel { display: flex; gap: 0.75rem; font-size: 0.8rem; }
+.enlaces-hotel a { color: var(--ss-ink-soft); text-decoration: none; }
+.enlaces-hotel a:hover, .enlaces-hotel a:focus-visible { color: var(--ss-dark); text-decoration: underline; }

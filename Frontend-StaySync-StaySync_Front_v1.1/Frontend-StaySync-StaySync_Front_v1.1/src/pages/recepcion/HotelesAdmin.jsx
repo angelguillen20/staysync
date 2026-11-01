@@ -5,6 +5,7 @@ import { esColorValido, esLogoValido, esSlugValido, problemasDeContraste } from 
 import AlertMessage from '../../components/common/AlertMessage';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import SubirFoto from '../../components/common/SubirFoto';
+import EtiquetaHotel, { olvidarHoteles, useHotelesPlataforma } from '../../components/common/EtiquetaHotel';
 
 const COLORES = [
   { clave: 'primary',    label: 'Principal', defecto: '#222016' },
@@ -31,6 +32,7 @@ const urlPortal = (slug) => `${window.location.origin}/login?hotel=${slug}`;
 /** Hoteles de la plataforma: el SUPER_ADMIN los ve y da de alta uno nuevo con su administrador. */
 export default function HotelesAdmin() {
   const [hoteles, setHoteles] = useState([]);
+  useHotelesPlataforma(true); // colores de las etiquetas
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(FORM_VACIO);
   const [slugEditado, setSlugEditado] = useState(false);
@@ -82,6 +84,7 @@ export default function HotelesAdmin() {
         admin: { ...a, nombre: a.nombre.trim(), apellido: a.apellido.trim(), email: a.email.trim() },
       });
       setCreado({ ...hotel, adminEmail: a.email.trim().toLowerCase() });
+      olvidarHoteles(); // el hotel nuevo recibe su color en la próxima pantalla
       setForm(FORM_VACIO);
       setSlugEditado(false);
       cargar();
@@ -133,7 +136,7 @@ export default function HotelesAdmin() {
                       : <i className="bi bi-building fs-5" />}
                   </div>
                   <div className="flex-grow-1 overflow-hidden">
-                    <div className="fw-semibold">{h.nombre}</div>
+                    <EtiquetaHotel tenantId={h.tenantId} nombre={h.nombre} />
                     <a className="small text-truncate d-block" href={urlPortal(h.slug)}>/login?hotel={h.slug}</a>
                   </div>
                 </div>

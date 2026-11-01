@@ -4,7 +4,8 @@ import {
   getTiposHabitacion, getAmenidades, desactivarHabitacion,
 } from '../../services/habitacionesService';
 import { useAuth } from '../../context/AuthContext';
-import { getHoteles } from '../../services/usuariosService';
+import { useSearchParams } from 'react-router-dom';
+import EtiquetaHotel, { useHotelesPlataforma } from '../../components/common/EtiquetaHotel';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
 import ModalBackdrop  from '../../components/common/ModalBackdrop';
@@ -89,9 +90,9 @@ function HabitacionCard({ hab, onCambiar, updating, success, isAdmin, onDesactiv
           className="d-flex align-items-center justify-content-between px-3 py-2"
           style={{ background: meta.bg, borderBottom: `3px solid ${meta.color}` }}
         >
-          <span className="small text-muted text-truncate">
-            {hab.hotelNombre ?? ((hab.imagenes?.length ?? 0) === 1 ? '1 foto' : `${hab.imagenes?.length ?? 0} fotos`)}
-          </span>
+          {hab.hotelId
+            ? <EtiquetaHotel tenantId={hab.hotelId} nombre={hab.hotelNombre} />
+            : <span className="small text-muted">{(hab.imagenes?.length ?? 0) === 1 ? '1 foto' : `${hab.imagenes?.length ?? 0} fotos`}</span>}
           <span className={`badge ${meta.badge} d-flex align-items-center gap-1`} style={{ fontSize: '0.7rem' }}>
             <i className={`bi ${meta.icon}`} />{meta.label}
           </span>
@@ -367,8 +368,12 @@ export default function HabitacionesRecepcion() {
   const { hasRole } = useAuth();
   const isAdmin = hasRole('ADMIN');
   const esPlataforma = hasRole('SUPER_ADMIN');
-  const [hotelVista, setHotelVista] = useState(''); // '' = este hotel, 'todos' o un tenantId
-  const [hoteles,    setHoteles]    = useState([]);
+  // '' = este hotel, 'todos' o un tenantId (Plataforma enlaza con ?hotel=)
+  const [params] = useSearchParams();
+  const [hotelVista, setHotelVista] = useState(esPlataforma ? params.get('hotel') ?? '' : '');
+  const hoteles = useHotelesPlataforma(esPlataforma);
+  const [hotelesFiltro, setHotelesFiltro] = useState([]);
+  const alternarHotel = (id) => setHotelesFiltro(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const [habitaciones, setHabitaciones] = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -401,9 +406,6 @@ export default function HabitacionesRecepcion() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  useEffect(() => {
-    if (esPlataforma) getHoteles().then(setHoteles).catch(() => setHoteles([]));
-  }, [esPlataforma]);
 
   const handleCambiarEstado = async (id, nuevoEstado) => {
     setUpdating(id);
@@ -468,6 +470,7 @@ export default function HabitacionesRecepcion() {
   );
 
   const habsFiltradas = habitaciones
+    .filter(h => !hotelesFiltro.length || hotelesFiltro.includes(h.hotelId))
     .filter(h => filtro === 'TODOS' || h.estado === filtro)
     .filter(h => {
       if (!busqueda.trim()) return true;
@@ -493,7 +496,7 @@ export default function HabitacionesRecepcion() {
         <div className="d-flex flex-wrap gap-2">
           {esPlataforma && (
             <select className="form-select form-select-sm w-auto" aria-label="Hotel" value={hotelVista}
-                    onChange={e => setHotelVista(e.target.value)}>
+                    onChange={e => { setHotelVista(e.target.value); setHotelesFiltro([]); }}>
               <option value="">Este hotel</option>
               <option value="todos">Todos los hoteles</option>
               {hoteles.map(h => <option key={h.tenantId} value={h.tenantId}>{h.nombre}</option>)}
@@ -526,6 +529,19 @@ export default function HabitacionesRecepcion() {
 
       {/* Barra de ocupación */}
       <OcupacionBar conteo={conteo} total={habitaciones.length} />
+
+      {hotelVista === 'todos' && hoteles.length > 1 && (
+        <div className="filtros-hotel mb-3" role="group" aria-label="Filtrar por hotel">
+          <small className="text-muted me-1">Hoteles:</small>
+          {hoteles.map(h => (
+            <EtiquetaHotel key={h.tenantId} tenantId={h.tenantId} nombre={h.nombre}
+                           activa={hotelesFiltro.includes(h.tenantId)} onClick={() => alternarHotel(h.tenantId)} />
+          ))}
+          {hotelesFiltro.length > 0 && (
+            <button type="button" className="btn btn-link btn-sm p-0 ms-1" onClick={() => setHotelesFiltro([])}>Ver todos</button>
+          )}
+        </div>
+      )}
 
       {/* Filtros + Búsqueda */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
