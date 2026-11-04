@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getReservas, cambiarEstadoReserva } from '../../services/reservasService';
 import { getHabitaciones } from '../../services/habitacionesService';
-import { getHoteles } from '../../services/usuariosService';
+import { useSearchParams } from 'react-router-dom';
+import EtiquetaHotel, { useHotelesPlataforma } from '../../components/common/EtiquetaHotel';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import AlertMessage   from '../../components/common/AlertMessage';
@@ -71,8 +72,12 @@ export default function ReservasRecepcion() {
   const [sortConfig, setSortConfig] = useState({ campo: 'fechaEntrada', dir: 'asc' });
   const [modificando, setModificando] = useState(null);
   const esPlataforma = useAuth().hasRole('SUPER_ADMIN');
-  const [hotelVista, setHotelVista] = useState(''); // '' = este hotel; otro valor = solo lectura
-  const [hoteles,    setHoteles]    = useState([]);
+  // '' = este hotel; 'todos' o un hotel = vista de plataforma, solo lectura. Plataforma enlaza con ?hotel=
+  const [params] = useSearchParams();
+  const [hotelVista, setHotelVista] = useState(esPlataforma ? params.get('hotel') ?? '' : '');
+  const hoteles = useHotelesPlataforma(esPlataforma);
+  const [hotelesFiltro, setHotelesFiltro] = useState([]); // etiquetas marcadas; vacío = todos
+  const [estadoFiltro,  setEstadoFiltro]  = useState('ACTIVAS');
   const [cuenta,      setCuenta]      = useState(null);
 
   const cargar = async () => {
@@ -95,9 +100,6 @@ export default function ReservasRecepcion() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { cargar(); }, [hotelVista]);
 
-  useEffect(() => {
-    if (esPlataforma) getHoteles().then(setHoteles).catch(() => setHoteles([]));
-  }, [esPlataforma]);
 
   const handleSort = (campo) => {
     setSortConfig(prev =>
@@ -126,13 +128,15 @@ export default function ReservasRecepcion() {
 
   const filtradas = useMemo(() => {
     let result = reservas.filter(r => {
-      if (CERRADAS.includes(r.estado)) return false;
+      if (estadoFiltro === 'ACTIVAS' ? CERRADAS.includes(r.estado) : estadoFiltro !== 'TODAS' && r.estado !== estadoFiltro) return false;
+      if (hotelesFiltro.length && !hotelesFiltro.includes(r.hotelId)) return false;
       if (!busqueda) return true;
       const q = busqueda.toLowerCase();
       return (
         String(r.id).includes(q) ||
         r.codigo?.toLowerCase().includes(q) ||
         r.huespedNombre?.toLowerCase().includes(q) ||
+        r.hotelNombre?.toLowerCase().includes(q) ||
         String(r.usuarioId).includes(q) ||
         String(r.habitacionNumero ?? r.habitacionId).includes(q)
       );
@@ -166,7 +170,9 @@ export default function ReservasRecepcion() {
     });
 
     return result;
-  }, [reservas, busqueda, sortConfig]);
+  }, [reservas, busqueda, sortConfig, estadoFiltro, hotelesFiltro]);
+
+  const alternarHotel = (id) => setHotelesFiltro(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const thSort = (campo, label) => (
     <th
@@ -185,12 +191,14 @@ export default function ReservasRecepcion() {
           <h2 className="fw-bold mb-0" style={{ color: 'var(--ss-dark)' }}>
             <i className="bi bi-calendar-check me-2" style={{ color: 'var(--ss-gold)' }} />Reservas
           </h2>
-          <small className="text-muted">Gestión de reservas del hotel</small>
+          <small className="text-muted">
+            {hotelVista ? 'Vista de plataforma, solo lectura: los cambios se hacen desde cada hotel' : 'Reservas activas del hotel'}
+          </small>
         </div>
         <div className="d-flex flex-wrap gap-2">
           {esPlataforma && (
             <select className="form-select form-select-sm w-auto" aria-label="Hotel" value={hotelVista}
-                    onChange={e => setHotelVista(e.target.value)}>
+                    onChange={e => { setHotelVista(e.target.value); setHotelesFiltro([]); }}>
               <option value="">Este hotel</option>
               <option value="todos">Todos los hoteles</option>
               {hoteles.map(h => <option key={h.tenantId} value={h.tenantId}>{h.nombre}</option>)}
@@ -206,6 +214,28 @@ export default function ReservasRecepcion() {
       </div>
 
       <AlertMessage message={error} onClose={() => setError('')} />
+
+      {hotelVista === 'todos' && hoteles.length > 1 && (
+        <div className="filtros-hotel mb-3" role="group" aria-label="Filtrar por hotel">
+          <small className="text-muted me-1">Hoteles:</small>
+          {hoteles.map(h => (
+            <EtiquetaHotel key={h.tenantId} tenantId={h.tenantId} nombre={h.nombre}
+                           activa={hotelesFiltro.includes(h.tenantId)} onClick={() => alternarHotel(h.tenantId)} />
+          ))}
+          {hotelesFiltro.length > 0 && (
+            <button type="button" className="btn btn-link btn-sm p-0 ms-1" onClick={() => setHotelesFiltro([])}>Ver todos</button>
+          )}
+        </div>
+      )}
+
+      <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <select className="form-select w-auto" aria-label="Estado" value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)}>
+          <option value="ACTIVAS">Activas</option>
+          <option value="TODAS">Todos los estados</option>
+          {Object.entries(ESTADO_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+        <small className="text-muted">{filtradas.length} {filtradas.length === 1 ? 'reserva' : 'reservas'}</small>
+      </div>
 
       <div className="mb-3" style={{ maxWidth: 340 }}>
         <div className="input-group">
@@ -231,7 +261,8 @@ export default function ReservasRecepcion() {
             <thead className="table-light">
               <tr>
                 <th>#</th>
-                <th>Código / Usuario</th>
+                <th>Código / Huésped</th>
+                {hotelVista && <th>Hotel</th>}
                 {thSort('habitacion',   'Habitación')}
                 {thSort('fechaEntrada', 'Entrada')}
                 {thSort('fechaSalida',  'Salida')}
@@ -249,8 +280,9 @@ export default function ReservasRecepcion() {
                     <td className="text-muted small">#{r.id}</td>
                     <td>
                       <div className="fw-medium small">{r.codigo ?? '—'}</div>
-                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>{r.huespedNombre || `Usr. #${r.usuarioId}`}{r.hotelNombre ? `, ${r.hotelNombre}` : ''}</div>
+                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>{r.huespedNombre || `Usr. #${r.usuarioId}`}</div>
                     </td>
+                    {hotelVista && <td><EtiquetaHotel tenantId={r.hotelId} nombre={r.hotelNombre} /></td>}
                     <td><Placa numero={r.habitacionNumero} tamano="sm" /></td>
                     <td>{fmtFecha(r.fechaEntrada)}</td>
                     <td>{fmtFecha(r.fechaSalida)}</td>
