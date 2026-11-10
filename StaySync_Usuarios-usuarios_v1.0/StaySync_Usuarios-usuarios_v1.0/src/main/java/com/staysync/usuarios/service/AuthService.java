@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -42,17 +43,25 @@ public class AuthService {
     private final UsuarioRepository usuarioRepository;
     private final UsuarioService usuarioService;
     private final HotelService hotelService;
+    private final IntentosLoginService intentosLogin;
 
     @Value("${jwt.refresh-expiration-ms:604800000}")
     private long refreshExpirationMs;
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        intentosLogin.verificarNoBloqueada(request.getEmail());
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        } catch (BadCredentialsException e) {
+            intentosLogin.registrarFallo(request.getEmail());
+            throw e;
+        }
 
         Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
                 .orElseThrow();
+        intentosLogin.reiniciar(usuario);
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
 

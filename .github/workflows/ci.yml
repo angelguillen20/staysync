@@ -153,12 +153,21 @@ jobs:
         env:
           SVC: ${{ matrix.service }}
           IMAGE: ${{ steps.image.outputs.uri }}
+          # Cuentas demo del login (contraseñas publicadas): false para apagarlas en producción
+          DEMO_DATA_ENABLED: ${{ vars.DEMO_DATA_ENABLED || 'true' }}
+          # Remitente verificado en Brevo: sin él notificaciones-service no arranca
+          MAIL_FROM: ${{ vars.MAIL_FROM }}
         run: |
+          if [ "$SVC" = notificaciones ] && [ -z "$MAIL_FROM" ]; then
+            echo "::error::Falta la variable MAIL_FROM del repositorio (gh variable set MAIL_FROM --body <remitente verificado>)"
+            exit 1
+          fi
           # LabRole ya no puede leer Secrets Manager (SCP de AWS Academy): el script los lee con
           # estas credenciales y los pasa como variables de entorno, enmascarados en el log
           # El BFF guarda las fotos en media/ del bucket del frontend
           BUCKET=${S3_BUCKET:-staysync-front-$(aws sts get-caller-identity --query Account --output text)}
-          python3 scripts/deploy/task_definition.py "$SVC" "$IMAGE" td.json MEDIA_BUCKET="$BUCKET"
+          python3 scripts/deploy/task_definition.py "$SVC" "$IMAGE" td.json MEDIA_BUCKET="$BUCKET" \
+            DEMO_DATA_ENABLED="$DEMO_DATA_ENABLED" MAIL_FROM="$MAIL_FROM"
           ARN=$(aws ecs register-task-definition --cli-input-json file://td.json \
                   --query taskDefinition.taskDefinitionArn --output text)
           rm td.json
@@ -200,6 +209,8 @@ jobs:
           VITE_SESSION_TIMEOUT_MIN: ${{ vars.VITE_SESSION_TIMEOUT_MIN }}
           VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
           VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+          # Botones de cuentas demo en el login, a la par con DEMO_DATA_ENABLED del backend
+          VITE_DEMO_CREDENCIALES: ${{ vars.DEMO_DATA_ENABLED || 'true' }}
         run: |
           npm ci
           npm run build

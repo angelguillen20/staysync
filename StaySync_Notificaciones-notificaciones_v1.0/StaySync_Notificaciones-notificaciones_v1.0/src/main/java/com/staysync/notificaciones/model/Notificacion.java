@@ -57,9 +57,10 @@ public class Notificacion {
     @Builder.Default
     private Integer intentos = 0;
 
+    /** Envío inicial + reintentos (5, 10, 20 y 40 min después): cubre una caída de SMTP de ~1 h. */
     @Column(name = "max_intentos", nullable = false)
     @Builder.Default
-    private Integer maxIntentos = 3;
+    private Integer maxIntentos = 5;
 
     @Column(name = "error_msg", columnDefinition = "TEXT")
     private String errorMsg;

@@ -1,0 +1,65 @@
+# Dependabot: abre PRs semanales con actualizaciones de dependencias, incluidas las que
+# corrigen vulnerabilidades conocidas. Las alertas y PRs de seguridad inmediatas se activan
+# en GitHub: Settings → Code security → Dependabot alerts / Dependabot security updates.
+version: 2
+updates:
+  # Microservicios y librerías compartidas (Maven)
+  - package-ecosystem: maven
+    directories:
+      - /StaySync_Commons
+      - /StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
+      - /StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
+      - /StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
+      - /StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+      - /StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
+      - /StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
+      - /StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
+      - /StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # Parches y menores en un solo PR; las versiones mayores llegan por separado para revisarlas
+      maven-menores:
+        update-types: [minor, patch]
+
+  # Frontend (npm)
+  - package-ecosystem: npm
+    directory: /Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      npm-menores:
+        update-types: [minor, patch]
+
+  # Imágenes base de los Dockerfiles (maven, eclipse-temurin, node, nginx)
+  - package-ecosystem: docker
+    directories:
+      - /StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
+      - /StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
+      - /StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
+      - /StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
+      - /StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
+      - /StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
+      - /StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
+      - /StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
+      - /Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      imagenes-base:
+        patterns: ["*"]
+
+  # Acciones de GitHub usadas en .github/workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      acciones:
+        patterns: ["*"]

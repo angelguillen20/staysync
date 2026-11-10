@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Arranca el servicio completo sobre H2: valida el mapeo de hoteles, la migración de
  * usuarios sin hotel y que el login entregue el tenantId en el JWT y en la respuesta.
  */
-@SpringBootTest
+@SpringBootTest(properties = "staysync.demo.habilitado=true")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("Multi-tenant - login de punta a punta")

@@ -1,5 +1,8 @@
 server:
   port: ${SERVER_PORT:8080}
+  # Tras el ALB (o nginx) la IP del cliente llega en X-Forwarded-For: Tomcat la usa como
+  # remoteAddr solo si la petición viene de un proxy de red privada (limite de peticiones por IP)
+  forward-headers-strategy: native
 
 spring:
   application:
@@ -118,3 +121,8 @@ logging:
     com.staysync: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+seguridad:
+  limites:
+    auth-por-minuto: ${LIMITE_AUTH_POR_MINUTO:10}   # login, registro y Google, por IP
+    api-por-minuto: ${LIMITE_API_POR_MINUTO:600}    # resto de /bff/**, por IP

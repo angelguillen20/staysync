@@ -11,6 +11,9 @@ COPY package*.json ./
 RUN npm ci --silent
 
 COPY . .
+# Vite lo lee del entorno al compilar: "true" muestra las credenciales demo en el login
+ARG VITE_DEMO_CREDENCIALES=
+ENV VITE_DEMO_CREDENCIALES=$VITE_DEMO_CREDENCIALES
 RUN npm run build
 
 # ── Etapa 2: Servidor Nginx (solo archivos estáticos) ─────────────────────────

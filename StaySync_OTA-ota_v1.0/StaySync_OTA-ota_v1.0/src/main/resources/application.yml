@@ -50,3 +50,10 @@ management:
 logging:
   level:
     com.staysync: INFO
+
+ota:
+  webhooks:
+    # Secreto por canal para verificar la firma HMAC de sus webhooks, por variable de entorno:
+    # OTA_WEBHOOKS_SECRETOS_<CODIGO> (p. ej. OTA_WEBHOOKS_SECRETOS_BOOKING). Canal sin secreto = rechazado.
+    secretos: {}
+    tolerancia: 5m   # desfase máximo del header X-Webhook-Timestamp

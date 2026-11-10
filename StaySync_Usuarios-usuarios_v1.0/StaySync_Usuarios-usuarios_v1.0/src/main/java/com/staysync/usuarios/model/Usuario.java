@@ -56,6 +56,15 @@ public class Usuario {
     @Builder.Default
     private Boolean activo = true;
 
+    /** Intentos de login fallidos seguidos; al llegar al máximo la cuenta se bloquea un tiempo. */
+    @Column(name = "intentos_fallidos", nullable = false, columnDefinition = "int default 0")
+    @Builder.Default
+    private Integer intentosFallidos = 0;
+
+    /** Hasta cuándo está bloqueado el login con contraseña (null = no bloqueado). */
+    @Column(name = "bloqueado_hasta")
+    private LocalDateTime bloqueadoHasta;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -42,6 +42,10 @@ spring:
           auth: true
           starttls:
             enable: true
+          # Sin estos límites JavaMail espera para siempre a un SMTP que no responde
+          connectiontimeout: 10000
+          timeout: 30000
+          writetimeout: 30000
 
 springdoc:
   api-docs:
@@ -63,6 +67,12 @@ management:
 notificaciones:
   mail:
     enabled: ${MAIL_ENABLED:true}   # false = solo loguea, true = envía SMTP real
+    from: ${MAIL_FROM:}             # remitente verificado en el proveedor SMTP (obligatorio si enabled)
+  # Correos que fallaron (quedan PENDIENTE): se reintentan con espera creciente hasta max_intentos
+  reintentos:
+    espera-base: ${MAIL_REINTENTO_ESPERA:5m}   # 5 min, 10 min, 20 min...
+    revision-ms: 60000                          # cada cuánto se buscan correos para reintentar
+    caducidad: 24h                              # más antiguos que esto ya no se envían: quedan FALLIDO
 
 logging:
   level:

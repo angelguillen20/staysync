@@ -50,6 +50,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - Recepción: registrar huéspedes sin cuenta (walk-in) con contraseña temporal y modificar fechas/habitación de una reserva
 - Calendario de ocupación (habitaciones × días) y reportes mensuales (ocupación, ingresos, tarifa promedio, RevPAR, CSV)
 - Diseño: tipografía Onest, placa de número de habitación, superficies planas y menú agrupado por tarea
+- Seguridad (detalle en `docs/seguridad.md`): límite de peticiones por IP en el BFF, bloqueo de la cuenta tras 5 contraseñas incorrectas, webhooks OTA firmados con HMAC, cuentas demo solo con `DEMO_DATA_ENABLED` y super admin inicial por variables
+- Notificaciones: los correos que fallan se reintentan (5, 10, 20, 40 min) y caducan a las 24 h; remitente en `MAIL_FROM`
+- Eventos: si SNS falla el relay espera cada vez más y no abandona eventos; los abandonados por la versión anterior quedan aparcados
+- Dependabot: PRs semanales de dependencias Maven, npm, imágenes Docker y acciones
 
 ### Cambiado
 - Mensajería asíncrona: RabbitMQ reemplazado por SNS + SQS con DLQ (LocalStack en local)

@@ -255,6 +255,8 @@ public class UsuariosClient {
 
     @SuppressWarnings("java:S1172")
     public ResponseEntity<Object> loginFallback(Object body, Exception ex) {
+        // Credenciales incorrectas (401) o cuenta bloqueada (423) no son una caída del servicio
+        relanzarErrorDelCliente(ex);
         log.error("usuarios-service no disponible en login: {}", ex.getMessage());
         throw new DownstreamServiceException("El servicio de autenticación no está disponible. Intente nuevamente.");
     }
