@@ -200,6 +200,75 @@ class NotificacionServiceTest {
         assertThat(notif.getIntentos()).isEqualTo(1);
     }
 
+    // ── Remitente ────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Sin MAIL_FROM y con el envío activo, el servicio no arranca (mensaje claro)")
+    void exigeRemitenteSiElEnvioEstaActivo() {
+        ReflectionTestUtils.setField(notificacionService, "remitente", "");
+
+        assertThatThrownBy(() -> notificacionService.validarConfiguracion())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("MAIL_FROM");
+    }
+
+    @Test
+    @DisplayName("Con el envío desactivado no exige remitente; con remitente, los correos salen desde él")
+    void usaElRemitenteConfigurado() {
+        ReflectionTestUtils.setField(notificacionService, "mailEnabled", false);
+        ReflectionTestUtils.setField(notificacionService, "remitente", "");
+        assertThatCode(() -> notificacionService.validarConfiguracion()).doesNotThrowAnyException();
+
+        ReflectionTestUtils.setField(notificacionService, "mailEnabled", true);
+        ReflectionTestUtils.setField(notificacionService, "remitente", "reservas@hotelandes.cl");
+        when(notificacionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        notificacionService.enviarEmail(buildNotificacion(9L, "ana@test.com", "A", "C", EstadoNotificacion.PENDIENTE));
+
+        ArgumentCaptor<SimpleMailMessage> enviado = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(enviado.capture());
+        assertThat(enviado.getValue().getFrom()).isEqualTo("reservas@hotelandes.cl");
+    }
+
+    // ── Reintentos ───────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("pendientesDeReintento() - solo devuelve los correos cuya espera creciente ya venció")
+    void pendientesRespetanEsperaCreciente() {
+        ReflectionTestUtils.setField(notificacionService, "esperaBase", java.time.Duration.ofMinutes(5));
+        ReflectionTestUtils.setField(notificacionService, "caducidad", java.time.Duration.ofHours(24));
+        LocalDateTime ahora = LocalDateTime.of(2026, 11, 4, 12, 0);
+        // 1 fallo → espera 5 min; 2 fallos → 10 min; 3 fallos → 20 min
+        Notificacion vencida1  = fallida(10L, 1, ahora.minusMinutes(5));
+        Notificacion reciente1 = fallida(11L, 1, ahora.minusMinutes(4));
+        Notificacion vencida2  = fallida(12L, 2, ahora.minusMinutes(10));
+        Notificacion reciente3 = fallida(13L, 3, ahora.minusMinutes(19));
+        when(notificacionRepository.findConIntentosRestantes(EstadoNotificacion.PENDIENTE, ahora.minusHours(24)))
+                .thenReturn(java.util.List.of(vencida1, reciente1, vencida2, reciente3));
+
+        assertThat(notificacionService.pendientesDeReintento(ahora)).containsExactly(10L, 12L);
+    }
+
+    @Test
+    @DisplayName("reintentarEnvio() - no reenvía si al bloquear la fila ya no está pendiente (otra instancia la envió)")
+    void reintentarNoDuplicaSiYaSeEnvio() {
+        ReflectionTestUtils.setField(notificacionService, "esperaBase", java.time.Duration.ZERO);
+        Notificacion enviada = fallida(20L, 1, LocalDateTime.now().minusHours(1));
+        enviada.setEstado(EstadoNotificacion.ENVIADO);
+        when(notificacionRepository.findByIdParaActualizar(20L)).thenReturn(Optional.of(enviada));
+
+        notificacionService.reintentarEnvio(20L, LocalDateTime.now());
+
+        verifyNoInteractions(mailSender);
+    }
+
+    private Notificacion fallida(Long id, int intentos, LocalDateTime ultimoFallo) {
+        Notificacion n = buildNotificacion(id, "x@test.com", "A", "C", EstadoNotificacion.PENDIENTE);
+        n.setIntentos(intentos);
+        n.setMaxIntentos(5);
+        n.setUpdatedAt(ultimoFallo);
+        return n;
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private PlantillaNotificacion buildPlantilla(String codigo, String asunto, String cuerpo) {

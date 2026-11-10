@@ -40,6 +40,14 @@ staysync:
     # Hotel asignado a los usuarios sin hotel (filas previas al multi-tenant) y a los
     # registros que no indican hotelSlug. DataInitializer lo crea si no existe.
     default-id: ${DEFAULT_TENANT_ID:staysync-demo}
+  demo:
+    # Segundo hotel y cuentas demo con contraseñas publicadas en el repositorio. Solo para
+    # desarrollo y demos: apagado, las cuentas demo que aún usan esa contraseña se desactivan.
+    habilitado: ${DEMO_DATA_ENABLED:false}
+  superadmin-inicial:
+    # Crea el primer super admin si no hay ninguno activo. Quitar la contraseña tras el arranque.
+    email: ${SUPERADMIN_EMAIL:}
+    password: ${SUPERADMIN_PASSWORD:}
 
 security:
   encryption:
@@ -86,3 +94,9 @@ logging:
     org.springframework.security: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+seguridad:
+  login:
+    # Intentos fallidos seguidos antes de bloquear la cuenta, y cuánto dura el bloqueo
+    max-intentos: ${LOGIN_MAX_INTENTOS:5}
+    bloqueo: ${LOGIN_BLOQUEO:15m}

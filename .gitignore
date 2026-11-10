@@ -22,3 +22,7 @@ target/
 # Build del frontend (Vite)
 dist/
 dist-ssr/
+
+# Python
+__pycache__/
+*.pyc

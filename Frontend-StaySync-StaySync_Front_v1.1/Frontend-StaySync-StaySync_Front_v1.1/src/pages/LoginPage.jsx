@@ -11,9 +11,10 @@ import { esLogoValido, esSlugValido, guardarSlug, slugGuardado } from '../theme/
 
 const REDIRECT = { SUPER_ADMIN: '/recepcion', ADMIN: '/recepcion', RECEPCIONISTA: '/recepcion', HUESPED: '/huesped' };
 
-// Cuentas que crea DataInitializer (usuarios-service). En un despliegue real se ocultan con
-// VITE_DEMO_CREDENCIALES=false: incluyen la del super admin, que administra todos los hoteles.
-const MOSTRAR_DEMO = import.meta.env.VITE_DEMO_CREDENCIALES !== 'false';
+// Cuentas que crea DataInitializer (usuarios-service) solo con DEMO_DATA_ENABLED=true. En un build
+// se muestran únicamente con VITE_DEMO_CREDENCIALES=true; en desarrollo, salvo que valga false.
+const DEMO_CONFIGURADO = import.meta.env.VITE_DEMO_CREDENCIALES;
+const MOSTRAR_DEMO = DEMO_CONFIGURADO ? DEMO_CONFIGURADO === 'true' : import.meta.env.DEV;
 const CUENTAS_DEMO = [
   { hotel: 'Plataforma', slug: null, cuentas: [
     { rol: 'Super admin', email: 'superadmin@staysync.com', password: 'Super@1234' },

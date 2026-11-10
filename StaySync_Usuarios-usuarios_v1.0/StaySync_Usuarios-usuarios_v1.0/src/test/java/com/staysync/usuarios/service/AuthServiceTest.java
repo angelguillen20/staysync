@@ -38,6 +38,7 @@ class AuthServiceTest {
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private UsuarioService usuarioService;
     @Mock private HotelService hotelService;
+    @Mock private IntentosLoginService intentosLoginService;
     @Mock private UserDetails userDetails;
 
     @InjectMocks private AuthService authService;
@@ -151,6 +152,22 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BadCredentialsException.class);
+        verify(intentosLoginService).registrarFallo("admin@test.com");
+    }
+
+    @Test
+    @DisplayName("login() - con la cuenta bloqueada no comprueba la contraseña")
+    void noAutenticaSiLaCuentaEstaBloqueada() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("admin@test.com");
+        request.setPassword("Admin@1234");
+        doThrow(new com.staysync.usuarios.exception.CuentaBloqueadaException(10))
+                .when(intentosLoginService).verificarNoBloqueada("admin@test.com");
+
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(com.staysync.usuarios.exception.CuentaBloqueadaException.class)
+                .hasMessageContaining("10 minutos");
+        verifyNoInteractions(authenticationManager);
     }
 
     @Test

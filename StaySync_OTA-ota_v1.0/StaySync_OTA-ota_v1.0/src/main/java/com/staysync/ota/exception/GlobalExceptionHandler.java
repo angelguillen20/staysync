@@ -24,6 +24,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_GATEWAY, ex.getMessage(), req);
     }
 
+    @ExceptionHandler(FirmaWebhookInvalidaException.class)
+    public ResponseEntity<ErrorResponse> handleFirmaInvalida(FirmaWebhookInvalidaException ex, WebRequest req) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleArgumentoInvalido(IllegalArgumentException ex, WebRequest req) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex, WebRequest req) {
         log.error("Error en OTA service: ", ex);

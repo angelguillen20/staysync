@@ -9,6 +9,7 @@ import com.staysync.notificaciones.model.Notificacion.EstadoNotificacion;
 import com.staysync.notificaciones.model.PlantillaNotificacion;
 import com.staysync.notificaciones.repository.NotificacionRepository;
 import com.staysync.notificaciones.repository.PlantillaNotificacionRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,8 +18,10 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -37,6 +40,27 @@ public class NotificacionService {
 
     @Value("${notificaciones.mail.enabled:true}")
     private boolean mailEnabled;
+
+    /** Dirección "De" de los correos (MAIL_FROM). Debe estar verificada en el proveedor SMTP. */
+    @Value("${notificaciones.mail.from:}")
+    private String remitente;
+
+    /** Espera antes del primer reintento; se duplica en cada fallo (5, 10, 20 min...). */
+    @Value("${notificaciones.reintentos.espera-base:5m}")
+    private Duration esperaBase;
+
+    /** Un correo que lleva más que esto sin enviarse ya no se envía: queda FALLIDO. */
+    @Value("${notificaciones.reintentos.caducidad:24h}")
+    private Duration caducidad;
+
+    /** Sin remitente el SMTP rechaza todos los correos: mejor fallar al arrancar que en cada envío. */
+    @PostConstruct
+    void validarConfiguracion() {
+        if (mailEnabled && (remitente == null || remitente.isBlank())) {
+            throw new IllegalStateException("Falta el remitente de los correos: define MAIL_FROM "
+                    + "(o notificaciones.mail.from), o desactiva el envío con MAIL_ENABLED=false");
+        }
+    }
 
     @Transactional
     public void procesarRegistroUsuario(UsuarioRegistradoEvent evento) {
@@ -123,7 +147,7 @@ public class NotificacionService {
             mensaje.setTo(notificacion.getDestinatario());
             mensaje.setSubject(notificacion.getAsunto());
             mensaje.setText(notificacion.getCuerpo());
-            mensaje.setFrom("angel.guillen.0220@gmail.com");
+            mensaje.setFrom(remitente);
 
             mailSender.send(mensaje);
 
@@ -132,7 +156,8 @@ public class NotificacionService {
             log.info("Email enviado a: {}", notificacion.getDestinatario());
         } catch (Exception e) {
             notificacion.setIntentos(notificacion.getIntentos() + 1);
-            notificacion.setErrorMsg(e.getMessage());
+            String error = String.valueOf(e.getMessage());
+            notificacion.setErrorMsg(error.length() > 2000 ? error.substring(0, 2000) : error);
             if (notificacion.getIntentos() >= notificacion.getMaxIntentos()) {
                 notificacion.setEstado(EstadoNotificacion.FALLIDO);
                 log.error("Email fallido definitivamente para: {}", notificacion.getDestinatario());
@@ -140,6 +165,58 @@ public class NotificacionService {
             log.warn("Error enviando email (intento {}): {}", notificacion.getIntentos(), e.getMessage());
         }
         notificacionRepository.save(notificacion);
+    }
+
+    /**
+     * Correos PENDIENTE con intentos restantes cuya espera ya venció. Llamar en modo sistema
+     * (TenantContext.ejecutarComoSistema) para ver los de todos los hoteles.
+     */
+    public List<Long> pendientesDeReintento(LocalDateTime ahora) {
+        return notificacionRepository.findConIntentosRestantes(EstadoNotificacion.PENDIENTE, ahora.minus(caducidad))
+                .stream()
+                .filter(n -> !ahora.isBefore(proximoIntento(n)))
+                .map(Notificacion::getId)
+                .toList();
+    }
+
+    /**
+     * Marca FALLIDO los correos PENDIENTE más antiguos que la caducidad (p. ej. los que
+     * quedaron atascados antes de que existieran los reintentos). Llamar en modo sistema.
+     */
+    @Transactional
+    public int caducarPendientes(LocalDateTime ahora) {
+        int caducados = notificacionRepository.caducarPendientes(
+                EstadoNotificacion.PENDIENTE, EstadoNotificacion.FALLIDO, ahora.minus(caducidad), ahora);
+        if (caducados > 0) {
+            log.warn("{} email(s) pendiente(s) desde hace más de {} h marcados FALLIDO sin enviar",
+                    caducados, caducidad.toHours());
+        }
+        return caducados;
+    }
+
+    /**
+     * Reintenta un correo. Bloquea la fila y vuelve a comprobar que siga pendiente y vencido:
+     * si otra instancia ya lo reintentó, no se envía dos veces.
+     */
+    @Transactional
+    public void reintentarEnvio(Long id, LocalDateTime ahora) {
+        notificacionRepository.findByIdParaActualizar(id)
+                .filter(n -> n.getEstado() == EstadoNotificacion.PENDIENTE
+                        && n.getIntentos() < n.getMaxIntentos()
+                        && !ahora.isBefore(proximoIntento(n)))
+                .ifPresent(n -> {
+                    log.info("Reintentando email {} a {} (intento {} de {})",
+                            n.getId(), n.getDestinatario(), n.getIntentos() + 1, n.getMaxIntentos());
+                    enviarEmail(n);
+                });
+    }
+
+    /** Momento del siguiente intento: el último fallo (updatedAt) más esperaBase × 2^(intentos-1). */
+    LocalDateTime proximoIntento(Notificacion n) {
+        if (n.getIntentos() == 0) {
+            return n.getUpdatedAt();
+        }
+        return n.getUpdatedAt().plus(esperaBase.multipliedBy(1L << Math.min(n.getIntentos() - 1, 10)));
     }
 
     private String renderizar(String plantilla, Map<String, Object> variables) {

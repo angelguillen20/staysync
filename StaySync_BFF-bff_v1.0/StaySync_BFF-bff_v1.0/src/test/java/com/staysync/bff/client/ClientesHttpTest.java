@@ -122,6 +122,11 @@ class ClientesHttpTest {
         assertThatThrownBy(() -> c.themeFallback("x", CAIDA)).isInstanceOf(DownstreamServiceException.class);
         assertThatThrownBy(() -> c.marcaFallback(TOKEN, "x", BODY, CAIDA)).isInstanceOf(DownstreamServiceException.class);
         assertThatThrownBy(() -> c.loginFallback(BODY, CAIDA)).isInstanceOf(DownstreamServiceException.class);
+        // Contraseña incorrecta o cuenta bloqueada llegan al usuario tal cual, no como "servicio caído"
+        HttpClientErrorException credenciales = HttpClientErrorException.create(HttpStatus.UNAUTHORIZED, "Unauthorized", null, null, null);
+        HttpClientErrorException bloqueada = HttpClientErrorException.create(HttpStatus.LOCKED, "Locked", null, null, null);
+        assertThatThrownBy(() -> c.loginFallback(BODY, credenciales)).isSameAs(credenciales);
+        assertThatThrownBy(() -> c.loginFallback(BODY, bloqueada)).isSameAs(bloqueada);
         assertThatThrownBy(() -> c.passthruFallback(BODY, CAIDA)).isInstanceOf(DownstreamServiceException.class);
         assertThatThrownBy(() -> c.desactivarFallback(TOKEN, 5L, CAIDA)).isInstanceOf(DownstreamServiceException.class);
         assertThat(c.buscarFallback(TOKEN, "q", "rol", null, CAIDA).getBody()).isEqualTo(List.of());
