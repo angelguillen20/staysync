@@ -83,7 +83,7 @@ StaySync es un sistema de gestión hotelera completo que permite administrar:
 - El BFF lo reenvía a los servicios internos como `X-Tenant-Id`. Nunca lo toma de lo que manda el navegador.
 - En cada servicio, las entidades del hotel tienen `@TenantId`: **Hibernate filtra todas las consultas por hotel** y asigna el hotel al guardar. Sin hotel en la petición, el servicio responde 400.
 - Los catálogos (tipos de habitación, amenidades, categorías, plantillas) son comunes a todos los hoteles.
-- Librería compartida: `StaySync_Commons/staysync-tenant`.
+- Librería compartida: `backend/commons/staysync-tenant`.
 
 ---
 
@@ -1089,7 +1089,7 @@ AES_ENCRYPTION_KEY=clave_de_32_bytes_en_base64
 ### Archivos de ejemplo
 
 - `.env.example` — en la raíz del proyecto
-- `Frontend-StaySync-StaySync_Front_v1.1/.env.example` — variables de Vite (`VITE_*`)
+- `frontend/.env.example` — variables de Vite (`VITE_*`)
 
 ---
 
@@ -1138,15 +1138,15 @@ open http://localhost:3000
 docker compose up -d mysql-usuarios localstack
 
 # Usuarios-service
-cd StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
+cd backend/usuarios
 mvn spring-boot:run
 
 # En otra terminal — BFF
-cd StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
+cd backend/bff
 mvn spring-boot:run
 
 # Frontend
-cd Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+cd frontend
 npm install
 npm run dev
 ```
@@ -1155,7 +1155,7 @@ npm run dev
 
 ```bash
 # Tests de un microservicio
-cd StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
+cd backend/reservas
 mvn test
 
 # Tests + reporte de cobertura JaCoCo
@@ -1169,7 +1169,7 @@ mvn test -Dtest="*ServiceTest,*ListenerTest"
 mvn test -Dtest="*IntegrationTest"
 
 # Frontend
-cd Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+cd frontend
 npm run test
 npm run coverage
 ```

@@ -40,7 +40,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 ### Agregado
 - Multi-hotel (tenant): hotel en el JWT, `X-Tenant-Id` desde el BFF, filtrado automático por hotel y SUPER_ADMIN
 - Marca blanca por hotel en el frontend
-- `StaySync_Commons`: librerías compartidas de tenant y eventos
+- `backend/commons`: librerías compartidas de tenant y eventos
 - GitHub Actions CI/CD: tests, imágenes en ECR, despliegue en ECS Fargate y frontend en S3
 - Reservas: las PENDIENTE sin pagar se cancelan a las 24 h y liberan la habitación; el confirmado que no llega pasa a NO_SHOW
 - Frontend: las páginas se cargan bajo demanda (bundle inicial 388 KB → 249 KB)
@@ -50,8 +50,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - Recepción: registrar huéspedes sin cuenta (walk-in) con contraseña temporal y modificar fechas/habitación de una reserva
 - Calendario de ocupación (habitaciones × días) y reportes mensuales (ocupación, ingresos, tarifa promedio, RevPAR, CSV)
 - Diseño: tipografía Onest, placa de número de habitación, superficies planas y menú agrupado por tarea
+- Seguridad (detalle en `docs/seguridad.md`): límite de peticiones por IP en el BFF, bloqueo de la cuenta tras 5 contraseñas incorrectas, webhooks OTA firmados con HMAC, cuentas demo solo con `DEMO_DATA_ENABLED` y super admin inicial por variables
+- Notificaciones: los correos que fallan se reintentan (5, 10, 20, 40 min) y caducan a las 24 h; remitente en `MAIL_FROM`
+- Eventos: si SNS falla el relay espera cada vez más y no abandona eventos; los abandonados por la versión anterior quedan aparcados
+- Dependabot: PRs semanales de dependencias Maven, npm, imágenes Docker y acciones
 
 ### Cambiado
+- Carpetas: `backend/<servicio>` (bff, usuarios, habitaciones, reservas, servicios, pagos, notificaciones, ota, commons) y `frontend/`, con el nombre de su servicio en ECS; antes `StaySync_X-x_v1.0/StaySync_X-x_v1.0/`
 - Mensajería asíncrona: RabbitMQ reemplazado por SNS + SQS con DLQ (LocalStack en local)
 - El health de notificaciones ya no depende del servidor SMTP
 - Reservas: sin check-in automático a medianoche; recepción lo hace desde el día de llegada

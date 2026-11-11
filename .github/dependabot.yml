@@ -1,0 +1,65 @@
+# Dependabot: abre PRs semanales con actualizaciones de dependencias, incluidas las que
+# corrigen vulnerabilidades conocidas. Las alertas y PRs de seguridad inmediatas se activan
+# en GitHub: Settings → Code security → Dependabot alerts / Dependabot security updates.
+version: 2
+updates:
+  # Microservicios y librerías compartidas (Maven)
+  - package-ecosystem: maven
+    directories:
+      - /backend/commons
+      - /backend/bff
+      - /backend/habitaciones
+      - /backend/notificaciones
+      - /backend/ota
+      - /backend/pagos
+      - /backend/reservas
+      - /backend/servicios
+      - /backend/usuarios
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # Parches y menores en un solo PR; las versiones mayores llegan por separado para revisarlas
+      maven-menores:
+        update-types: [minor, patch]
+
+  # Frontend (npm)
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      npm-menores:
+        update-types: [minor, patch]
+
+  # Imágenes base de los Dockerfiles (maven, eclipse-temurin, node, nginx)
+  - package-ecosystem: docker
+    directories:
+      - /backend/bff
+      - /backend/habitaciones
+      - /backend/notificaciones
+      - /backend/ota
+      - /backend/pagos
+      - /backend/reservas
+      - /backend/servicios
+      - /backend/usuarios
+      - /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      imagenes-base:
+        patterns: ["*"]
+
+  # Acciones de GitHub usadas en .github/workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      acciones:
+        patterns: ["*"]

@@ -42,26 +42,26 @@ SNS y cada uno consume su cola SQS (con DLQ). En local los emula LocalStack. Ver
 
 | Servicio | Dockerfile | Puerto | Base runtime |
 |---|---|---|---|
-| BFF | `StaySync_BFF-bff_v1.0/.../Dockerfile` | 8080 | `eclipse-temurin:17-jre-alpine` |
-| Usuarios | `StaySync_Usuarios-usuarios_v1.0/.../Dockerfile` | 8081 | `eclipse-temurin:17-jre-alpine` |
-| Habitaciones | `StaySync_Habitaciones-habitaciones_v1.0/.../Dockerfile` | 8082 | `eclipse-temurin:17-jre-alpine` |
-| Reservas | `StaySync_Reservas-reservas_v1.1/.../Dockerfile` | 8083 | `eclipse-temurin:17-jre-alpine` |
-| Servicios | `StaySync_Servicios-servicios_v1.0/.../Dockerfile` | 8084 | `eclipse-temurin:17-jre-alpine` |
-| Pagos | `StaySync_Pago-pagos_v1.0/.../Dockerfile` | 8085 | `eclipse-temurin:17-jre-alpine` |
-| Notificaciones | `StaySync_Notificaciones-notificaciones_v1.0/.../Dockerfile` | 8086 | `eclipse-temurin:17-jre-alpine` |
-| OTA | `StaySync_OTA-ota_v1.0/.../Dockerfile` | 8087 | `eclipse-temurin:17-jre-alpine` |
-| Frontend | `Frontend-StaySync-.../Dockerfile` | 80 | `nginx:1.27-alpine` |
+| BFF | `backend/bff/Dockerfile` | 8080 | `eclipse-temurin:17-jre-alpine` |
+| Usuarios | `backend/usuarios/Dockerfile` | 8081 | `eclipse-temurin:17-jre-alpine` |
+| Habitaciones | `backend/habitaciones/Dockerfile` | 8082 | `eclipse-temurin:17-jre-alpine` |
+| Reservas | `backend/reservas/Dockerfile` | 8083 | `eclipse-temurin:17-jre-alpine` |
+| Servicios | `backend/servicios/Dockerfile` | 8084 | `eclipse-temurin:17-jre-alpine` |
+| Pagos | `backend/pagos/Dockerfile` | 8085 | `eclipse-temurin:17-jre-alpine` |
+| Notificaciones | `backend/notificaciones/Dockerfile` | 8086 | `eclipse-temurin:17-jre-alpine` |
+| OTA | `backend/ota/Dockerfile` | 8087 | `eclipse-temurin:17-jre-alpine` |
+| Frontend | `frontend/Dockerfile` | 80 | `nginx:1.27-alpine` |
 
 ### Patrón multi-stage (Java)
 
 Todos los microservicios Java usan el mismo patrón de dos etapas. El contexto de build es
-la raíz del repo, para que los servicios que lo necesitan instalen `StaySync_Commons`
+la raíz del repo, para que los servicios que lo necesitan instalen `backend/commons`
 (librerías de hotel por petición y eventos):
 
 ```dockerfile
 # Etapa 1 — compilación (imagen pesada, descartada al final)
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
-COPY StaySync_Commons /commons             # solo en los servicios que usan Commons
+COPY backend/commons /commons             # solo en los servicios que usan Commons
 RUN mvn -q -f /commons/pom.xml install -DskipTests
 WORKDIR /app
 COPY <ruta-del-servicio>/pom.xml .
@@ -208,7 +208,7 @@ docker compose exec mysql-reservas mysql -u staysync -p reservas_db
 
 El despliegue lo hace GitHub Actions (`.github/workflows/ci.yml`) en cada push a `master`:
 
-1. Corre los tests de todos los servicios, de `StaySync_Commons` y del frontend.
+1. Corre los tests de todos los servicios, de `backend/commons` y del frontend.
 2. Por cada servicio construye la imagen `staysync-<servicio>:<sha>` (contexto = raíz del
    repo), la sube a ECR, registra una nueva revisión de la task definition `staysync-<servicio>`
    y actualiza el servicio en el cluster `staysync-cluster`.
