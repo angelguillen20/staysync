@@ -8,7 +8,7 @@
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$FrontendPath = Join-Path $RepoRoot 'Frontend-StaySync-StaySync_Front_v1.1\Frontend-StaySync-StaySync_Front_v1.1'
+$FrontendPath = Join-Path $RepoRoot 'frontend'
 
 function Write-Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "    OK: $msg" -ForegroundColor Green }

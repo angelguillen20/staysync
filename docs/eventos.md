@@ -10,7 +10,7 @@ Los microservicios se comunican de forma asíncrona con eventos publicados en un
                                         └─► pagos-q          ─► ms_pago
 ```
 
-La librería común es `StaySync_Commons/staysync-eventos`. Incluye el sobre de los eventos, el outbox, el relay a SNS y el procesador idempotente para consumidores. Los servicios que la usan son `ms_reservas`, `ms_pago`, `ms_habitaciones`, `ms_notificaciones` y `ms_servicios`. `ms_usuarios`, `ms_OTA` y `ms_BFF` no participan.
+La librería común es `backend/commons/staysync-eventos`. Incluye el sobre de los eventos, el outbox, el relay a SNS y el procesador idempotente para consumidores. Los servicios que la usan son `ms_reservas`, `ms_pago`, `ms_habitaciones`, `ms_notificaciones` y `ms_servicios`. `ms_usuarios`, `ms_OTA` y `ms_BFF` no participan.
 
 ## Sobre del evento
 

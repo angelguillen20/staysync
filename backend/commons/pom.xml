@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!-- Agregador: "mvn -f StaySync_Commons/pom.xml install" instala todas las librerías compartidas -->
+    <!-- Agregador: "mvn -f backend/commons/pom.xml install" instala todas las librerías compartidas -->
     <groupId>com.staysync</groupId>
     <artifactId>staysync-commons</artifactId>
     <version>1.0.0</version>

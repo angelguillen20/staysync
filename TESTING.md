@@ -143,7 +143,7 @@ Todos los archivos del proyecto ya usan `@MockitoBean`.
 
 ### 4.1 reservas-service
 
-**Directorio:** `StaySync_Reservas-reservas_v1.1/src/test/java/com/staysync/reservas/`
+**Directorio:** `backend/reservas/src/test/java/com/staysync/reservas/`
 
 #### ReservaServiceTest.java — 21 tests unitarios
 
@@ -251,7 +251,7 @@ spring:
 
 ### 4.2 bff-service
 
-**Directorio:** `StaySync_BFF-bff_v1.0/src/test/java/com/staysync/bff/`
+**Directorio:** `backend/bff/src/test/java/com/staysync/bff/`
 
 #### JwtServiceTest.java — 6 tests unitarios
 
@@ -307,7 +307,7 @@ DashboardBffControllerTest (@WebMvcTest + @WithMockUser)
 
 ### 4.3 usuarios-service
 
-**Directorio:** `StaySync_Usuarios-usuarios_v1.0/src/test/java/com/staysync/usuarios/`
+**Directorio:** `backend/usuarios/src/test/java/com/staysync/usuarios/`
 
 #### UsuarioServiceTest.java — 8 tests unitarios
 
@@ -368,7 +368,7 @@ AuthControllerTest (@WebMvcTest + @Import SecurityConfig + JwtAuthFilter)
 
 ### 4.4 pagos-service
 
-**Directorio:** `StaySync_Pago-pagos_v1.0/src/test/java/com/staysync/pagos/`
+**Directorio:** `backend/pagos/src/test/java/com/staysync/pagos/`
 
 #### PagoServiceTest.java — 5 tests unitarios
 
@@ -444,7 +444,7 @@ Session.create(params);   // ← solo aquí se llama a Stripe real
 
 ### 4.5 habitaciones-service
 
-**Directorio:** `StaySync_Habitaciones-habitaciones_v1.0/src/test/java/com/staysync/habitaciones/`
+**Directorio:** `backend/habitaciones/src/test/java/com/staysync/habitaciones/`
 
 #### HabitacionServiceTest.java — 11 tests unitarios
 
@@ -467,7 +467,7 @@ HabitacionServiceTest
 
 ### 4.6 servicios-service
 
-**Directorio:** `StaySync_Servicios-servicios_v1.0/src/test/java/com/staysync/servicios/`
+**Directorio:** `backend/servicios/src/test/java/com/staysync/servicios/`
 
 #### ServicioServiceTest.java — 9 tests unitarios
 
@@ -488,7 +488,7 @@ ServicioServiceTest
 
 ### 4.7 notificaciones-service
 
-**Directorio:** `StaySync_Notificaciones-notificaciones_v1.0/src/test/java/com/staysync/notificaciones/`
+**Directorio:** `backend/notificaciones/src/test/java/com/staysync/notificaciones/`
 
 #### NotificacionServiceTest.java — 9 tests unitarios
 
@@ -528,7 +528,7 @@ ReservaCreadaEvent event = new ReservaCreadaEvent(
 
 ### 4.8 ota-service
 
-**Directorio:** `StaySync_OTA-ota_v1.0/src/test/java/com/staysync/ota/`
+**Directorio:** `backend/ota/src/test/java/com/staysync/ota/`
 
 #### CanalOtaServiceTest.java — 4 tests unitarios
 
@@ -706,7 +706,7 @@ choco install maven
 ### Ejecutar todos los tests de un microservicio
 
 ```bash
-cd StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
+cd backend/reservas
 mvn test
 ```
 
@@ -744,7 +744,7 @@ mvn verify
 ### Verificar que la cobertura cumple el mínimo (60%)
 
 ```bash
-mvn verify -pl StaySync_Reservas-reservas_v1.1
+mvn verify -pl backend/reservas
 # Si cobertura < 60%, el build falla:
 # [ERROR] Rule violated: lines covered ratio is 0.55, but expected minimum is 0.60
 ```

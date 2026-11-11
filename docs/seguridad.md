@@ -29,7 +29,7 @@ Todos los tests de los servicios modificados pasan: ms_BFF 93, ms_usuarios 83, m
 
 **Problema.** Nada limitaba cuántas peticiones podía hacer un cliente. Se podía probar contraseñas sin freno contra `/bff/auth/login` (fuerza bruta, relleno de credenciales) o saturar la API con un script.
 
-**Solución.** Nuevo filtro [LimitePeticionesFilter](../StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0/src/main/java/com/staysync/bff/security/LimitePeticionesFilter.java). Se ejecuta antes de validar el JWT y cuenta las peticiones por IP en ventanas de un minuto:
+**Solución.** Nuevo filtro [LimitePeticionesFilter](../backend/bff/src/main/java/com/staysync/bff/security/LimitePeticionesFilter.java). Se ejecuta antes de validar el JWT y cuenta las peticiones por IP en ventanas de un minuto:
 
 | Rutas | Límite por IP y minuto | Variable |
 |---|---|---|
@@ -50,7 +50,7 @@ Para que el límite sea por cliente y no por balanceador, el BFF usa ahora `serv
 
 **Solución.** Tras **5 contraseñas incorrectas seguidas**, la cuenta queda bloqueada **15 minutos**. Mientras dura el bloqueo, el login responde `423 Locked` con el mensaje "Cuenta bloqueada temporalmente por varios intentos fallidos. Inténtalo de nuevo en N minutos.", aunque la contraseña sea correcta. Un login correcto reinicia el contador.
 
-- [IntentosLoginService](../StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0/src/main/java/com/staysync/usuarios/service/IntentosLoginService.java) guarda el contador en la base de datos, en las columnas nuevas `usuarios.intentos_fallidos` y `usuarios.bloqueado_hasta`. Por eso vale para todas las instancias.
+- [IntentosLoginService](../backend/usuarios/src/main/java/com/staysync/usuarios/service/IntentosLoginService.java) guarda el contador en la base de datos, en las columnas nuevas `usuarios.intentos_fallidos` y `usuarios.bloqueado_hasta`. Por eso vale para todas las instancias.
 - El fallo se registra en su propia transacción: el login fallido se revierte, el contador no. La fila se bloquea al actualizarla para que dos intentos simultáneos no se pisen.
 - Un email que no existe responde `401` como siempre y no deja rastro.
 - El login con Google no se ve afectado, porque no usa contraseña.
@@ -79,7 +79,7 @@ El remitente debe ser una dirección verificada en el proveedor SMTP (Brevo, Gma
 
 **Problema.** `POST /api/v1/webhooks/{codigoCanal}` aceptaba cualquier JSON sin autenticar. Cualquiera que conociera la URL podía registrar reservas externas falsas.
 
-**Solución.** Cada canal firma sus webhooks con un secreto compartido (uno por canal), con el mismo esquema que usan Stripe o GitHub. [FirmaWebhook](../StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0/src/main/java/com/staysync/ota/security/FirmaWebhook.java) lo verifica **antes** de interpretar el cuerpo:
+**Solución.** Cada canal firma sus webhooks con un secreto compartido (uno por canal), con el mismo esquema que usan Stripe o GitHub. [FirmaWebhook](../backend/ota/src/main/java/com/staysync/ota/security/FirmaWebhook.java) lo verifica **antes** de interpretar el cuerpo:
 
 ```
 X-Webhook-Timestamp: <segundos Unix del envío>
@@ -122,7 +122,7 @@ Las versiones menores y los parches se agrupan en un solo PR por ecosistema, y l
 
 ### 1.7 Cuentas demo con contraseñas publicadas (ms_usuarios)
 
-**Problema.** [DataInitializer](../StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0/src/main/java/com/staysync/usuarios/config/DataInitializer.java) creaba en cada arranque, en **cualquier entorno**, 7 cuentas con contraseñas escritas en el repositorio, incluido un `SUPER_ADMIN` (`superadmin@staysync.com`) que administra todos los hoteles. Cualquiera que leyera el código podía entrar como superadministrador en producción. Además, era la única forma de tener un primer super admin.
+**Problema.** [DataInitializer](../backend/usuarios/src/main/java/com/staysync/usuarios/config/DataInitializer.java) creaba en cada arranque, en **cualquier entorno**, 7 cuentas con contraseñas escritas en el repositorio, incluido un `SUPER_ADMIN` (`superadmin@staysync.com`) que administra todos los hoteles. Cualquiera que leyera el código podía entrar como superadministrador en producción. Además, era la única forma de tener un primer super admin.
 
 **Solución.**
 - **Datos demo solo con opt-in.** El segundo hotel (`hotel-andes`) y las 7 cuentas demo se crean solo con `DEMO_DATA_ENABLED=true`. El valor por defecto del servicio es `false`. El hotel por defecto se sigue creando siempre, porque los registros sin `hotelSlug` lo necesitan.
@@ -177,7 +177,7 @@ Las columnas nuevas de `usuarios` (`intentos_fallidos`, `bloqueado_hasta`) las c
 | **Contraseñas** | BCrypt con coste 12 (ms_usuarios). Bloqueo de cuenta tras 5 intentos fallidos y límite de 10 intentos por minuto por IP. |
 | **Cuentas iniciales** | Sin cuentas con contraseñas conocidas fuera del modo demo (1.7). El primer super admin se crea desde la configuración, con la misma política de contraseñas que el registro. |
 | **Sesión** | JWT propio firmado con HMAC (`JWT_SECRET`): access token de 15 min y refresh token de 7 días guardado en base de datos. El refresh token se **rota** en cada uso (se borra el anterior) y se revoca al cerrar sesión. Login con Google mediante Cognito Hosted UI con PKCE. |
-| **Autorización** | Reglas por ruta y método en el BFF ([SecurityConfig](../StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0/src/main/java/com/staysync/bff/config/SecurityConfig.java)) con los roles `HUESPED`, `RECEPCIONISTA`, `ADMIN` y `SUPER_ADMIN` (`SUPER_ADMIN` hereda todo lo de `ADMIN`), más `@PreAuthorize` en ms_usuarios. Sin JWT válido la respuesta es 401; sin permiso, 403. |
+| **Autorización** | Reglas por ruta y método en el BFF ([SecurityConfig](../backend/bff/src/main/java/com/staysync/bff/config/SecurityConfig.java)) con los roles `HUESPED`, `RECEPCIONISTA`, `ADMIN` y `SUPER_ADMIN` (`SUPER_ADMIN` hereda todo lo de `ADMIN`), más `@PreAuthorize` en ms_usuarios. Sin JWT válido la respuesta es 401; sin permiso, 403. |
 | **Aislamiento entre hoteles** | El BFF saca el hotel del JWT firmado y lo envía a los servicios en `X-Tenant-Id`, reemplazando cualquier valor que venga del cliente. Los servicios de negocio rechazan peticiones sin hotel (`staysync.tenant.requerido: true`). Hibernate filtra **automáticamente** cada consulta por hotel (`@TenantId`): una consulta que olvida el hotel no ve nada en vez de ver todo. Los mensajes SQS llevan el hotel y se valida su formato. Ver [eventos.md](eventos.md). |
 | **Datos personales** | El teléfono del usuario se cifra en la base de datos con AES-256-GCM (`AesGcmStringConverter`, clave `AES_ENCRYPTION_KEY`). El resto de datos personales (nombre, email, datos del huésped en reservas) se guarda en claro. |
 | **Pagos** | Stripe Checkout alojado: los datos de la tarjeta nunca pasan por los servidores de StaySync, lo que deja el alcance PCI DSS en el nivel más bajo (SAQ A). La confirmación del pago se verifica contra Stripe en el servidor, sin confiar en el navegador. |

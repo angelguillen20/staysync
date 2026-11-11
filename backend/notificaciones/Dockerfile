@@ -1,17 +1,21 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# StaySync — ota-service  |  Puerto 8087
+# StaySync — notificaciones-service  |  Puerto 8086
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Etapa 1: Compilación ──────────────────────────────────────────────────────
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 
+# Librerías compartidas (backend/commons): hotel por petición y eventos SNS/SQS
+COPY backend/commons /commons
+RUN mvn -q -f /commons/pom.xml install -DskipTests
+
 WORKDIR /app
 
-# El contexto de build es la raíz del repo (docker build -f StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0/Dockerfile .)
-COPY StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0/pom.xml .
+# El contexto de build es la raíz del repo (docker build -f backend/notificaciones/Dockerfile .)
+COPY backend/notificaciones/pom.xml .
 RUN mvn dependency:go-offline -q
 
-COPY StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0/src ./src
+COPY backend/notificaciones/src ./src
 RUN mvn package -DskipTests -q
 
 # ── Etapa 2: Imagen de ejecución ──────────────────────────────────────────────
@@ -21,15 +25,15 @@ RUN addgroup -S staysync && adduser -S staysync -G staysync
 
 WORKDIR /app
 
-COPY --from=build /app/target/ota-service-1.0.0.jar app.jar
+COPY --from=build /app/target/notificaciones-service-1.0.0.jar app.jar
 RUN chown staysync:staysync app.jar
 
 USER staysync
 
-EXPOSE 8087
+EXPOSE 8086
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD wget -qO- http://localhost:8087/actuator/health || exit 1
+  CMD wget -qO- http://localhost:8086/actuator/health || exit 1
 
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \

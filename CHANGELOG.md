@@ -40,7 +40,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 ### Agregado
 - Multi-hotel (tenant): hotel en el JWT, `X-Tenant-Id` desde el BFF, filtrado automático por hotel y SUPER_ADMIN
 - Marca blanca por hotel en el frontend
-- `StaySync_Commons`: librerías compartidas de tenant y eventos
+- `backend/commons`: librerías compartidas de tenant y eventos
 - GitHub Actions CI/CD: tests, imágenes en ECR, despliegue en ECS Fargate y frontend en S3
 - Reservas: las PENDIENTE sin pagar se cancelan a las 24 h y liberan la habitación; el confirmado que no llega pasa a NO_SHOW
 - Frontend: las páginas se cargan bajo demanda (bundle inicial 388 KB → 249 KB)
@@ -56,6 +56,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - Dependabot: PRs semanales de dependencias Maven, npm, imágenes Docker y acciones
 
 ### Cambiado
+- Carpetas: `backend/<servicio>` (bff, usuarios, habitaciones, reservas, servicios, pagos, notificaciones, ota, commons) y `frontend/`, con el nombre de su servicio en ECS; antes `StaySync_X-x_v1.0/StaySync_X-x_v1.0/`
 - Mensajería asíncrona: RabbitMQ reemplazado por SNS + SQS con DLQ (LocalStack en local)
 - El health de notificaciones ya no depende del servidor SMTP
 - Reservas: sin check-in automático a medianoche; recepción lo hace desde el día de llegada

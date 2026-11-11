@@ -10,10 +10,10 @@
         <relativePath/>
     </parent>
     <groupId>com.staysync</groupId>
-    <artifactId>servicios-service</artifactId>
+    <artifactId>reservas-service</artifactId>
     <version>1.0.0</version>
-    <name>StaySync :: Servicios Service</name>
-    <description>Microservicio de servicios adicionales del hotel</description>
+    <name>StaySync :: Reservas Service</name>
+    <description>Microservicio de gestión de reservas hoteleras</description>
     <properties>
         <java.version>17</java.version>
         <resilience4j.version>2.2.0</resilience4j.version>
@@ -21,7 +21,7 @@
         <springdoc.version>2.7.0</springdoc.version>
     </properties>
     <dependencies>
-        <!-- Librerías compartidas (StaySync_Commons): hotel por petición y eventos SNS/SQS -->
+        <!-- Librerías compartidas (backend/commons): hotel por petición y eventos SNS/SQS -->
         <dependency><groupId>com.staysync</groupId><artifactId>staysync-tenant</artifactId><version>1.0.0</version></dependency>
         <dependency><groupId>com.staysync</groupId><artifactId>staysync-eventos</artifactId><version>1.0.0</version></dependency>
         <dependency><groupId>io.awspring.cloud</groupId><artifactId>spring-cloud-aws-starter-sqs</artifactId><version>3.3.0</version></dependency>
@@ -39,7 +39,9 @@
     </dependencies>
     <build>
         <plugins>
-            <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
+            <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration><excludes><exclude><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId></exclude></excludes></configuration>
+            </plugin>
             <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId>
                 <configuration><source>17</source><target>17</target>
                     <annotationProcessorPaths>

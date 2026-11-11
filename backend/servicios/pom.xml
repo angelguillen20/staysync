@@ -10,10 +10,10 @@
         <relativePath/>
     </parent>
     <groupId>com.staysync</groupId>
-    <artifactId>pagos-service</artifactId>
+    <artifactId>servicios-service</artifactId>
     <version>1.0.0</version>
-    <name>StaySync :: Pagos Service</name>
-    <description>Microservicio de procesamiento de pagos y facturación</description>
+    <name>StaySync :: Servicios Service</name>
+    <description>Microservicio de servicios adicionales del hotel</description>
     <properties>
         <java.version>17</java.version>
         <resilience4j.version>2.2.0</resilience4j.version>
@@ -21,7 +21,7 @@
         <springdoc.version>2.7.0</springdoc.version>
     </properties>
     <dependencies>
-        <!-- Librerías compartidas (StaySync_Commons): hotel por petición y eventos SNS/SQS -->
+        <!-- Librerías compartidas (backend/commons): hotel por petición y eventos SNS/SQS -->
         <dependency><groupId>com.staysync</groupId><artifactId>staysync-tenant</artifactId><version>1.0.0</version></dependency>
         <dependency><groupId>com.staysync</groupId><artifactId>staysync-eventos</artifactId><version>1.0.0</version></dependency>
         <dependency><groupId>io.awspring.cloud</groupId><artifactId>spring-cloud-aws-starter-sqs</artifactId><version>3.3.0</version></dependency>
@@ -36,12 +36,6 @@
         <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
         <dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId><scope>test</scope></dependency>
-
-        <dependency>
-            <groupId>com.stripe</groupId>
-            <artifactId>stripe-java</artifactId>
-            <version>25.3.0</version>
-        </dependency>
     </dependencies>
     <build>
         <plugins>

@@ -24,7 +24,7 @@ El filtro se registra solo al agregar la dependencia. Se puede apagar con `stays
 
 ## Agregarla a un servicio (Etapa 2)
 
-Hoy cada Dockerfile compila con el contexto de su propia carpeta y no ve `StaySync_Commons`. Para usarla:
+Hoy cada Dockerfile compila con el contexto de su propia carpeta y no ve `backend/commons`. Para usarla:
 
 1. En el `pom.xml` del servicio:
    ```xml
@@ -36,11 +36,11 @@ Hoy cada Dockerfile compila con el contexto de su propia carpeta y no ve `StaySy
    ```
 2. En el Dockerfile, instalar la librería antes de compilar el servicio:
    ```dockerfile
-   COPY StaySync_Commons/staysync-tenant /commons
+   COPY backend/commons/staysync-tenant /commons
    RUN mvn -f /commons/pom.xml -q install -DskipTests
    ```
 3. Cambiar el contexto de build a la raíz del repo, en `docker-compose.yml` y en `docker build` del CI. Ajustar los demás `COPY` del Dockerfile a rutas desde la raíz.
-4. En el CI, antes de `mvn test` del servicio: `mvn -f StaySync_Commons/staysync-tenant/pom.xml -q install -DskipTests`.
+4. En el CI, antes de `mvn test` del servicio: `mvn -f backend/commons/staysync-tenant/pom.xml -q install -DskipTests`.
 
 ## Tests
 

@@ -1,5 +1,5 @@
 # El contexto de build de los microservicios es la raíz del repo (para que vean
-# StaySync_Commons). Solo hacen falta los pom.xml y src/ de cada servicio y las librerías;
+# backend/commons). Solo hacen falta los pom.xml y src/ de cada servicio y las librerías;
 # lo demás no se envía a Docker. El frontend tiene su propio contexto y .dockerignore.
 **/node_modules
 **/target
@@ -8,6 +8,6 @@
 .github
 .vscode
 .claude
-Frontend-StaySync-StaySync_Front_v1.1
+frontend
 *.pdf
 *.html

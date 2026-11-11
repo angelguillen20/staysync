@@ -1,17 +1,21 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# StaySync — usuarios-service  |  Puerto 8081
+# StaySync — servicios-service  |  Puerto 8084
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Etapa 1: Compilación ──────────────────────────────────────────────────────
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 
+# Librerías compartidas (backend/commons): hotel por petición y eventos SNS/SQS
+COPY backend/commons /commons
+RUN mvn -q -f /commons/pom.xml install -DskipTests
+
 WORKDIR /app
 
-# El contexto de build es la raíz del repo (docker build -f StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0/Dockerfile .)
-COPY StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0/pom.xml .
+# El contexto de build es la raíz del repo (docker build -f backend/servicios/Dockerfile .)
+COPY backend/servicios/pom.xml .
 RUN mvn dependency:go-offline -q
 
-COPY StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0/src ./src
+COPY backend/servicios/src ./src
 RUN mvn package -DskipTests -q
 
 # ── Etapa 2: Imagen de ejecución ──────────────────────────────────────────────
@@ -21,15 +25,15 @@ RUN addgroup -S staysync && adduser -S staysync -G staysync
 
 WORKDIR /app
 
-COPY --from=build /app/target/usuarios-service-1.0.0.jar app.jar
+COPY --from=build /app/target/servicios-service-1.0.0.jar app.jar
 RUN chown staysync:staysync app.jar
 
 USER staysync
 
-EXPOSE 8081
+EXPOSE 8084
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD wget -qO- http://localhost:8081/actuator/health || exit 1
+  CMD wget -qO- http://localhost:8084/actuator/health || exit 1
 
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \

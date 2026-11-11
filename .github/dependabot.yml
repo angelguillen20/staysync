@@ -6,15 +6,15 @@ updates:
   # Microservicios y librerías compartidas (Maven)
   - package-ecosystem: maven
     directories:
-      - /StaySync_Commons
-      - /StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
-      - /StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
-      - /StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
-      - /StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
-      - /StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
-      - /StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
-      - /StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
-      - /StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
+      - /backend/commons
+      - /backend/bff
+      - /backend/habitaciones
+      - /backend/notificaciones
+      - /backend/ota
+      - /backend/pagos
+      - /backend/reservas
+      - /backend/servicios
+      - /backend/usuarios
     schedule:
       interval: weekly
       day: monday
@@ -26,7 +26,7 @@ updates:
 
   # Frontend (npm)
   - package-ecosystem: npm
-    directory: /Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+    directory: /frontend
     schedule:
       interval: weekly
       day: monday
@@ -38,15 +38,15 @@ updates:
   # Imágenes base de los Dockerfiles (maven, eclipse-temurin, node, nginx)
   - package-ecosystem: docker
     directories:
-      - /StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
-      - /StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
-      - /StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
-      - /StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
-      - /StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
-      - /StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
-      - /StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
-      - /StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
-      - /Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+      - /backend/bff
+      - /backend/habitaciones
+      - /backend/notificaciones
+      - /backend/ota
+      - /backend/pagos
+      - /backend/reservas
+      - /backend/servicios
+      - /backend/usuarios
+      - /frontend
     schedule:
       interval: weekly
       day: monday

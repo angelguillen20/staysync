@@ -194,7 +194,7 @@ services:
   usuarios:
     build:
       context: .
-      dockerfile: StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0/Dockerfile
+      dockerfile: backend/usuarios/Dockerfile
     container_name: staysync-usuarios
     restart: unless-stopped
     ports:
@@ -218,7 +218,7 @@ services:
   habitaciones:
     build:
       context: .
-      dockerfile: StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0/Dockerfile
+      dockerfile: backend/habitaciones/Dockerfile
     container_name: staysync-habitaciones
     restart: unless-stopped
     ports:
@@ -241,7 +241,7 @@ services:
   reservas:
     build:
       context: .
-      dockerfile: StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1/Dockerfile
+      dockerfile: backend/reservas/Dockerfile
     container_name: staysync-reservas
     restart: unless-stopped
     ports:
@@ -264,7 +264,7 @@ services:
   servicios:
     build:
       context: .
-      dockerfile: StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0/Dockerfile
+      dockerfile: backend/servicios/Dockerfile
     container_name: staysync-servicios
     restart: unless-stopped
     ports:
@@ -286,7 +286,7 @@ services:
   pagos:
     build:
       context: .
-      dockerfile: StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0/Dockerfile
+      dockerfile: backend/pagos/Dockerfile
     container_name: staysync-pagos
     restart: unless-stopped
     ports:
@@ -310,7 +310,7 @@ services:
   notificaciones:
     build:
       context: .
-      dockerfile: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0/Dockerfile
+      dockerfile: backend/notificaciones/Dockerfile
     container_name: staysync-notificaciones
     restart: unless-stopped
     ports:
@@ -337,7 +337,7 @@ services:
   ota:
     build:
       context: .
-      dockerfile: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0/Dockerfile
+      dockerfile: backend/ota/Dockerfile
     container_name: staysync-ota
     restart: unless-stopped
     ports:
@@ -358,7 +358,7 @@ services:
   bff:
     build:
       context: .
-      dockerfile: StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0/Dockerfile
+      dockerfile: backend/bff/Dockerfile
     container_name: staysync-bff
     restart: unless-stopped
     ports:
@@ -383,7 +383,7 @@ services:
 
   frontend:
     build:
-      context: ./Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+      context: ./frontend
       args:
         # Botones de credenciales demo en el login, a la par con las cuentas del backend
         VITE_DEMO_CREDENCIALES: ${DEMO_DATA_ENABLED:-true}

@@ -102,7 +102,7 @@
             <version>${springdoc.version}</version>
         </dependency>
 
-        <!-- S3: fotos de hoteles, habitaciones y servicios (misma versión que StaySync_Commons) -->
+        <!-- S3: fotos de hoteles, habitaciones y servicios (misma versión que backend/commons) -->
         <dependency>
             <groupId>io.awspring.cloud</groupId>
             <artifactId>spring-cloud-aws-starter-s3</artifactId>

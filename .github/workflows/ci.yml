@@ -25,26 +25,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: bff
-            path: StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
-          - service: usuarios
-            path: StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
-          - service: habitaciones
-            path: StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
-          - service: reservas
-            path: StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
-          - service: servicios
-            path: StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
-          - service: pagos
-            path: StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
-          - service: notificaciones
-            path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
-          - service: ota
-            path: StaySync_OTA-ota_v1.0/StaySync_OTA-ota_v1.0
-          # Librerías compartidas: solo se testean, no tienen imagen ni servicio en ECS
-          - service: commons
-            path: StaySync_Commons
+        # Cada servicio vive en backend/<servicio>; commons son las librerías compartidas
+        # (solo se testean, no tienen imagen ni servicio en ECS)
+        service: [bff, usuarios, habitaciones, reservas, servicios, pagos, notificaciones, ota, commons]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,13 +38,13 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-          cache-dependency-path: ${{ matrix.path }}/pom.xml
+          cache-dependency-path: backend/${{ matrix.service }}/pom.xml
 
-      - name: Instalar librerías compartidas (StaySync_Commons)
-        run: mvn -B -q -f StaySync_Commons/pom.xml install -DskipTests
+      - name: Instalar librerías compartidas (backend/commons)
+        run: mvn -B -q -f backend/commons/pom.xml install -DskipTests
 
       - name: mvn test
-        working-directory: ${{ matrix.path }}
+        working-directory: backend/${{ matrix.service }}
         run: mvn -B -q test
 
       - name: Publicar resultados de tests
@@ -69,7 +52,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports-${{ matrix.service }}
-          path: ${{ matrix.path }}/target/surefire-reports
+          path: backend/${{ matrix.service }}/target/surefire-reports
           retention-days: 5
 
   frontend:
@@ -77,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+        working-directory: frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -87,7 +70,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Instalar dependencias
         run: npm ci
@@ -107,22 +90,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: bff
-            path: StaySync_BFF-bff_v1.0/StaySync_BFF-bff_v1.0
-          - service: usuarios
-            path: StaySync_Usuarios-usuarios_v1.0/StaySync_Usuarios-usuarios_v1.0
-          - service: habitaciones
-            path: StaySync_Habitaciones-habitaciones_v1.0/StaySync_Habitaciones-habitaciones_v1.0
-          - service: reservas
-            path: StaySync_Reservas-reservas_v1.1/StaySync_Reservas-reservas_v1.1
-          - service: servicios
-            path: StaySync_Servicios-servicios_v1.0/StaySync_Servicios-servicios_v1.0
-          - service: pagos
-            path: StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0
-          - service: notificaciones
-            path: StaySync_Notificaciones-notificaciones_v1.0/StaySync_Notificaciones-notificaciones_v1.0
-          # OTA solo se testea: no tiene repositorio ECR ni servicio ECS en la cuenta actual
+        # OTA solo se testea: no tiene repositorio ECR ni servicio ECS en la cuenta actual
+        service: [bff, usuarios, habitaciones, reservas, servicios, pagos, notificaciones]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -144,8 +113,8 @@ jobs:
         env:
           IMAGE: ${{ steps.ecr.outputs.registry }}/staysync-${{ matrix.service }}:${{ github.sha }}
         run: |
-          # Contexto = raíz del repo: los Dockerfiles copian StaySync_Commons
-          docker build -f ${{ matrix.path }}/Dockerfile -t $IMAGE .
+          # Contexto = raíz del repo: los Dockerfiles copian backend/commons
+          docker build -f backend/${{ matrix.service }}/Dockerfile -t $IMAGE .
           docker push $IMAGE
           echo "uri=$IMAGE" >> $GITHUB_OUTPUT
 
@@ -183,7 +152,7 @@ jobs:
     concurrency: deploy-frontend
     defaults:
       run:
-        working-directory: Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1
+        working-directory: frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -193,7 +162,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: Frontend-StaySync-StaySync_Front_v1.1/Frontend-StaySync-StaySync_Front_v1.1/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Credenciales AWS Academy
         uses: aws-actions/configure-aws-credentials@v4

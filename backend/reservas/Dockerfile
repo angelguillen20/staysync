@@ -1,21 +1,21 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# StaySync — pagos-service  |  Puerto 8085
+# StaySync — reservas-service  |  Puerto 8083
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Etapa 1: Compilación ──────────────────────────────────────────────────────
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 
-# Librerías compartidas (StaySync_Commons): hotel por petición y eventos SNS/SQS
-COPY StaySync_Commons /commons
+# Librerías compartidas (backend/commons): hotel por petición y eventos SNS/SQS
+COPY backend/commons /commons
 RUN mvn -q -f /commons/pom.xml install -DskipTests
 
 WORKDIR /app
 
-# El contexto de build es la raíz del repo (docker build -f StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0/Dockerfile .)
-COPY StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0/pom.xml .
+# El contexto de build es la raíz del repo (docker build -f backend/reservas/Dockerfile .)
+COPY backend/reservas/pom.xml .
 RUN mvn dependency:go-offline -q
 
-COPY StaySync_Pago-pagos_v1.0/StaySync_Pago-pagos_v1.0/src ./src
+COPY backend/reservas/src ./src
 RUN mvn package -DskipTests -q
 
 # ── Etapa 2: Imagen de ejecución ──────────────────────────────────────────────
@@ -25,15 +25,15 @@ RUN addgroup -S staysync && adduser -S staysync -G staysync
 
 WORKDIR /app
 
-COPY --from=build /app/target/pagos-service-1.0.0.jar app.jar
+COPY --from=build /app/target/reservas-service-1.0.0.jar app.jar
 RUN chown staysync:staysync app.jar
 
 USER staysync
 
-EXPOSE 8085
+EXPOSE 8083
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD wget -qO- http://localhost:8085/actuator/health || exit 1
+  CMD wget -qO- http://localhost:8083/actuator/health || exit 1
 
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
